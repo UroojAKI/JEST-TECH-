@@ -17,6 +17,7 @@ import type { VehicleCategory, SavedMotorQuote } from '../leads/motor-quote/moto
 import { MotorProductCards } from '../workspaces/sales/MotorProductCards';
 import { useAuthStore } from '../../store/auth-store';
 import { policiesRepository } from '../../repositories/policies.repository';
+import { quotationsRepository } from '../../repositories/quotations.repository';
 
 export function MotorQuotationsWorkspace() {
   const authUser = useAuthStore((s) => s.user);
@@ -54,6 +55,7 @@ export function MotorQuotationsWorkspace() {
     category?: VehicleCategory;
     policyType?: any;
     caseId?: string;
+    renewalOfPolicyId?: string;
   } | null>(null);
   const [inspectionQuoteId, setInspectionQuoteId] = useState<string | null>(null);
   const [proposalQuote, setProposalQuote] = useState<SavedMotorQuote | null>(null);
@@ -100,13 +102,16 @@ export function MotorQuotationsWorkspace() {
               vehicleStatus: 'EXISTING',
               idv: prefill.pricing.suggestedIdv,
             },
+            renewalOfPolicyId: prefill.policyId,
             previousPolicyDetails: {
-              policyNumber: prefill.policyNumber,
-              expiryDate: prefill.expiryDate ? new Date(prefill.expiryDate).toISOString().slice(0, 10) : '',
+              previousPolicyType: prefill.policyType === 'THIRD_PARTY_ONLY' ? 'THIRD_PARTY' : prefill.policyType === 'STANDALONE_OD' ? 'SAOD' : 'COMPREHENSIVE',
+              policyExpiryDate: prefill.expiryDate ? new Date(prefill.expiryDate).toISOString().slice(0, 10) : '',
+              expiredMoreThan90Days: Boolean(prefill.expiryDate && (Date.now() - new Date(prefill.expiryDate).getTime()) > 90 * 24 * 60 * 60 * 1000),
+              ownershipTransfer: false,
+              claimInPreviousYear: Boolean(prefill.pricing.hasClaims),
+              eligibleNcbPercentage: Number(prefill.pricing.previousNcb ?? 0),
               previousInsurerName: prefill.insurer?.insurerName || '',
-              claimInExpiringPolicy: prefill.pricing.hasClaims,
-              ncbPercentage: prefill.pricing.previousNcb,
-              renewalNcbPercentage: prefill.pricing.renewalNcb,
+              previousPolicyNumber: prefill.policyNumber || '',
             },
           });
           setIsWizardOpen(true);
@@ -274,6 +279,10 @@ export function MotorQuotationsWorkspace() {
           vehicleDetails: item.motorMetadata?.vehicleDetails,
           policyDetails: item.motorMetadata?.policyDetails,
           leadId: item.leadId,
+          caseId: item.caseId,
+          renewalOfPolicyId: item.renewalOfPolicyId,
+          backOfficeSubmittedAt: item.backOfficeSubmittedAt,
+          previousPolicyDetails: item.motorMetadata?.previousPolicyDetails,
         } as SavedMotorQuote));
         return { quotes, total };
       } catch (error: any) {
@@ -566,7 +575,12 @@ export function MotorQuotationsWorkspace() {
               <div key={groupId} className="rounded-xl border bg-card p-5 space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-3 border-b gap-3">
                   <div><div className="text-sm font-bold">{customerName} <span className="text-muted-foreground">|</span> {vehicle}</div><div className="text-xs text-muted-foreground">{mobile} · {quotes.length} version{quotes.length === 1 ? '' : 's'}</div></div>
-                  <button onClick={() => handleOpenWizard(first?.vehicleCategory, { vehicleDetails: first?.vehicleDetails, proposerDetails: first?.proposerDetails })} className="px-3 py-1.5 rounded-md border bg-background hover:bg-muted text-xs font-semibold">{activeTab === 'RENEWALS' ? 'Generate Renewal Quote' : 'New Quote Version'}</button>
+                  <button onClick={() => handleOpenWizard(first?.vehicleCategory, {
+                    vehicleDetails: first?.vehicleDetails,
+                    proposerDetails: first?.proposerDetails,
+                    previousPolicyDetails: (first as any)?.previousPolicyDetails,
+                    caseId: (first as any)?.caseId,
+                  })} className="px-3 py-1.5 rounded-md border bg-background hover:bg-muted text-xs font-semibold">{activeTab === 'RENEWALS' ? 'Generate Renewal Quote' : 'New Quote Version'}</button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {quotes.map((quote, idx) => (
@@ -577,7 +591,27 @@ export function MotorQuotationsWorkspace() {
                       onConductInspection={setInspectionQuoteId}
                       onCompleteProposal={setProposalQuote}
                       onIssuePolicy={isBackOfficeOrAdmin ? setCompletionQuote : undefined}
-                      onAddComparisonQuote={(q) => handleOpenWizard(q.vehicleCategory, { vehicleDetails: q.vehicleDetails, proposerDetails: q.proposerDetails })}
+                      onSubmitToBackOffice={async (quotationId) => {
+                        const selected = allQuotes.find((item) => item.id === quotationId);
+                        if (!selected?.caseId) {
+                          throw new Error('This quotation is not linked to a quotation case and cannot be selected for handoff.');
+                        }
+                        // Select the winning alternative through the case state machine first.
+                        await apiClient.post(`/motor/quotation-cases/${selected.caseId}/select`, {
+                          quotationId,
+                        });
+                        await quotationsRepository.submitToBackOffice(quotationId);
+                        toast.success('Selected quotation sent to back office');
+                        await refetch();
+                      }}
+                      onAddComparisonQuote={(q) => handleOpenWizard(q.vehicleCategory, {
+                        vehicleDetails: q.vehicleDetails,
+                        proposerDetails: q.proposerDetails,
+                        previousPolicyDetails: (q as any).previousPolicyDetails,
+                        policyDetails: (q as any).policyDetails,
+                        caseId: (q as any).caseId,
+                        renewalOfPolicyId: (q as any).renewalOfPolicyId,
+                      })}
                     />
                   ))}
                 </div>

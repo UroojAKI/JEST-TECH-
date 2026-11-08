@@ -127,6 +127,18 @@ export function HealthCaseWorkspace({ caseId }: { caseId: string }) {
     onError: (err) => toast.error(healthApiError(err, 'Could not select quote')),
   });
 
+  const handoffMutation = useMutation({
+    mutationFn: async (quotationId: string) => {
+      const response = await apiClient.post(`/quotations/${quotationId}/submit-to-back-office`);
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success('Selected health quotation sent to back office');
+      refresh();
+    },
+    onError: (err) => toast.error(healthApiError(err, 'Could not submit selected quotation to back office')),
+  });
+
   const recordPaymentMutation = useMutation({
     mutationFn: (payload: any) => healthQuotationRepository.recordPayment(caseId, payload),
     onSuccess: () => {
@@ -664,6 +676,17 @@ export function HealthCaseWorkspace({ caseId }: { caseId: string }) {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {!isBackOfficeOrAdmin && (
+                <button
+                  type="button"
+                  disabled={handoffMutation.isPending || Boolean(selectedQuote.backOfficeSubmittedAt)}
+                  onClick={() => handoffMutation.mutate(selectedQuote.id)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold disabled:opacity-50"
+                >
+                  {handoffMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                  {selectedQuote.backOfficeSubmittedAt ? 'Sent to Back Office' : 'Send Selected Quote to Back Office'}
+                </button>
+              )}
               {paymentStatus === 'PAID' && !selectedQuote.policy && isBackOfficeOrAdmin && (
                 <button
                   type="button"

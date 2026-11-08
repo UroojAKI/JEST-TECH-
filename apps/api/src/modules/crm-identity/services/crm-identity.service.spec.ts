@@ -26,6 +26,9 @@ describe('CrmIdentityService', () => {
         create: jest.fn(),
         update: jest.fn(),
       },
+      vehicle: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
     };
 
     const module: TestingModule = await Test.createTestingModule({

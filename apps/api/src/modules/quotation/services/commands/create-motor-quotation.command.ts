@@ -61,6 +61,33 @@ export class CreateMotorQuotationCommand {
       }
     }
 
+    // A renewal quotation must be anchored to an existing policy in this tenant.
+    // Multiple insurer alternatives may reference the same predecessor policy.
+    let renewalPolicy: any = null;
+    if (dto.renewalOfPolicyId) {
+      renewalPolicy = await this.prisma.policy.findFirst({
+        where: {
+          id: dto.renewalOfPolicyId,
+          companyId,
+          deletedAt: null,
+          status: { notIn: ['CANCELLED', 'DRAFT'] },
+        },
+        include: { vehicle: { select: { registrationNumber: true } } },
+      });
+      if (!renewalPolicy) {
+        throw new NotFoundException('Renewal source policy was not found in the current company workspace');
+      }
+      if (dto.contactId && dto.contactId !== renewalPolicy.contactId) {
+        throw new BadRequestException('Renewal quotation customer must match the predecessor policy customer');
+      }
+      if (dto.registrationNumber && renewalPolicy.vehicle?.registrationNumber) {
+        const normalize = (value: string) => value.replace(/[^a-z0-9]/gi, '').toUpperCase();
+        if (normalize(dto.registrationNumber) !== normalize(renewalPolicy.vehicle.registrationNumber)) {
+          throw new BadRequestException('Renewal vehicle registration must match the predecessor policy');
+        }
+      }
+    }
+
     // ── 1. Journey 1:1 Binding & Expiry Invariant (Section 3.1, A1, A2) ──
     let journey: any = null;
     if (dto.journeyId) {
@@ -862,6 +889,7 @@ export class CreateMotorQuotationCommand {
             vehicleId,
             leadId: dto.leadId || null,
             caseId: activeCaseId,
+            renewalOfPolicyId: renewalPolicy?.id || null,
             agentId: assignedAgentId,
             agentExternalCodeId: assignedExternalCodeId,
             createdById: user.id,

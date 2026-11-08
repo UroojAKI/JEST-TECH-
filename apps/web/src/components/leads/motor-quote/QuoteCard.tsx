@@ -16,6 +16,7 @@ interface Props {
   onCompleteProposal?: (quote: SavedMotorQuote) => void;
   onIssuePolicy?: (quote: SavedMotorQuote) => void;
   onAddComparisonQuote?: (quote: SavedMotorQuote) => void;
+  onSubmitToBackOffice?: (quotationId: string) => Promise<void>;
   userRole?: string;
 }
 
@@ -43,8 +44,10 @@ const CAT_ICONS: Record<string, string> = {
   AUTO: '🛺', TAXI: '🚕', BUS: '🚌', MISC: '🏗️',
 };
 
-export function QuoteCard({ quote, onUploadQuote, onConductInspection, onCompleteProposal, onIssuePolicy, onAddComparisonQuote, userRole }: Props) {
+export function QuoteCard({ quote, onUploadQuote, onConductInspection, onCompleteProposal, onIssuePolicy, onAddComparisonQuote, onSubmitToBackOffice, userRole }: Props) {
   const [isUploading, setIsUploading] = React.useState(false);
+  const [isSubmittingToBackOffice, setIsSubmittingToBackOffice] = React.useState(false);
+  const [submittedToBackOffice, setSubmittedToBackOffice] = React.useState(Boolean((quote as any).backOfficeSubmittedAt));
   const [isHovered, setIsHovered] = React.useState(false);
   const authUser = useAuthStore((s) => s.user);
   const userRoles = [
@@ -321,6 +324,24 @@ export function QuoteCard({ quote, onUploadQuote, onConductInspection, onComplet
               Payment Verified · Ready to Issue
             </div>
           ))}
+
+        {isAgent && onSubmitToBackOffice && (
+          <button
+            disabled={submittedToBackOffice || isSubmittingToBackOffice}
+            onClick={async () => {
+              setIsSubmittingToBackOffice(true);
+              try {
+                await onSubmitToBackOffice(quote.id);
+                setSubmittedToBackOffice(true);
+              } finally {
+                setIsSubmittingToBackOffice(false);
+              }
+            }}
+            className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold disabled:opacity-50"
+          >
+            {isSubmittingToBackOffice ? 'Submitting…' : submittedToBackOffice ? 'Sent to Back Office' : 'Select & Send to Back Office'}
+          </button>
+        )}
 
         {onAddComparisonQuote && (
           <button

@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { ArrowLeft, ArrowRight, HeartPulse, Loader2 } from 'lucide-react';
 import { healthApiError, healthQuotationRepository } from '../../repositories/health-quotation.repository';
+import { apiClient } from '../../lib/api-client';
 import { leadsRepository } from '../../repositories/leads.repository';
 import {
   GENDERS,
@@ -107,9 +108,11 @@ const isMultiMemberPlan = (cat?: string) => cat === 'FAMILY_FLOATER' || cat === 
 export function HealthQuoteWizard({
   contactId: initialContactId,
   leadId,
+  renewPolicyId,
 }: {
   contactId?: string;
   leadId?: string;
+  renewPolicyId?: string;
 }) {
   const router = useRouter();
   const { data: currentUserPreference } = useQuery({
@@ -157,10 +160,58 @@ export function HealthQuoteWizard({
   const [nominee, setNominee] = useState({ name: '', relation: '' });
   const [renewalValues, setRenewalValues] = useState<Record<string, any>>(initialValues(RENEWAL_FIELDS));
 
+  const { data: renewalPolicy, isLoading: isLoadingRenewalPolicy, isError: isRenewalPolicyError } = useQuery({
+    queryKey: ['health-renewal-policy', renewPolicyId],
+    queryFn: async () => (await apiClient.get(`/policies/${renewPolicyId}`)).data,
+    enabled: Boolean(renewPolicyId),
+  });
+
+  useEffect(() => {
+    if (!renewalPolicy || !renewPolicyId) return;
+    const quotation = renewalPolicy.quotation || {};
+    const healthMeta = quotation.healthMetadata || {};
+    const category = renewalPolicy.healthPlanCategory || quotation.healthPlanCategory || renewalPolicy.planCategory;
+    if (category) setPlanCategory(String(category));
+    setPolicyForm('RENEWAL_PORTABILITY');
+    setResolvedContactId(renewalPolicy.contactId || renewalPolicy.contact?.id || initialContactId);
+    setRenewalValues((current) => ({
+      ...current,
+      renewalType: 'RENEWAL',
+      previousInsurerName: renewalPolicy.insurerName || quotation.insurerName || '',
+      previousPolicyNumber: renewalPolicy.actualPolicyNumber || renewalPolicy.policyNumber || '',
+      sumInsuredContinuation: 'CONTINUED',
+      cumulativeBonusPercent: Number(healthMeta.cumulativeBonusPercent || 0),
+      claimInExpiringPolicy: Boolean(healthMeta.claimInExpiringPolicy),
+      waitingPeriodCredit: false,
+      previousPolicyExpiryDate: renewalPolicy.expiryDate ? String(renewalPolicy.expiryDate).slice(0, 10) : '',
+      sourcePolicyId: renewPolicyId,
+    }));
+    if (renewalPolicy.members?.length) {
+      setMembers(renewalPolicy.members.map((member: any) => ({
+        firstName: member.firstName || '',
+        lastName: member.lastName || '',
+        relation: member.relation || 'SELF',
+        dateOfBirth: member.dateOfBirth ? String(member.dateOfBirth).slice(0, 10) : '',
+        gender: member.gender || 'MALE',
+        heightCm: member.heightCm ? String(member.heightCm) : '',
+        weightKg: member.weightKg ? String(member.weightKg) : '',
+        preExistingDiseases: member.preExistingDiseases || 'None',
+        isSmoker: Boolean(member.isSmoker),
+      })));
+    }
+    if (renewalPolicy.nominees?.[0]) {
+      setNominee({
+        name: renewalPolicy.nominees[0].name || '',
+        relation: renewalPolicy.nominees[0].relation || '',
+      });
+    }
+  }, [renewalPolicy, renewPolicyId, initialContactId]);
+
+  const contactIdForPrefill = resolvedContactId || initialContactId;
   const { data: contact, isLoading: isLoadingContact } = useQuery({
-    queryKey: ['health-contact', initialContactId],
-    queryFn: () => (initialContactId ? healthQuotationRepository.getContact(initialContactId) : null),
-    enabled: Boolean(initialContactId),
+    queryKey: ['health-contact', contactIdForPrefill],
+    queryFn: () => (contactIdForPrefill ? healthQuotationRepository.getContact(contactIdForPrefill) : null),
+    enabled: Boolean(contactIdForPrefill),
   });
 
   const { data: leadContext } = useQuery({
@@ -495,7 +546,7 @@ export function HealthQuoteWizard({
         nomineeName: nominee.name,
         nomineeRelation: nominee.relation,
         planDetails: toPayload(sectionAFields, planValues),
-        ...(policyForm === 'RENEWAL_PORTABILITY' ? { previousPolicySnapshot: toPayload(RENEWAL_FIELDS, renewalValues) } : {}),
+        ...(policyForm === 'RENEWAL_PORTABILITY' ? { previousPolicySnapshot: { ...toPayload(RENEWAL_FIELDS, renewalValues), ...(renewPolicyId ? { sourcePolicyId: renewPolicyId } : {}) } } : {}),
         ...(Object.keys(proposerKyc).length ? { proposerKyc } : {}),
         members: finalMembers,
       });
@@ -518,6 +569,10 @@ export function HealthQuoteWizard({
       }),
     );
 
+  if (renewPolicyId && isRenewalPolicyError) {
+    return <div role="alert" className="mx-auto max-w-3xl rounded-xl border border-destructive/30 bg-destructive/5 p-5 text-sm text-destructive">Unable to load the predecessor health policy. Renewal quotation cannot proceed without verified policy context.</div>;
+  }
+
   return (
     <div className="max-w-4xl mx-auto space-y-5">
       <div>
@@ -534,7 +589,7 @@ export function HealthQuoteWizard({
           <div>
             <h1 className="text-lg font-black text-foreground">Generate Health Quotation</h1>
             <p className="text-xs text-muted-foreground">
-              {isLoadingContact ? (
+              {(isLoadingContact || isLoadingRenewalPolicy) ? (
                 'Loading customer details...'
               ) : proposer.firstName || proposer.phone ? (
                 `${proposer.firstName} ${proposer.lastName || ''} • ${proposer.phone}`

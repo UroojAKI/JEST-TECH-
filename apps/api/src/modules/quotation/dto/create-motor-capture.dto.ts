@@ -53,6 +53,10 @@ export class CreateMotorCaptureDto {
   caseId?: string;
 
   @IsOptional()
+  @IsString()
+  renewalOfPolicyId?: string;
+
+  @IsOptional()
   @IsObject()
   proposerDetails?: Record<string, any>;
 

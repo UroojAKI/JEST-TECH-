@@ -105,6 +105,7 @@ describe('ConvertQuotationService (Phase 11 Motor Generic Conversion Gate)', () 
       accountId: null,
       totalPremium: new Prisma.Decimal(11800),
       expiryDate: new Date('2027-09-26'),
+      renewalOfPolicyId: 'pol-predecessor-1',
     });
 
     mockTx.policy.findFirst.mockResolvedValueOnce(null);
@@ -116,6 +117,13 @@ describe('ConvertQuotationService (Phase 11 Motor Generic Conversion Gate)', () 
     const result = await service.execute('q-health-1', 'user-1');
 
     expect(result.policy.policyNumber).toBe('POL-001005');
+    expect(mockTx.policy.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          renewedFromPolicy: { connect: { id: 'pol-predecessor-1' } },
+        }),
+      }),
+    );
     expect(mockTx.quotation.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: 'q-health-1' },

@@ -394,6 +394,8 @@ export interface SavedMotorQuote {
   policyDetails?: Record<string, any>;
   leadId?: string;
   caseId?: string;
+  renewalOfPolicyId?: string;
+  backOfficeSubmittedAt?: string | null;
   proposalStatus?: string;
   paymentRecord?: PaymentRecord;
   motorDocuments?: Array<{

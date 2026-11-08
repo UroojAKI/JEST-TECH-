@@ -690,6 +690,7 @@ export class MotorPolicyIssuanceService {
             policyNumber,
             actualPolicyNumber: policyNumber,
             quotationId: quote.id,
+            renewedFromPolicyId: quote.renewalOfPolicyId || undefined,
             agentId: quote.agentId || null,
             agentExternalCodeId: quote.agentExternalCodeId || null,
             contactId: quote.contactId,

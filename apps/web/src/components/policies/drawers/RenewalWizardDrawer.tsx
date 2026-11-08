@@ -1,13 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { X, CheckCircle2, ChevronRight, RefreshCw, Loader2, ShieldCheck, AlertCircle, ExternalLink } from 'lucide-react';
+import { X, RefreshCw, Loader2, AlertCircle, CalendarClock, ShieldCheck } from 'lucide-react';
 import { policiesRepository } from '../../../repositories/policies.repository';
-import { toast } from 'sonner';
-
-import { buildRenewalUrl } from '../../../lib/renewal-url';
+import { buildHealthRenewalUrl, buildRenewalUrl } from '../../../lib/renewal-url';
 
 interface RenewalWizardDrawerProps {
   isOpen: boolean;
@@ -17,11 +15,7 @@ interface RenewalWizardDrawerProps {
 
 export function RenewalWizardDrawer({ isOpen, policyId, onClose }: RenewalWizardDrawerProps) {
   const router = useRouter();
-  const [step, setStep] = useState<number>(1);
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [paymentMode, setPaymentMode] = useState<string>('ONLINE');
-
-  const { data: policy, isLoading, isError } = useQuery({
+  const { data: policy, isLoading, isError, refetch } = useQuery({
     queryKey: ['policy-renewal-context', policyId],
     queryFn: () => policiesRepository.getPolicyWorkspace(policyId),
     enabled: isOpen && Boolean(policyId),
@@ -29,222 +23,104 @@ export function RenewalWizardDrawer({ isOpen, policyId, onClose }: RenewalWizard
 
   if (!isOpen) return null;
 
-  const currentIdv = Number(policy?.idvValue || 0);
-  const revisedIdv = currentIdv > 0 ? Math.round(currentIdv * 0.9) : 0;
-  const authoritativePremium = Number(policy?.premiumAmount ?? policy?.totalPremium ?? 0);
-  const currentExpiry = policy?.expiryDate ? new Date(policy.expiryDate) : new Date();
-  const nextExpiry = new Date(currentExpiry);
-  nextExpiry.setFullYear(nextExpiry.getFullYear() + 1);
-  const nextRenewalNumber = (policy?.renewals?.length || 0) + 1;
+  const policyData = policy as any;
+  const product = String(policy?.productLine || policyData?.productType || policy?.policyType || '').toUpperCase();
+  const isHealth = product.includes('HEALTH');
+  const isMotor = product.includes('MOTOR') || product.includes('GENERAL') || product.includes('VEHICLE');
+  const expiry = policy?.expiryDate ? new Date(policy.expiryDate) : null;
+  const isExpired = Boolean(expiry && expiry.getTime() < Date.now());
+  const supported = isHealth || isMotor;
 
-  const handleRenewPolicy = async () => {
-    try {
-      setIsSubmitting(true);
-      await policiesRepository.renewPolicy(policyId, {
-        renewalNumber: nextRenewalNumber,
-        premiumAmount: authoritativePremium,
-        newExpiry: nextExpiry.toISOString(),
-      });
-      toast.success(`Policy ${policy?.policyNumber || policyId} renewed successfully!`);
-      onClose();
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Failed to process policy renewal');
-    } finally {
-      setIsSubmitting(false);
+  const continueToRenewal = () => {
+    if (!policy || !supported) return;
+    onClose();
+    if (isHealth) {
+      router.push(buildHealthRenewalUrl(policyId, {
+        contactId: policyData?.contactId || policyData?.contact?.id,
+        leadId: policyData?.leadId || undefined,
+        planCategory: policyData?.healthPlanCategory || policyData?.quotation?.healthPlanCategory || undefined,
+      }));
+      return;
     }
+    router.push(buildRenewalUrl(policyId));
   };
-
-  const steps = [
-    { num: 1, title: 'Verify Policy' },
-    { num: 2, title: 'Recalculate Premium' },
-    { num: 3, title: 'Compare Insurers' },
-    { num: 4, title: 'Customer Approval' },
-    { num: 5, title: 'Payment Setup' },
-    { num: 6, title: 'Issue Renewal' },
-  ];
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-background/80 backdrop-blur-sm">
-      <div className="w-full max-w-lg bg-card border-l h-full shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-200">
-        {/* Header */}
-        <div className="p-4 border-b flex items-center justify-between">
-          <div className="flex items-center space-x-2">
+      <div className="flex h-full w-full max-w-lg flex-col border-l bg-card shadow-2xl">
+        <header className="flex items-center justify-between border-b p-4">
+          <div className="flex items-center gap-2">
             <RefreshCw className="h-5 w-5 text-primary" />
-            <h2 className="font-bold text-base">Policy Renewal Wizard</h2>
+            <h2 className="text-base font-bold">Start policy renewal</h2>
           </div>
-          <button onClick={onClose} className="p-1 text-muted-foreground hover:bg-accent rounded-md">
+          <button type="button" onClick={onClose} aria-label="Close renewal panel" className="rounded-md p-1 text-muted-foreground hover:bg-accent">
             <X className="h-5 w-5" />
           </button>
-        </div>
+        </header>
 
-        {/* Stepper Bar */}
-        <div className="p-3 border-b bg-muted/20 overflow-x-auto">
-          <div className="flex items-center space-x-2 text-[10px]">
-            {steps.map((s) => (
-              <div key={s.num} className="flex items-center space-x-1 whitespace-nowrap">
-                <div
-                  className={`h-5 w-5 rounded-full flex items-center justify-center font-bold ${
-                    step === s.num
-                      ? 'bg-primary text-primary-foreground ring-2 ring-primary/30'
-                      : step > s.num
-                      ? 'bg-emerald-500 text-white'
-                      : 'bg-muted text-muted-foreground'
-                  }`}
-                >
-                  {step > s.num ? <CheckCircle2 className="h-3 w-3" /> : s.num}
-                </div>
-                <span className={`font-semibold ${step === s.num ? 'text-foreground font-bold' : 'text-muted-foreground'}`}>
-                  {s.title}
-                </span>
-                {s.num < 6 && <ChevronRight className="h-3 w-3 text-muted-foreground/30 ml-1" />}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Wizard Body */}
-        <div className="p-6 flex-1 overflow-y-auto space-y-4 text-xs">
+        <main className="flex-1 space-y-4 overflow-y-auto p-5">
           {isLoading ? (
-            <div className="py-12 flex flex-col items-center justify-center space-y-3">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <span className="text-muted-foreground">Loading policy record...</span>
+            <div className="flex flex-col items-center justify-center gap-3 py-12 text-sm text-muted-foreground">
+              <Loader2 className="h-7 w-7 animate-spin text-primary" />
+              Loading authoritative policy details…
             </div>
           ) : isError || !policy ? (
-            <div className="p-4 rounded-xl border border-destructive/20 bg-destructive/5 text-destructive flex items-center space-x-2">
-              <AlertCircle className="h-5 w-5 shrink-0" />
-              <span>Failed to load authoritative policy record for renewal.</span>
+            <div role="alert" className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>Could not load the policy. Renewal cannot continue without the authoritative policy record.</span>
+              <button type="button" onClick={() => refetch()} className="ml-auto underline">Retry</button>
             </div>
           ) : (
             <>
-              {step === 1 && (
-                <div className="space-y-3">
-                  <h4 className="font-bold text-sm">Step 1: Current Policy Review</h4>
-                  <div className="p-3 rounded-lg border bg-muted/20 space-y-2">
-                    <div>Policy Number: <strong className="font-mono">{policy.policyNumber}</strong></div>
-                    <div>Customer: <strong>{policy.contactName || 'Valued Customer'}</strong></div>
-                    <div>Product Line: <strong>{policy.productLine || 'Motor Insurance'}</strong></div>
-                    <div>Insurer: <strong>{policy.insurerName || 'Authoritative Carrier'}</strong></div>
-                    <div>Current Expiry: <strong>{policy.expiryDate ? new Date(policy.expiryDate).toLocaleDateString('en-IN') : 'Upcoming'}</strong></div>
-                    <div>Status: <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary">{policy.status}</span></div>
+              <section className="rounded-xl border bg-muted/20 p-4">
+                <div className="mb-3 flex items-center gap-2 text-sm font-bold">
+                  <ShieldCheck className="h-4 w-4 text-primary" />
+                  Policy being renewed
+                </div>
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-xs">
+                  <div><dt className="text-muted-foreground">Policy number</dt><dd className="mt-0.5 break-all font-semibold">{policyData?.actualPolicyNumber || policy.policyNumber}</dd></div>
+                  <div><dt className="text-muted-foreground">Product</dt><dd className="mt-0.5 font-semibold">{policy.productLine || policy.policyType || 'Unclassified'}</dd></div>
+                  <div><dt className="text-muted-foreground">Customer</dt><dd className="mt-0.5 font-semibold">{policy.contactName || policy.customerName || 'Customer record'}</dd></div>
+                  <div><dt className="text-muted-foreground">Insurer</dt><dd className="mt-0.5 font-semibold">{policy.insurerName || 'Not recorded'}</dd></div>
+                  <div><dt className="text-muted-foreground">Expiry</dt><dd className="mt-0.5 font-semibold">{expiry ? expiry.toLocaleDateString('en-IN') : 'Not recorded'}</dd></div>
+                  <div><dt className="text-muted-foreground">Current status</dt><dd className="mt-0.5 font-semibold">{policy.status}</dd></div>
+                </dl>
+              </section>
+
+              <section className={`rounded-xl border p-4 ${isExpired ? 'border-amber-500/40 bg-amber-500/5' : 'bg-card'}`}>
+                <div className="flex items-start gap-2">
+                  <CalendarClock className={`mt-0.5 h-4 w-4 shrink-0 ${isExpired ? 'text-amber-600' : 'text-primary'}`} />
+                  <div className="space-y-1">
+                    <div className="text-sm font-bold">{isExpired ? 'Policy has expired' : 'Renewal eligibility must be rechecked'}</div>
+                    <p className="text-xs leading-relaxed text-muted-foreground">
+                      {isExpired
+                        ? 'The renewal journey must apply the insurer’s lapse and inspection rules. Do not assume uninterrupted coverage or backdate the renewed policy.'
+                        : 'The renewal journey will reuse the saved policy and customer details, then require a fresh insurer quotation and approval.'}
+                    </p>
                   </div>
                 </div>
-              )}
+              </section>
 
-              {step === 2 && (
-                <div className="space-y-3">
-                  <h4 className="font-bold text-sm">Step 2: Authoritative Policy Premium & Slabs</h4>
-                  <p className="text-muted-foreground">Depreciation and NCB retention evaluated according to IRDAI guidelines.</p>
-                  <div className="p-3 rounded-lg border bg-emerald-500/10 text-emerald-800 dark:text-emerald-200 font-bold space-y-2">
-                    {revisedIdv > 0 && <div>Baseline IDV: ₹{revisedIdv.toLocaleString('en-IN')}</div>}
-                    <div>Authoritative Renewal Premium: ₹{authoritativePremium.toLocaleString('en-IN')}</div>
-                    <div className="text-[11px] font-normal text-muted-foreground">
-                      Expiry Date: {policy.expiryDate ? new Date(policy.expiryDate).toLocaleDateString('en-IN') : 'Upcoming'}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {step === 3 && (
-                <div className="space-y-3">
-                  <h4 className="font-bold text-sm">Step 3: Insurer Portability & Comparison</h4>
-                  <div className="p-3 rounded-lg border bg-primary/5 space-y-2">
-                    <div className="font-bold text-primary">
-                      {policy.insurerName || 'Primary Insurer'} (Current Provider) — ₹{authoritativePremium.toLocaleString('en-IN')}
-                    </div>
-                    <div className="text-muted-foreground text-[11px]">
-                      To recalculate premium under new tariff rates, change add-ons, or switch insurer, generate a fresh comparison quote.
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onClose();
-                        router.push(buildRenewalUrl(policyId));
-                      }}
-                      className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90"
-                    >
-                      <ExternalLink className="h-3.5 w-3.5" />
-                      <span>Create Comparative Renewal Quote</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {step === 4 && (
-                <div className="space-y-3">
-                  <h4 className="font-bold text-sm">Step 4: Customer Consent & Acceptance</h4>
-                  <p className="text-muted-foreground">Record verification of customer consent for renewal schedule.</p>
-                  <div className="p-3 rounded-lg border bg-muted/20 space-y-2">
-                    <label className="flex items-center space-x-2 font-medium cursor-pointer">
-                      <input type="checkbox" defaultChecked className="rounded border-input text-primary focus:ring-primary" />
-                      <span>Customer verbal/digital consent recorded for schedule renewal</span>
-                    </label>
-                  </div>
-                </div>
-              )}
-
-              {step === 5 && (
-                <div className="space-y-3">
-                  <h4 className="font-bold text-sm">Step 5: Payment Method & Premium Settlement</h4>
-                  <div className="space-y-2">
-                    <label className="block text-[11px] font-bold text-muted-foreground">SELECT PAYMENT CHANNEL</label>
-                    <select
-                      value={paymentMode}
-                      onChange={(e) => setPaymentMode(e.target.value)}
-                      className="w-full p-2 rounded-lg border bg-background text-foreground font-medium"
-                    >
-                      <option value="ONLINE">Digital Payment Gateway (UPI / NetBanking)</option>
-                      <option value="CHEQUE">Cheque / Demand Draft</option>
-                      <option value="NEFT">Bank Transfer (NEFT / RTGS)</option>
-                    </select>
-                    <div className="p-3 rounded-lg border bg-muted/20 font-mono text-xs">
-                      <div>Payable Amount: ₹{authoritativePremium.toLocaleString('en-IN')}</div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {step === 6 && (
-                <div className="space-y-3">
-                  <h4 className="font-bold text-sm">Step 6: Issue Renewal Policy Certificate</h4>
-                  <p className="text-muted-foreground">Confirm policy renewal creation and ledger recording.</p>
-                  <div className="p-3 rounded-lg border border-emerald-500 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200 font-bold flex items-center space-x-2">
-                    <ShieldCheck className="h-5 w-5 text-emerald-600 shrink-0" />
-                    <span>Ready to dispatch authoritative renewal policy schedule.</span>
-                  </div>
+              {!supported && (
+                <div role="alert" className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-4 text-xs leading-relaxed">
+                  Renewal quoting is not yet configured for this product category. No policy dates or financial records have been changed.
                 </div>
               )}
             </>
           )}
-        </div>
+        </main>
 
-        {/* Footer Navigation */}
-        <div className="p-4 border-t flex justify-between items-center bg-card">
+        <footer className="flex items-center justify-between gap-3 border-t p-4">
+          <button type="button" onClick={onClose} className="rounded-lg border px-4 py-2 text-xs font-semibold">Cancel</button>
           <button
-            disabled={step === 1 || isSubmitting || isLoading}
-            onClick={() => setStep(step - 1)}
-            className="px-4 py-2 rounded-lg border bg-background font-semibold disabled:opacity-40"
+            type="button"
+            disabled={isLoading || isError || !policy || !supported}
+            onClick={continueToRenewal}
+            className="rounded-lg bg-primary px-4 py-2 text-xs font-bold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Previous
+            Continue to renewal quotations
           </button>
-          {step < 6 ? (
-            <button
-              disabled={isLoading || isError || !policy}
-              onClick={() => setStep(step + 1)}
-              className="px-4 py-2 rounded-lg bg-primary text-primary-foreground font-bold hover:bg-primary/90 shadow-sm disabled:opacity-40"
-            >
-              Continue Next →
-            </button>
-          ) : (
-            <button
-              disabled={isSubmitting || isLoading || isError || !policy}
-              onClick={handleRenewPolicy}
-              className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-700 shadow-sm flex items-center space-x-1 disabled:opacity-40"
-            >
-              {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-              <span>{isSubmitting ? 'Renewing...' : 'Confirm Issue Renewal'}</span>
-            </button>
-          )}
-        </div>
+        </footer>
       </div>
     </div>
   );
