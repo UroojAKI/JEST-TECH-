@@ -1,5 +1,5 @@
-import { UserPermissionsManager } from '../../../../components/admin/UserPermissionsManager';
 'use client';
+import { UserPermissionsManager } from '../../../../components/admin/UserPermissionsManager';
 
 import React, { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
