@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { X, CheckCircle2, ChevronRight, RefreshCw, Loader2, ShieldCheck, AlertCircle, ExternalLink } from 'lucide-react';
 import { policiesRepository } from '../../../repositories/policies.repository';
 
-import { buildRenewalUrl } from '../../../lib/renewal-url';
+import { buildHealthRenewalUrl, buildRenewalUrl } from '../../../lib/renewal-url';
 
 interface RenewalWizardDrawerProps {
   isOpen: boolean;
@@ -33,10 +33,22 @@ export function RenewalWizardDrawer({ isOpen, policyId, onClose }: RenewalWizard
   const currentExpiry = policy?.expiryDate ? new Date(policy.expiryDate) : new Date();
 
   const handleRenewPolicy = () => {
-    // Renewal must create a linked renewal quotation and pass through the
-    // existing approval/issuance lifecycle. Never extend the old policy here.
+    // Renewal must enter the product's quotation journey; never extend the old
+    // policy directly from this drawer.
+    const product = String(policy?.productLine || policy?.productType || '').toUpperCase();
     onClose();
-    router.push(buildRenewalUrl(policyId));
+    if (product.includes('HEALTH')) {
+      router.push(buildHealthRenewalUrl(policyId, {
+        contactId: policy?.contactId,
+        planCategory: policy?.planCategory,
+      }));
+      return;
+    }
+    if (product.includes('MOTOR') || product.includes('GENERAL') || !product) {
+      router.push(buildRenewalUrl(policyId));
+      return;
+    }
+    router.push(`/renewals?policyId=${encodeURIComponent(policyId)}&product=${encodeURIComponent(product)}`);
   };
 
   const steps = [
