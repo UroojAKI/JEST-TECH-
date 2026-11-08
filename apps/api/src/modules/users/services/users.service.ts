@@ -187,38 +187,44 @@ export class UsersService {
       departmentConnect = { connect: { id: department.id } };
     }
 
-    const user = await this.userRepository.create({
-      email: dto.email,
-      passwordHash,
-      firstName: dto.firstName,
-      lastName: dto.lastName,
-      phone: dto.phone,
-      collectContacts: canonicalRole === RoleType.AGENT && dto.collectContacts === true,
-      employeeCode: empCode,
-      designation: (dto as any).designation,
-      role: { connect: { id: role.id } },
-      company: companyConnect,
-      status: (dto as any).status || UserStatus.ACTIVE,
-      branch: branchConnect,
-      department: departmentConnect,
-    });
+    const user = await this.prisma.$transaction(async (tx) => {
+      const createdUser = await this.userRepository.create(
+        {
+          email: dto.email,
+          passwordHash,
+          firstName: dto.firstName,
+          lastName: dto.lastName,
+          phone: dto.phone,
+          collectContacts: canonicalRole === RoleType.AGENT && dto.collectContacts === true,
+          employeeCode: empCode,
+          designation: (dto as any).designation,
+          role: { connect: { id: role.id } },
+          company: companyConnect,
+          status: (dto as any).status || UserStatus.ACTIVE,
+          branch: branchConnect,
+          department: departmentConnect,
+        },
+        tx,
+      );
 
-    if (canonicalRole === RoleType.AGENT && targetCompanyId) {
-      try {
-        const name = `${user.firstName || ''} ${user.lastName || ''}`.trim();
-        await this.prisma.agent.create({
+      if (canonicalRole === RoleType.AGENT && targetCompanyId) {
+        const name = `${createdUser.firstName || ''} ${createdUser.lastName || ''}`.trim();
+        // User and Agent profile are one business operation: a profile failure
+        // must roll back user creation rather than leave an unusable active Agent.
+        await tx.agent.create({
           data: {
             companyId: targetCompanyId,
-            userId: user.id,
+            userId: createdUser.id,
             agencyName: name ? `${name} Agency` : 'Agency',
             commissionTier: 'STANDARD',
             isActive: true,
           },
         });
-      } catch {
-        // Safe fallback if agent profile already exists or in case of concurrency
+        return (await this.userRepository.findById(createdUser.id, tx)) || createdUser;
       }
-    }
+
+      return createdUser;
+    });
 
     const response: any = UserMapper.toResponse(user);
     response.initialPassword = initialPassword;

@@ -69,6 +69,7 @@ describe('UsersService', () => {
       user: {
         findUnique: jest.fn(),
       },
+      $transaction: jest.fn(async (operation: any) => operation({ agent: { create: jest.fn() } })),
       company: {
         findFirst: jest.fn().mockResolvedValue({ id: 'company-uuid-1' }),
       },
@@ -166,7 +167,7 @@ describe('UsersService', () => {
     };
 
     userRepository = {
-      findById: jest.fn(),
+      findById: jest.fn().mockResolvedValue(mockUser),
       findRoleByType: jest.fn().mockResolvedValue({ id: 'role-agent' }),
       create: jest.fn().mockResolvedValue(mockUser),
     };
@@ -183,6 +184,32 @@ describe('UsersService', () => {
   });
 
   describe('create tenant hierarchy validation', () => {
+    it('rolls back Agent user creation when Agent profile provisioning fails', async () => {
+      prisma.branch.findFirst.mockResolvedValue({ id: '11111111-1111-4111-8111-111111111111' });
+      const profileError = new Error('Agent profile insert failed');
+      const tx = { agent: { create: jest.fn().mockRejectedValue(profileError) } };
+      prisma.$transaction.mockImplementation(async (operation: any) => operation(tx));
+
+      await expect(
+        service.create(
+          {
+            firstName: 'New',
+            lastName: 'Agent',
+            email: 'new.agent@example.com',
+            password: 'SafePassword123!',
+            role: 'AGENT',
+            employeeCode: 'EMP-009998',
+            branchId: '11111111-1111-4111-8111-111111111111',
+          } as any,
+          { userId: 'admin-1', companyId: 'company-uuid-1', role: 'ADMIN' },
+        ),
+      ).rejects.toThrow('Agent profile insert failed');
+
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(userRepository.create).toHaveBeenCalled();
+      expect(tx.agent.create).toHaveBeenCalled();
+    });
+
     it('rejects a branch that does not belong to the actor company before creating a user', async () => {
       prisma.branch.findFirst.mockResolvedValue(null);
 
