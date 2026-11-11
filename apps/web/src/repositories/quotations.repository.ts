@@ -39,13 +39,8 @@ export interface QuotationItem {
 
 export const quotationsRepository = {
   async getQuotations(params?: Partial<PaginationParams> & { status?: string }): Promise<PaginatedResult<QuotationItem>> {
-    try {
-      const response = await apiClient.get('/quotations', { params });
-      return response.data;
-    } catch (err) {
-      console.warn('Failed to fetch quotations:', err);
-      return { data: [], items: [], meta: { page: 1, limit: params?.limit || 25, total: 0, totalPages: 0 } } as any;
-    }
+    const response = await apiClient.get('/quotations', { params });
+    return response.data;
   },
 
   async getQuotationById(id: string): Promise<QuotationItem> {
@@ -99,8 +94,16 @@ export const quotationsRepository = {
     return response.data;
   },
 
-  async acceptQuotation(id: string, comments?: string): Promise<QuotationItem> {
-    const response = await apiClient.post(`/quotations/${id}/accept`, { comments });
+  async acceptQuotation(
+    id: string,
+    evidence: {
+      evidenceMethod: 'EMAIL' | 'SMS' | 'WHATSAPP' | 'PHYSICAL_SIGNATURE' | 'VERBAL_CALL_RECORDING' | 'PORTAL_CLICK';
+      evidenceReference?: string;
+      comments?: string;
+      selectedGstRate?: number;
+    },
+  ): Promise<QuotationItem> {
+    const response = await apiClient.post(`/quotations/${id}/accept`, evidence);
     return response.data;
   },
 
