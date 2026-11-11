@@ -10,6 +10,84 @@ export class CommissionEngineService {
 
   constructor(private readonly prisma: PrismaService) {}
 
+  private validatePlanRules(rules: any) {
+    const agentPercent = Number(rules?.agentPercent);
+    if (!Number.isFinite(agentPercent) || agentPercent < 0 || agentPercent > 15) {
+      throw new BadRequestException('Agent commission percentage must be between 0 and 15');
+    }
+    const overrides = Array.isArray(rules?.overrides) ? rules.overrides : [];
+    let total = agentPercent;
+    for (const override of overrides) {
+      const percent = Number(override?.percent);
+      if (!override?.userId || !override?.roleTier || !Number.isFinite(percent) || percent < 0 || percent > 100) {
+        throw new BadRequestException('Each commission override requires a userId, roleTier and a valid percentage');
+      }
+      total += percent;
+    }
+    if (total > 20) {
+      throw new BadRequestException('Combined commission percentage cannot exceed 20');
+    }
+    return { agentPercent, overrides };
+  }
+
+  private async assertPlanRecipients(companyId: string, rules: any, tx: any = this.prisma) {
+    const ids = [...new Set((rules.overrides || []).map((entry: any) => entry.userId))];
+    if (!ids.length) return;
+    const recipients = await tx.user.findMany({
+      where: { id: { in: ids }, companyId, status: 'ACTIVE' },
+      select: { id: true },
+    });
+    if (recipients.length !== ids.length) {
+      throw new BadRequestException('Every commission override recipient must be an active user in this company');
+    }
+  }
+
+  async listCommissionPlans(companyId: string) {
+    if (!companyId) throw new ForbiddenException('Company context is required');
+    const plans = await this.prisma.commissionPlan.findMany({
+      where: { companyId },
+      orderBy: [{ isActive: 'desc' }, { name: 'asc' }],
+    });
+    return plans.map((plan) => ({ ...plan, rules: JSON.parse(plan.rules) }));
+  }
+
+  async createCommissionPlan(companyId: string, input: { name: string; description?: string; rules: any }) {
+    if (!companyId) throw new ForbiddenException('Company context is required');
+    if (!input.name?.trim()) throw new BadRequestException('Commission plan name is required');
+    const rules = this.validatePlanRules(input.rules);
+    await this.assertPlanRecipients(companyId, rules);
+    return this.prisma.commissionPlan.create({
+      data: {
+        companyId,
+        name: input.name.trim(),
+        description: input.description?.trim() || null,
+        rules: JSON.stringify(rules),
+        isActive: true,
+      },
+    });
+  }
+
+  async updateCommissionPlan(companyId: string, planId: string, input: { name?: string; description?: string; rules?: any; isActive?: boolean }) {
+    if (!companyId) throw new ForbiddenException('Company context is required');
+    const existing = await this.prisma.commissionPlan.findFirst({ where: { id: planId, companyId } });
+    if (!existing) throw new NotFoundException('Commission plan not found');
+    let serializedRules = existing.rules;
+    if (input.rules !== undefined) {
+      const rules = this.validatePlanRules(input.rules);
+      await this.assertPlanRecipients(companyId, rules);
+      serializedRules = JSON.stringify(rules);
+    }
+    return this.prisma.commissionPlan.update({
+      where: { id: planId },
+      data: {
+        ...(input.name !== undefined ? { name: input.name.trim() } : {}),
+        ...(input.description !== undefined ? { description: input.description.trim() || null } : {}),
+        ...(input.rules !== undefined ? { rules: serializedRules } : {}),
+        ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
+      },
+    });
+  }
+
   /**
    * Calculates and accrues commissions for a policy based on the agent's commission plan.
    * The operation is idempotent per policy: a retry cannot create a second commission set.
@@ -46,8 +124,8 @@ export class CommissionEngineService {
       throw new BadRequestException('Premium amount must be greater than zero');
     }
 
-    const plan = await this.prisma.commissionPlan.findUnique({
-      where: { id: planId },
+    const plan = await this.prisma.commissionPlan.findFirst({
+      where: { id: planId, companyId: policy.companyId, isActive: true },
     });
 
     if (!plan || !plan.isActive) {
