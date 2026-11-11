@@ -233,6 +233,39 @@ describe('QuotationCompletionService', () => {
       );
     });
 
+    it('updates the customer mobile number when completing missing quotation information', async () => {
+      const quotation = {
+        id: 'quote-phone',
+        quotationCode: 'Q-2026-PHONE',
+        companyId: 'comp-1',
+        contactId: 'con-phone',
+        vehicleId: 'veh-phone',
+        policyType: 'PACKAGE',
+        sumInsured: 400000,
+        totalPremium: 10000,
+        status: QuotationStatus.DRAFT,
+        workflowState: MotorWorkflowState.READY_FOR_PROPOSAL,
+        motorMetadata: {},
+        contact: { firstName: 'Test', lastName: 'User', phone: null, email: 'test@example.com' },
+        vehicle: { make: 'Maruti', model: 'Swift', registrationNumber: 'MH01AB1234', engineNumber: 'ENG1', chassisNumber: 'CHS1', dateOfRegistration: new Date() },
+        motorPreviousPolicy: null,
+        motorInspection: null,
+        motorPaymentRecord: { status: 'PAID' },
+        documents: [],
+      };
+
+      mockPrisma.quotation.findUnique.mockResolvedValue(quotation);
+      mockPrisma.quotation.findFirst.mockResolvedValue(quotation);
+      mockPrisma.contact.update.mockResolvedValue({});
+
+      await service.updateDetails('quote-phone', { phone: '9876543210' }, { companyId: 'comp-1' } as any);
+
+      expect(mockPrisma.contact.update).toHaveBeenCalledWith({
+        where: { id: 'con-phone' },
+        data: { phone: '9876543210' },
+      });
+    });
+
     it('updates vehicle make, model and makeModel when makeModel is passed in updateDetails', async () => {
       const quotation = {
         id: 'quote-2',
