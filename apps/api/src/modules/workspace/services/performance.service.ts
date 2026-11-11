@@ -87,10 +87,7 @@ export class PerformanceService {
     const [todayRevenueAgg, totalRevenueAgg, monthlyRevenueAgg, totalPoliciesCount, monthlyPoliciesCount, targetAgg] = await Promise.all([
       this.prisma.policy.aggregate({
         _sum: { premiumAmount: true },
-        where: {
-          ...policyWhere,
-          createdAt: { gte: todayStart },
-        },
+        where: { ...policyWhere, createdAt: { gte: todayStart } },
       }),
       this.prisma.policy.aggregate({
         _sum: { premiumAmount: true },
@@ -98,10 +95,11 @@ export class PerformanceService {
       }),
       this.prisma.policy.aggregate({
         _sum: { premiumAmount: true },
-        where: {
-          ...policyWhere,
-          createdAt: { gte: new Date(now.getFullYear(), now.getMonth(), 1) },
-        },
+        where: { ...policyWhere, createdAt: { gte: new Date(now.getFullYear(), now.getMonth(), 1) } },
+      }),
+      this.prisma.policy.count({ where: policyWhere }),
+      this.prisma.policy.count({
+        where: { ...policyWhere, createdAt: { gte: new Date(now.getFullYear(), now.getMonth(), 1) } },
       }),
       this.prisma.salesTarget.aggregate({
         where: {
@@ -112,7 +110,7 @@ export class PerformanceService {
         },
         _sum: { targetGwp: true, targetPolicies: true },
       }),
-    ]);
+    ]);;
 
     const todayRevenue = Number(todayRevenueAgg._sum?.premiumAmount || 0);
     const achievedGwp = Number(totalRevenueAgg._sum?.premiumAmount || 0);
