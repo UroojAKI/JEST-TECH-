@@ -11,14 +11,14 @@ import {
 } from '../../repositories/reports.repository';
 
 const categories = [
-  'SALES',
-  'POLICIES',
-  'RENEWALS',
-  'CLAIMS',
-  'FINANCE',
-  'CUSTOMERS',
-  'COMPLIANCE',
-  'AUDIT',
+  { value: 'SALES', label: 'Sales' },
+  { value: 'POLICY', label: 'Policies & Renewals' },
+  { value: 'CLAIMS', label: 'Claims' },
+  { value: 'FINANCE', label: 'Finance' },
+  { value: 'CRM', label: 'Customers & CRM' },
+  { value: 'UNDERWRITING', label: 'Underwriting & Compliance' },
+  { value: 'AUDIT', label: 'Audit' },
+  { value: 'CUSTOM', label: 'Custom' },
 ] as const;
 
 export default function ReportsPage() {
