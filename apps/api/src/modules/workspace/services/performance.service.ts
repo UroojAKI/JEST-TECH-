@@ -84,7 +84,7 @@ export class PerformanceService {
     if (userId && !isManager) policyWhere.createdById = userId;
 
     const now = new Date();
-    const [todayRevenueAgg, totalRevenueAgg, targetAgg] = await Promise.all([
+    const [todayRevenueAgg, totalRevenueAgg, monthlyRevenueAgg, targetAgg] = await Promise.all([
       this.prisma.policy.aggregate({
         _sum: { premiumAmount: true },
         where: {
@@ -95,6 +95,13 @@ export class PerformanceService {
       this.prisma.policy.aggregate({
         _sum: { premiumAmount: true },
         where: policyWhere,
+      }),
+      this.prisma.policy.aggregate({
+        _sum: { premiumAmount: true },
+        where: {
+          ...policyWhere,
+          createdAt: { gte: new Date(now.getFullYear(), now.getMonth(), 1) },
+        },
       }),
       this.prisma.salesTarget.aggregate({
         where: {
@@ -109,10 +116,11 @@ export class PerformanceService {
 
     const todayRevenue = Number(todayRevenueAgg._sum?.premiumAmount || 0);
     const achievedGwp = Number(totalRevenueAgg._sum?.premiumAmount || 0);
+    const monthlyAchievedGwp = Number(monthlyRevenueAgg._sum?.premiumAmount || 0);
     const monthlyTargetGwp = Number(targetAgg._sum?.targetGwp || 0);
     const monthlyTargetPolicies = Number(targetAgg._sum?.targetPolicies || 0);
     const targetAchievementPercent = monthlyTargetGwp > 0
-      ? ((achievedGwp / monthlyTargetGwp) * 100).toFixed(1)
+      ? ((monthlyAchievedGwp / monthlyTargetGwp) * 100).toFixed(1)
       : null;
     const avgPolicyValue =
       policiesSold > 0 ? Math.round(achievedGwp / policiesSold) : 0;
