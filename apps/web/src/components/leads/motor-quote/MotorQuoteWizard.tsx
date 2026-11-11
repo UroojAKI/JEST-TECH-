@@ -19,7 +19,7 @@ import { InspectionDialog } from './InspectionDialog';
 import { AgentSelector } from '../../agents/AgentSelector';
 import { SaodTpVerificationCard } from './SaodTpVerificationCard';
 
-import { INSURER_OPTIONS, CATEGORY_LABEL, POLICY_TYPE_LABEL, VEHICLE_FIELDS } from './motorFormConfig';
+import { CATEGORY_LABEL, POLICY_TYPE_LABEL, VEHICLE_FIELDS } from './motorFormConfig';
 import { useInsurers } from '../../../hooks/useInsurers';
 import type {
   VehicleCategory,
@@ -203,7 +203,7 @@ function computeEligibilityContext(
 export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId, initialCategory, cloneQuoteData, leadContact, onClose, onSaved }: Props) {
   const [step, setStep] = useState(1);
   const [isSaving, setIsSaving] = useState(false);
-  const { insurerOptions } = useInsurers();
+  const { insurerOptions, activeInsurers, isLoading: insurersLoading, isError: insurersError } = useInsurers();
 
   const { data: currentUserPreference } = useQuery({
     queryKey: ['current-user-contact-preference'],
@@ -934,6 +934,18 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
   };
 
   const handleSave = async () => {
+    const selectedInsurer = activeInsurers.find(
+      (insurer) => insurer.name.trim().toLowerCase() === insurerName.trim().toLowerCase(),
+    );
+    if (insurersLoading || insurersError || !selectedInsurer) {
+      toast.error(
+        insurersLoading
+          ? 'Wait for the active insurer list to load.'
+          : 'Select an active insurer from Insurer Master before generating a quotation.',
+      );
+      return;
+    }
+
     if (!vehicleCategory || !policyType) {
       toast.error('Vehicle category and policy type are required');
       return;
@@ -1034,7 +1046,8 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
         vehicleCategory,
         policyType,
         registrationNumber: registrationNumber || '',
-        insurerName: insurerName || 'Partner Insurer',
+        insurerId: selectedInsurer.id,
+        insurerName: selectedInsurer.name,
         leadId: leadId && leadId !== 'new' ? leadId : undefined,
         contactId: resolvedContactId || contactId || undefined,
         customerId: resolvedCustomerId || customerId || undefined,

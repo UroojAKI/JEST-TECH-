@@ -41,8 +41,33 @@ export class CreateMotorQuotationCommand {
       );
     }
 
+    const selectedInsurer = dto.insurerName?.trim();
+    if (!selectedInsurer || selectedInsurer.toLowerCase() === 'partner insurer') {
+      throw new BadRequestException('Select a valid insurer before generating a Motor quotation');
+    }
+    const matchingInsurers = await this.prisma.insurer.findMany({
+      where: {
+        isActive: true,
+        ...(dto.insurerId ? { id: dto.insurerId } : {}),
+        name: { equals: selectedInsurer, mode: 'insensitive' },
+      },
+      select: { id: true, name: true },
+      take: 2,
+    });
+    if (matchingInsurers.length !== 1) {
+      throw new BadRequestException(
+        matchingInsurers.length === 0
+          ? 'The selected insurer is not active in Insurer Master. Refresh the insurer list and select an active insurer.'
+          : 'The selected insurer name is ambiguous in Insurer Master. Contact an administrator to resolve duplicate insurer names.',
+      );
+    }
+    const insurer = matchingInsurers[0];
+
     // ── 0. Vehicle Duplicate Policy & Quotation Prevention ──
-    if (dto.registrationNumber) {
+    // Existing cases may contain alternative insurer quotes for the same vehicle.
+    // A renewal is already anchored to and validated against its predecessor policy below.
+    // Do not let the generic duplicate check block either legitimate workflow.
+    if (dto.registrationNumber && !dto.caseId && !dto.renewalOfPolicyId) {
       const vehicleCheck = await this.vehicleDataService.checkVehicleRunningPolicy(
         dto.registrationNumber,
         companyId,
@@ -135,11 +160,39 @@ export class CreateMotorQuotationCommand {
           `MotorQuotationCase '${activeCaseId}' not found or tenant access denied`,
         );
       }
-      if (['CANCELLED', 'COMPLETED'].includes(existingCase.status)) {
+      if (['CANCELLED', 'COMPLETED', 'ISSUED'].includes(existingCase.status)) {
         throw new BadRequestException(
           `Cannot create quotation for a ${existingCase.status} case '${activeCaseId}'`,
         );
       }
+      if (existingCase.selectedQuoteId) {
+        throw new ConflictException(
+          'This case already has a selected insurer quotation. Deselect or reopen the case through the authorized case workflow before adding another alternative.',
+        );
+      }
+
+      // The persisted case snapshot is authoritative for every insurer alternative.
+      // Ignore client-side edits to customer/vehicle/previous-policy fields so the
+      // user enters those details once and changes only the insurer/rating choice.
+      if (dto.contactId && dto.contactId !== existingCase.contactId) {
+        throw new BadRequestException('Alternative quotations must retain the case customer');
+      }
+      const normalizeRegistration = (value?: string | null) =>
+        String(value || '').replace(/[^a-z0-9]/gi, '').toUpperCase();
+      if (
+        dto.registrationNumber &&
+        existingCase.registrationNumber &&
+        normalizeRegistration(dto.registrationNumber) !== normalizeRegistration(existingCase.registrationNumber)
+      ) {
+        throw new BadRequestException('Alternative quotations must retain the case vehicle registration');
+      }
+      dto.contactId = existingCase.contactId;
+      dto.vehicleId = existingCase.vehicleId || dto.vehicleId;
+      dto.registrationNumber = existingCase.registrationNumber || dto.registrationNumber;
+      dto.proposerDetails = (existingCase.customerSnapshot as any) || dto.proposerDetails;
+      dto.vehicleDetails = (existingCase.vehicleSnapshot as any) || dto.vehicleDetails;
+      dto.previousPolicyDetails =
+        (existingCase.previousPolicySnapshot as any) || dto.previousPolicyDetails;
     }
 
     // ── 2. Contact Resolution (Tenant-Scoped) ──
@@ -865,7 +918,8 @@ export class CreateMotorQuotationCommand {
             quotationCode,
             title: `Motor ${dto.vehicleCategory} — ${dto.policyType} | ${dto.registrationNumber || 'New Vehicle'}`,
             productType: 'MOTOR',
-            insurerName: dto.insurerName,
+            insurerId: insurer.id,
+            insurerName: insurer.name,
             sumInsured: dto.idv || 0,
             basePremium: calcResult.outputs.basePremium,
             gstAmount: calcResult.outputs.totalGst,

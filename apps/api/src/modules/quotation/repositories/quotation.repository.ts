@@ -147,27 +147,19 @@ export class QuotationRepository extends BaseRepository<
       ...(companyId ? { companyId } : {}),
       deletedAt: null,
     };
-    try {
-      const data = await this.prisma.quotation.findMany({
+    const [data, total] = await Promise.all([
+      this.prisma.quotation.findMany({
         skip,
         take,
         where: finalWhere,
         orderBy,
         include: quotationSummaryRelations.include,
-      });
-      const total = await this.prisma.quotation.count({ where: finalWhere });
-      return [data as unknown as QuotationWithRelations[], total];
-    } catch (err: any) {
-      const fallbackData = await this.prisma.quotation.findMany({
-        skip,
-        take,
-        where: finalWhere,
-        orderBy,
-        include: quotationSummaryRelations.include,
-      });
-      const total = await this.prisma.quotation.count({ where: finalWhere }).catch(() => fallbackData.length);
-      return [fallbackData as unknown as QuotationWithRelations[], total];
-    }
+      }),
+      this.prisma.quotation.count({ where: finalWhere }),
+    ]);
+    // Never substitute the current page length for a failed COUNT query. That
+    // silently reports (for example) 20 total records when 20 is only page size.
+    return [data as unknown as QuotationWithRelations[], total];
   }
 
   async findByQuotationCode(

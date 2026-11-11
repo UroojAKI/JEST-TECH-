@@ -18,6 +18,7 @@ export interface QuotationInput {
   selectedAddons?: SelectedAddons;
   rtoZone?: 'ZONE_A' | 'ZONE_B';
   includePaCover?: boolean;
+  selectedInsurerIds?: string[];
 }
 
 export interface ComparativeInsurerQuote {
@@ -53,284 +54,141 @@ export class ComparisonService {
 
   async generateComparativeQuotesAsync(input: QuotationInput): Promise<{
     idvDetails: any;
-    comparativeQuotes: ComparativeInsurerQuote[];
+    comparativeQuotes: Array<ComparativeInsurerQuote & {
+      quoteSource: 'ADMIN_CONFIGURED_RATING_RULE';
+      ratingProductCode: string;
+    }>;
+    unavailableInsurers: Array<{ insurerId: string; insurerName: string; reason: string }>;
   }> {
-    const coverType: ProductType =
-      input.coverType || ProductType.PACKAGE_COMPREHENSIVE;
+    const coverType: ProductType = input.coverType || ProductType.PACKAGE_COMPREHENSIVE;
     const exShowroom = input.exShowroomPrice || 1000000;
     const regYear = input.registrationYear || new Date().getFullYear() - 1;
     const engineCc = input.engineCc || 1197;
 
-    const idvDetails = this.idvService.calculateIdv(
-      exShowroom,
-      regYear,
-      input.manualOverrideIdv,
-    );
+    const idvDetails = this.idvService.calculateIdv(exShowroom, regYear, input.manualOverrideIdv);
     const idv = idvDetails.finalIdv;
-
     const basePrem = this.premiumService.calculateMotorPremium(
-      coverType,
-      idv,
-      engineCc,
-      input.rtoZone || 'ZONE_A',
-      input.includePaCover !== false,
+      coverType, idv, engineCc, input.rtoZone || 'ZONE_A', input.includePaCover !== false,
     );
-
     const ncb = this.ncbService.calculateNcbDiscount(
-      basePrem.odPremium,
-      input.ncbPercentage || 20,
-      input.hadClaimInPreviousYear || false,
+      basePrem.odPremium, input.ncbPercentage ?? 0, input.hadClaimInPreviousYear || false,
     );
+    const addons = this.addonsService.calculateAddons(idv, input.selectedAddons || {});
 
-    const addons = this.addonsService.calculateAddons(
-      idv,
-      input.selectedAddons || {
-        zeroDepreciation: true,
-        roadsideAssistance: true,
-      },
-    );
-
-    // Fetch active insurers configured by Admin in Insurer Master
-    const dbInsurers = await this.prisma.insurer.findMany({
-      where: { isActive: true },
+    // Admin Insurer Master is the only source of partner identities. Never inject demo carriers.
+    const insurers = await this.prisma.insurer.findMany({
+      where: { isActive: true, ...(input.selectedInsurerIds?.length ? { id: { in: input.selectedInsurerIds } } : {}) },
       orderBy: { name: 'asc' },
+      select: { id: true, name: true, code: true, logoUrl: true },
     });
-
-    let insurersList: {
-      id: string;
-      name: string;
-      logo: string;
-      odFactor: number;
-      isRec: boolean;
-    }[] = [];
-
-    if (dbInsurers && dbInsurers.length > 0) {
-      insurersList = dbInsurers.map((ins, idx) => ({
-        id: ins.id,
-        name: ins.name,
-        logo: ins.logoUrl || ins.name.substring(0, 4).toUpperCase(),
-        odFactor: 1.0 - (idx % 3) * 0.04,
-        isRec: idx === 0,
-      }));
-    } else {
-      // Dynamic fallback when Insurer Master is empty prior to admin configuration
-      insurersList = [
-        {
-          id: 'hdfc-ergo',
-          name: 'HDFC ERGO General Insurance',
-          logo: 'HDFC',
-          odFactor: 1.0,
-          isRec: true,
-        },
-        {
-          id: 'icici-lombard',
-          name: 'ICICI Lombard General Insurance',
-          logo: 'ICICI',
-          odFactor: 0.95,
-          isRec: false,
-        },
-        {
-          id: 'bajaj-allianz',
-          name: 'Bajaj Allianz General Insurance',
-          logo: 'BAJAJ',
-          odFactor: 0.92,
-          isRec: false,
-        },
-        {
-          id: 'tata-aig',
-          name: 'Tata AIG General Insurance',
-          logo: 'TATA',
-          odFactor: 0.97,
-          isRec: false,
-        },
-      ];
+    if (insurers.length === 0) {
+      return { idvDetails, comparativeQuotes: [], unavailableInsurers: [] };
     }
 
-    const comparativeQuotes: ComparativeInsurerQuote[] = insurersList.map(
-      (ins) => {
-        const odPremium = Math.round(basePrem.odPremium * ins.odFactor);
-        const ncbDiscount = Math.round(
-          odPremium * (ncb.applicableNcbPercent / 100),
-        );
-        const tpPremium = basePrem.tpPremium;
-        const paCoverPremium = basePrem.paCoverPremium;
-        const addonsPremium = addons.totalAddonsPremium;
-
-        const taxableNetPremium =
-          odPremium - ncbDiscount + tpPremium + paCoverPremium + addonsPremium;
-        const tax = this.gstService.calculateTax(taxableNetPremium);
-
-        return {
-          insurerId: ins.id,
-          insurerName: ins.name,
-          logo: ins.logo,
-          coverType,
-          idv,
-          odPremium,
-          ncbDiscount,
-          tpPremium,
-          paCoverPremium,
-          addonsPremium,
-          addonsList: addons.breakup,
-          taxableNetPremium,
-          cgst: tax.cgst,
-          sgst: tax.sgst,
-          gstTotal: tax.totalGst,
-          totalPremium: tax.finalTotalPremium,
-          isRecommended: ins.isRec,
-        };
+    // An insurer receives a priced comparison only when Admin has configured an active
+    // product + BASE_RATE rule for the requested product type. No index-based multipliers
+    // or generic premium fallback are permitted to masquerade as insurer pricing.
+    const rules = await this.prisma.ratingRule.findMany({
+      where: {
+        isActive: true,
+        insurerId: { in: insurers.map((insurer) => insurer.id) },
+        product: { is: { isActive: true, type: coverType } },
       },
-    );
+      include: { product: { select: { id: true, code: true, name: true } } },
+      orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
+    });
 
-    return {
-      idvDetails,
-      comparativeQuotes,
-    };
+    const comparativeQuotes: Array<ComparativeInsurerQuote & {
+      quoteSource: 'ADMIN_CONFIGURED_RATING_RULE';
+      ratingProductCode: string;
+    }> = [];
+    const unavailableInsurers: Array<{ insurerId: string; insurerName: string; reason: string }> = [];
+
+    for (const insurer of insurers) {
+      const insurerRules = rules.filter((rule) => rule.insurerId === insurer.id);
+      const baseRateRule = insurerRules.find((rule) => rule.ruleType === 'BASE_RATE');
+      const rawRate = baseRateRule ? Number((baseRateRule.formulaOrRate as any)?.rate) : NaN;
+      if (!baseRateRule || !Number.isFinite(rawRate) || rawRate <= 0) {
+        unavailableInsurers.push({
+          insurerId: insurer.id,
+          insurerName: insurer.name,
+          reason: 'No active product-specific BASE_RATE is configured in Admin rating rules.',
+        });
+        continue;
+      }
+
+      const age = Math.max(0, new Date().getFullYear() - regYear);
+      const ageRule = insurerRules.find((rule) => rule.ruleType === 'AGE_LOADING');
+      const ageLoading = age > 5 ? Number((ageRule?.formulaOrRate as any)?.loadingPct || 0) : 0;
+      const discountRule = insurerRules.find((rule) => rule.ruleType === 'OD_DISCOUNT');
+      const odDiscount = Number((discountRule?.formulaOrRate as any)?.discountPct || 0);
+      if (![ageLoading, odDiscount].every(Number.isFinite) || ageLoading < 0 || odDiscount < 0 || odDiscount >= 1) {
+        unavailableInsurers.push({
+          insurerId: insurer.id,
+          insurerName: insurer.name,
+          reason: 'Configured rating rule contains an invalid loading or discount value.',
+        });
+        continue;
+      }
+
+      const grossOd = idv * rawRate * (1 + ageLoading);
+      const discountAmount = grossOd * odDiscount;
+      const ncbDiscount = (grossOd - discountAmount) * (ncb.applicableNcbPercent / 100);
+      const odPremium = Math.max(0, Math.round(grossOd - discountAmount - ncbDiscount));
+      const tpPremium = coverType === ProductType.STANDALONE_OWN_DAMAGE ? 0 : basePrem.tpPremium;
+      const paCoverPremium = input.includePaCover === false ? 0 : basePrem.paCoverPremium;
+      const addonsPremium = addons.totalAddonsPremium;
+      const taxableNetPremium = odPremium + tpPremium + paCoverPremium + addonsPremium;
+      const tax = this.gstService.calculateTax(taxableNetPremium);
+
+      comparativeQuotes.push({
+        insurerId: insurer.id,
+        insurerName: insurer.name,
+        logo: insurer.logoUrl || insurer.code,
+        coverType,
+        idv,
+        odPremium,
+        ncbDiscount: Math.round(ncbDiscount),
+        tpPremium,
+        paCoverPremium,
+        addonsPremium,
+        addonsList: addons.breakup,
+        taxableNetPremium,
+        cgst: tax.cgst,
+        sgst: tax.sgst,
+        gstTotal: tax.totalGst,
+        totalPremium: tax.finalTotalPremium,
+        quoteSource: 'ADMIN_CONFIGURED_RATING_RULE',
+        ratingProductCode: baseRateRule.product.code,
+      });
+    }
+
+    return { idvDetails, comparativeQuotes, unavailableInsurers };
   }
 
-  generateComparativeQuotes(input: QuotationInput): {
-    idvDetails: any;
-    comparativeQuotes: ComparativeInsurerQuote[];
-  } {
-    const coverType: ProductType =
-      input.coverType || ProductType.PACKAGE_COMPREHENSIVE;
-    const exShowroom = input.exShowroomPrice || 1000000;
-    const regYear = input.registrationYear || new Date().getFullYear() - 1;
-    const engineCc = input.engineCc || 1197;
-
-    const idvDetails = this.idvService.calculateIdv(
-      exShowroom,
-      regYear,
-      input.manualOverrideIdv,
-    );
-    const idv = idvDetails.finalIdv;
-
-    const basePrem = this.premiumService.calculateMotorPremium(
-      coverType,
-      idv,
-      engineCc,
-      input.rtoZone || 'ZONE_A',
-      input.includePaCover !== false,
-    );
-
-    const ncb = this.ncbService.calculateNcbDiscount(
-      basePrem.odPremium,
-      input.ncbPercentage || 20,
-      input.hadClaimInPreviousYear || false,
-    );
-
-    const addons = this.addonsService.calculateAddons(
-      idv,
-      input.selectedAddons || {
-        zeroDepreciation: true,
-        roadsideAssistance: true,
-      },
-    );
-
-    const insurersList = [
-      {
-        id: 'hdfc-ergo',
-        name: 'HDFC ERGO General Insurance',
-        logo: 'HDFC',
-        odFactor: 1.0,
-        isRec: true,
-      },
-      {
-        id: 'icici-lombard',
-        name: 'ICICI Lombard General Insurance',
-        logo: 'ICICI',
-        odFactor: 0.95,
-        isRec: false,
-      },
-      {
-        id: 'bajaj-allianz',
-        name: 'Bajaj Allianz General Insurance',
-        logo: 'BAJAJ',
-        odFactor: 0.92,
-        isRec: false,
-      },
-      {
-        id: 'tata-aig',
-        name: 'Tata AIG General Insurance',
-        logo: 'TATA',
-        odFactor: 0.97,
-        isRec: false,
-      },
-    ];
-
-    const comparativeQuotes: ComparativeInsurerQuote[] = insurersList.map(
-      (ins) => {
-        const odPremium = Math.round(basePrem.odPremium * ins.odFactor);
-        const ncbDiscount = Math.round(
-          odPremium * (ncb.applicableNcbPercent / 100),
-        );
-        const tpPremium = basePrem.tpPremium;
-        const paCoverPremium = basePrem.paCoverPremium;
-        const addonsPremium = addons.totalAddonsPremium;
-
-        const taxableNetPremium =
-          odPremium - ncbDiscount + tpPremium + paCoverPremium + addonsPremium;
-        const tax = this.gstService.calculateTax(taxableNetPremium);
-
-        return {
-          insurerId: ins.id,
-          insurerName: ins.name,
-          logo: ins.logo,
-          coverType,
-          idv,
-          odPremium,
-          ncbDiscount,
-          tpPremium,
-          paCoverPremium,
-          addonsPremium,
-          addonsList: addons.breakup,
-          taxableNetPremium,
-          cgst: tax.cgst,
-          sgst: tax.sgst,
-          gstTotal: tax.totalGst,
-          totalPremium: tax.finalTotalPremium,
-          isRecommended: ins.isRec,
-        };
-      },
-    );
-
-    return {
-      idvDetails,
-      comparativeQuotes,
-    };
-  }
-
-  getComparisonMatrix(input: QuotationInput) {
-    const res = this.generateComparativeQuotes(input);
+  async getComparisonMatrix(input: QuotationInput) {
+    const result = await this.generateComparativeQuotesAsync(input);
     const features = [
       { key: 'premium', label: 'Premium Payable' },
       { key: 'idv', label: 'Insured Declared Value (IDV)' },
-      { key: 'ncbDiscount', label: 'NCB Discount (35%)' },
+      { key: 'ncbDiscount', label: 'NCB Discount' },
       { key: 'zeroDep', label: 'Zero Depreciation Cover' },
       { key: 'engineProtect', label: 'Engine Protector' },
       { key: 'rsa', label: 'Roadside Assistance (RSA)' },
-      { key: 'consumables', label: 'Consumables Cover' },
-      { key: 'claimSettlement', label: 'Claim Settlement Ratio' },
     ];
-
-    const matrix = res.comparativeQuotes.map((q) => ({
-      insurerId: q.insurerId,
-      insurerName: q.insurerName,
-      logo: q.logo,
-      premium: `₹${q.totalPremium}`,
-      idv: `₹${q.idv}`,
-      ncbDiscount: `₹${q.ncbDiscount}`,
-      zeroDep: true,
-      engineProtect: true,
-      rsa: true,
-      consumables: true,
-      claimSettlement: '98.5%',
-      finalPremium: `₹${q.totalPremium}`,
-    }));
-
     return {
       features,
-      quotes: matrix,
+      quotes: result.comparativeQuotes.map((quote) => ({
+        insurerId: quote.insurerId,
+        insurerName: quote.insurerName,
+        logo: quote.logo,
+        premium: `₹${quote.totalPremium}`,
+        idv: `₹${quote.idv}`,
+        ncbDiscount: `₹${quote.ncbDiscount}`,
+        finalPremium: `₹${quote.totalPremium}`,
+        quoteSource: quote.quoteSource,
+      })),
+      unavailableInsurers: result.unavailableInsurers,
     };
   }
 
@@ -342,176 +200,66 @@ export class ComparisonService {
   }
 
   /**
-   * Enterprise Multi-Insurer Gateway Orchestrator (SDP Vol 5)
-   * Integrates arbitrary-precision financial invariance with external insurer SLA fallback logic.
+   * Enterprise comparison is an adapter over the same Admin-managed insurer
+   * master and rating-rule engine. It must never synthesize carriers or rates.
    */
   async generateEnterpriseInsurerComparisons(payload: {
-    vehicleCategory?: string;
+    coverType?: ProductType;
     exShowroomPrice?: Prisma.Decimal | string | number;
     registrationYear?: number;
+    engineCc?: number;
     rtoCode?: string;
+    rtoZone?: 'ZONE_A' | 'ZONE_B';
     ncbPercentage?: number;
+    hadClaimInPreviousYear?: boolean;
     selectedAddons?: SelectedAddons;
+    includePaCover?: boolean;
+    selectedCarrierIds?: string[];
   }) {
-    const exShowroom = new Prisma.Decimal(
-      payload.exShowroomPrice || '1000000.00',
-    );
-    const ncbPercent = payload.ncbPercentage ?? 20;
-
-    // 1. Calculate Statutory IDV via Arbitrary-Precision Math
-    const age =
-      new Date().getFullYear() -
-      (payload.registrationYear || new Date().getFullYear() - 1);
-    let depreciationRate = new Prisma.Decimal('0.15');
-    if (age <= 0) depreciationRate = new Prisma.Decimal('0.05');
-    else if (age === 1) depreciationRate = new Prisma.Decimal('0.10');
-    else if (age === 2) depreciationRate = new Prisma.Decimal('0.15');
-    else if (age === 3) depreciationRate = new Prisma.Decimal('0.25');
-    else if (age >= 4) depreciationRate = new Prisma.Decimal('0.35');
-
-    const calculatedIdv = exShowroom
-      .sub(exShowroom.mul(depreciationRate))
-      .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_EVEN);
-
-    // 2. Query Partner Insurers from Database with Graceful Fallback
-    const activeInsurers = await this.prisma.insurer.findMany({
-      where: { isActive: true },
-      orderBy: { name: 'asc' },
-    });
-
-    const carriers: any[] =
-      activeInsurers && activeInsurers.length > 0
-        ? activeInsurers.map((ins) => ({
-            ...ins,
-            providerStatus: 'INTERNAL_TARIFF',
-          }))
-        : [
-            {
-              id: 'hdfc-ergo',
-              name: 'HDFC ERGO General Insurance Co. Ltd.',
-              logoUrl: 'HDFC',
-              odRateMultiplier: 1.0,
-              providerStatus: 'INTERNAL_TARIFF',
-            },
-            {
-              id: 'icici-lombard',
-              name: 'ICICI Lombard General Insurance Co. Ltd.',
-              logoUrl: 'ICICI',
-              odRateMultiplier: 0.94,
-              providerStatus: 'INTERNAL_TARIFF',
-            },
-            {
-              id: 'bajaj-allianz',
-              name: 'Bajaj Allianz General Insurance Co. Ltd.',
-              logoUrl: 'BAJAJ',
-              odRateMultiplier: 0.91,
-              providerStatus: 'INTERNAL_TARIFF',
-            },
-            {
-              id: 'tata-aig',
-              name: 'Tata AIG General Insurance Co. Ltd.',
-              logoUrl: 'TATA',
-              odRateMultiplier: 0.97,
-              providerStatus: 'INTERNAL_TARIFF',
-            },
-          ];
-
-    // 3. Orchestrate multi-carrier quotes with arbitrary precision & segregated tax ledgers
-    const enterpriseQuotes = carriers.map((carrier, idx) => {
-      const multiplier = new Prisma.Decimal(
-        String(carrier.odRateMultiplier || 1.0 - idx * 0.03),
-      );
-      const providerStatus = carrier.providerStatus || 'INTERNAL_TARIFF';
-
-      // Base rates
-      const baseOdRate = new Prisma.Decimal('0.031415'); // Motor tariff 3.1415%
-      const grossOd = calculatedIdv
-        .mul(baseOdRate)
-        .mul(multiplier)
-        .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_EVEN);
-
-      // Statutory NCB Discount
-      const ncbDiscount = grossOd
-        .mul(new Prisma.Decimal(ncbPercent).div(100))
-        .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_EVEN);
-      const netOdPremium = grossOd.sub(ncbDiscount);
-
-      // Third Party Statutory Slab (Private Car <= 1000cc example default ₹2,094; >= 1500cc ₹7,897)
-      const netTpPremium = new Prisma.Decimal('2094.00');
-
-      // Add-on Riders
-      let addonsPremium = new Prisma.Decimal('0.00');
-      if (payload.selectedAddons?.zeroDepreciation) {
-        addonsPremium = addonsPremium.add(
-          calculatedIdv
-            .mul('0.0075')
-            .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_EVEN),
-        );
-      }
-
-      const taxableNetPremium = netOdPremium
-        .add(netTpPremium)
-        .add(addonsPremium);
-
-      // Segregated GST calculation (18% statutory: 9% CGST + 9% SGST)
-      const odTaxable = netOdPremium.add(addonsPremium);
-      const odCgst = odTaxable
-        .mul('0.09')
-        .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_EVEN);
-      const odSgst = odTaxable
-        .mul('0.09')
-        .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_EVEN);
-      const odTotalGst = odCgst.add(odSgst);
-
-      const tpCgst = netTpPremium
-        .mul('0.09')
-        .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_EVEN);
-      const tpSgst = netTpPremium
-        .mul('0.09')
-        .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_EVEN);
-      const tpTotalGst = tpCgst.add(tpSgst);
-
-      const totalGst = odTotalGst.add(tpTotalGst);
-      const finalCustomerPayable = taxableNetPremium.add(totalGst);
-
-      return {
-        insurerId: carrier.id,
-        insurerName: carrier.name,
-        logo: carrier.logoUrl || 'INSURER',
-        gatewayStatus: providerStatus,
-        insuredDeclaredValue: calculatedIdv.toFixed(2),
-        grossOwnDamagePremium: grossOd.toFixed(2),
-        noClaimBonusDiscount: ncbDiscount.toFixed(2),
-        netOwnDamagePremium: netOdPremium.toFixed(2),
-        netThirdPartyPremium: netTpPremium.toFixed(2),
-        addonsPremium: addonsPremium.toFixed(2),
-        taxableNetPremium: taxableNetPremium.toFixed(2),
-        segregatedGstLedger: {
-          ownDamageGst: odTotalGst.toFixed(2),
-          thirdPartyGst: tpTotalGst.toFixed(2),
-          totalGstPayable: totalGst.toFixed(2),
-        },
-        finalCustomerPayablePremium: finalCustomerPayable.toFixed(2),
-        isRecommended: idx === 0,
-      };
+    const result = await this.generateComparativeQuotesAsync({
+      coverType: payload.coverType,
+      exShowroomPrice: payload.exShowroomPrice === undefined ? undefined : Number(payload.exShowroomPrice),
+      registrationYear: payload.registrationYear,
+      engineCc: payload.engineCc,
+      rtoZone: payload.rtoZone || (payload.rtoCode ? 'ZONE_A' : undefined),
+      ncbPercentage: payload.ncbPercentage,
+      hadClaimInPreviousYear: payload.hadClaimInPreviousYear,
+      selectedAddons: payload.selectedAddons,
+      includePaCover: payload.includePaCover,
+      selectedInsurerIds: payload.selectedCarrierIds,
     });
 
     return {
       statutoryIdvEvaluation: {
-        exShowroomPrice: exShowroom.toFixed(2),
-        appliedDepreciationPercentage: depreciationRate.mul(100).toFixed(2),
-        finalStatutoryIdv: calculatedIdv.toFixed(2),
+        exShowroomPrice: String(payload.exShowroomPrice ?? ''),
+        finalStatutoryIdv: String(result.idvDetails.finalIdv),
       },
       gatewayResponseSummary: {
-        totalCarriersEvaluated: carriers.length,
-        internalTariffEngineQuotes: enterpriseQuotes.filter(
-          (q) => q.gatewayStatus === 'INTERNAL_TARIFF',
-        ).length,
-        notConfiguredCarriers: enterpriseQuotes.filter(
-          (q) => q.gatewayStatus === 'NOT_CONFIGURED',
-        ).length,
+        totalCarriersEvaluated: result.comparativeQuotes.length + result.unavailableInsurers.length,
+        configuredCarrierQuotes: result.comparativeQuotes.length,
+        notConfiguredCarriers: result.unavailableInsurers.length,
       },
-      comparativeMatrix: enterpriseQuotes,
+      comparativeMatrix: result.comparativeQuotes.map((quote) => ({
+        insurerId: quote.insurerId,
+        insurerName: quote.insurerName,
+        logo: quote.logo,
+        gatewayStatus: 'ADMIN_CONFIGURED_RATING_RULE',
+        pricingSource: quote.quoteSource,
+        ratingProductCode: quote.ratingProductCode,
+        insuredDeclaredValue: String(quote.idv),
+        grossOwnDamagePremium: String(quote.odPremium + quote.ncbDiscount),
+        noClaimBonusDiscount: String(quote.ncbDiscount),
+        netOwnDamagePremium: String(quote.odPremium),
+        netThirdPartyPremium: String(quote.tpPremium),
+        addonsPremium: String(quote.addonsPremium),
+        taxableNetPremium: String(quote.taxableNetPremium),
+        segregatedGstLedger: {
+          totalGstPayable: String(quote.gstTotal),
+        },
+        finalCustomerPayablePremium: String(quote.totalPremium),
+      })),
+      unavailableInsurers: result.unavailableInsurers,
     };
   }
+
 }
