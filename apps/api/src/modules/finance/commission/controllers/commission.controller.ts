@@ -30,7 +30,7 @@ export class CommissionController {
   @Roles(RoleType.ADMIN)
   @ApiOperation({ summary: 'Create a tenant-owned commission plan' })
   async createPlan(
-    @Body() dto: { name: string; description?: string; rules: { agentPercent: number; overrides?: Array<{ roleTier: string; percent: number; userId: string }> } },
+    @Body() dto: { name: string; description?: string; rules: { agentPercent: number; overrides?: Array<{ roleTier: string; percent: number; userId: string }>; accounting: { expenseAccountId: string; payableAccountId: string } } },
     @CurrentUser() actor: RequestUser,
   ) {
     const companyId = actor.companyId || (actor as any).organizationId;
