@@ -272,7 +272,7 @@ export function MotorQuotationsWorkspace() {
             item.issuanceStatus === 'ISSUED' ? 'ISSUED' :
             item.status || item.motorMetadata?.workflowStatus || 'DRAFT',
           workflowState: item.workflowState,
-          createdAt: item.createdAt || new Date().toISOString(),
+          createdAt: item.createdAt || new Date().toISOString(),\n          updatedAt: item.updatedAt || item.createdAt || new Date().toISOString(),
           policyStartDate: item.motorMetadata?.policyDetails?.policyStartDate,
           policyEndDate: item.motorMetadata?.policyDetails?.policyEndDate,
           proposerDetails: item.motorMetadata?.proposerDetails,
