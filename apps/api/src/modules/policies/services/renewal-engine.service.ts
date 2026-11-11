@@ -58,7 +58,9 @@ export class RenewalEngineService {
     if (vehicleAgeYears === 3) return 30;
     if (vehicleAgeYears === 4) return 40;
     if (vehicleAgeYears === 5) return 50;
-    return Math.min(80, 50 + (vehicleAgeYears - 5) * 10);
+    throw new BadRequestException(
+      'Vehicles older than five years require a mutually agreed IDV; statutory depreciation cannot determine the renewal IDV automatically.',
+    );
   }
 
   /**
@@ -68,9 +70,23 @@ export class RenewalEngineService {
     revisedIdv: number;
     depreciationPercentage: number;
   } {
-    const depreciationPercentage = this.calculateStatutoryDepreciation(vehicleAgeYears);
-    const annualStep = vehicleAgeYears === 1 ? 0.15 : 0.10;
-    const revisedIdv = Math.max(10000, Math.round(prevSumInsured * (1 - annualStep)));
+    if (!Number.isFinite(prevSumInsured) || prevSumInsured <= 0) {
+      throw new BadRequestException('A positive previous IDV is required');
+    }
+    const age = Math.max(1, Math.floor(vehicleAgeYears));
+    const depreciationPercentage = this.calculateStatutoryDepreciation(age);
+    const previousAgeDepreciation = this.calculateStatutoryDepreciation(age - 1);
+    const previousIdvFactor = 1 - previousAgeDepreciation / 100;
+    const currentIdvFactor = 1 - depreciationPercentage / 100;
+    if (previousIdvFactor <= 0 || currentIdvFactor <= 0) {
+      throw new BadRequestException('Unable to derive a valid statutory renewal IDV factor');
+    }
+    // The previous year's IDV already reflects its age-band depreciation.
+    // Apply only the ratio between consecutive statutory factors to avoid
+    // applying the full cumulative depreciation again every renewal.
+    const revisedIdv = Math.round(
+      prevSumInsured * (currentIdvFactor / previousIdvFactor),
+    );
     return { revisedIdv, depreciationPercentage };
   }
 
