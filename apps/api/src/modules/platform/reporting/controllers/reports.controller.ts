@@ -159,18 +159,19 @@ export class ReportsController {
   @RequirePermissions('report:read')
   async getProviders() {
     return [
-      {
-        code: 'LEAD_ACQUISITION',
-        name: 'Lead Acquisition & Conversion Data Provider',
-      },
-      {
-        code: 'POLICY_RENEWALS',
-        name: 'Policy Renewals & Retention Data Provider',
-      },
-      {
-        code: 'FINANCE_COMMISSIONS',
-        name: 'Finance & Agent Commission Ledger Data Provider',
-      },
+      { code: 'LEAD_SUMMARY', name: 'Lead Summary' },
+      { code: 'LEAD_CONVERSION', name: 'Lead Conversion' },
+      { code: 'CLAIMS_REGISTER', name: 'Claims Register' },
+      { code: 'CLAIMS_PENDING', name: 'Pending Claims' },
+      { code: 'LOSS_RATIO', name: 'Claims Loss Ratio' },
+      { code: 'ACTIVE_POLICIES', name: 'Active Policies' },
+      { code: 'EXPIRING_POLICIES', name: 'Expiring Policies' },
+      { code: 'POLICY_REGISTER', name: 'Policy Register' },
+      { code: 'REVENUE_REPORT', name: 'Revenue Report' },
+      { code: 'PREMIUM_COLLECTION', name: 'Premium Collection' },
+      { code: 'RENEWAL_REVENUE', name: 'Renewal Revenue' },
+      { code: 'USER_ACTIVITY', name: 'User Activity' },
+      { code: 'AUDIT_TRAIL', name: 'Audit Trail' },
     ];
   }
 
@@ -362,7 +363,7 @@ export class ReportsController {
 
         const generator = provider.stream({
           companyId,
-          parameters: { ...(dto.parameters || {}) },
+          parameters: { ...(dto.parameters || {}), reportCode: report.code },
           filters: filtersList,
           search: dto.search,
         });
