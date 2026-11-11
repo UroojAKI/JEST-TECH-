@@ -386,7 +386,7 @@ export function PolicyCompletionDialog({ isOpen, quote, onClose, onSuccess }: Pr
               ) : (
                 <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200 text-xs space-y-1.5">
                   <div className="font-bold flex items-center gap-1.5">
-                    <span>No Agent POS mapping available</span>
+                    <span>No active Agent POS records available</span>
                   </div>
                   <p className="text-[11px] leading-relaxed">
                     No active Agent POS records are available. You can continue policy issuance without POS attribution, or register a partner in Admin.
