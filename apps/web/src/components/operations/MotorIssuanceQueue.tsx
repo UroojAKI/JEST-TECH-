@@ -79,6 +79,10 @@ export function MotorIssuanceQueue() {
   }>({ totalPending: 0, readyCount: 0, blockedCount: 0, issuedCount: 0 });
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [productFilter, setProductFilter] = useState<'ALL' | 'MOTOR' | 'HEALTH'>('ALL');
   const [viewMode, setViewMode] = useState<'TABLE' | 'CARDS'>('TABLE');
@@ -104,9 +108,13 @@ export function MotorIssuanceQueue() {
       const res = await policiesRepository.getBackOfficeQueue({
         search: search.trim() || undefined,
         status: activeStatus === 'ALL' ? undefined : activeStatus,
+        page,
+        limit: pageSize,
       });
-      const items = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+      const items = Array.isArray(res?.data) ? res.data : [];
       setQueue(items);
+      setTotalRecords(Number(res?.meta?.total || 0));
+      setTotalPages(Number(res?.meta?.totalPages || 0));
       if (res?.summary) setSummary(res.summary);
     } catch (error: any) {
       console.error('Failed to load queue:', error);
@@ -122,25 +130,14 @@ export function MotorIssuanceQueue() {
   };
 
   useEffect(() => {
-    void loadQueue();
-  }, [statusFilter]);
+    const handle = window.setTimeout(() => { void loadQueue(); }, 250);
+    return () => window.clearTimeout(handle);
+    // Search, status and page changes are intentionally debounced before fetching.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, search, page, pageSize]);
 
-  // Client-side search & partitioning
-  const filteredQueue = useMemo(() => {
-    if (!search.trim()) return queue;
-    const term = search.toLowerCase().trim();
-    return queue.filter((item) => {
-      return (
-        item.quotationCode.toLowerCase().includes(term) ||
-        item.customerName.toLowerCase().includes(term) ||
-        (item.customerPhone || '').toLowerCase().includes(term) ||
-        (item.customerEmail || '').toLowerCase().includes(term) ||
-        item.salesAgentName.toLowerCase().includes(term) ||
-        item.insurerName.toLowerCase().includes(term) ||
-        (item.gates.vehicle.detail || '').toLowerCase().includes(term)
-      );
-    });
-  }, [queue, search]);
+  // Search and pagination are server-side; this array is the current server page.
+  const filteredQueue = queue;
 
   const motorQueue = useMemo(
     () => filteredQueue.filter((item) => item.productType !== 'HEALTH'),
@@ -801,11 +798,24 @@ export function MotorIssuanceQueue() {
               type="text"
               placeholder="Search code, customer, plate..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && void loadQueue()}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card px-4 py-2 text-xs text-muted-foreground">
+        <div>Showing {totalRecords === 0 ? 0 : (page - 1) * pageSize + 1}–{Math.min(page * pageSize, totalRecords)} of {totalRecords} submitted quotations</div>
+        <div className="flex items-center gap-2">
+          <label className="flex items-center gap-1">Rows
+            <select value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1); }} className="rounded border bg-background px-2 py-1 text-foreground">
+              {[10, 20, 50, 100].map((size) => <option key={size} value={size}>{size}</option>)}
+            </select>
+          </label>
+          <button type="button" onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={page <= 1 || loading} className="rounded border px-2 py-1 disabled:opacity-40">Previous</button>
+          <span>Page {Math.max(1, page)} of {Math.max(1, totalPages)}</span>
+          <button type="button" onClick={() => setPage((value) => Math.min(Math.max(1, totalPages), value + 1))} disabled={page >= totalPages || loading} className="rounded border px-2 py-1 disabled:opacity-40">Next</button>
         </div>
       </div>
 
