@@ -16,7 +16,19 @@ export function CommandPalette() {
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const { results, isLoading, isError, debouncedQuery } = useSearch(query);
-  const flatResults = useMemo(() => results, [results]);
+  const flatResults = results;
+
+  const handleSelect = (item: any) => {
+    if (item.type === 'CUSTOMER') {
+      setActiveCustomer(item.id, item.title, 'CORPORATE');
+    }
+    setCommandPaletteOpen(false);
+    setQuery('');
+    if (item.link) {
+      router.push(item.link);
+    }
+  };
+
 
   useEffect(() => {
     if (isCommandPaletteOpen) {
@@ -55,17 +67,6 @@ export function CommandPalette() {
   }, [isCommandPaletteOpen, setCommandPaletteOpen]);
 
   if (!isCommandPaletteOpen) return null;
-
-  const handleSelect = (item: any) => {
-    if (item.type === 'CUSTOMER') {
-      setActiveCustomer(item.id, item.title, 'CORPORATE');
-    }
-    setCommandPaletteOpen(false);
-    setQuery('');
-    if (item.link) {
-      router.push(item.link);
-    }
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-background/80 px-2 pt-[max(1rem,8vh)] pb-4 backdrop-blur-sm sm:px-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setCommandPaletteOpen(false); }}>
