@@ -47,6 +47,37 @@ The Policy repository's relation graph includes quotation, documents, renewals, 
 ### MTR-Q-08 — Current legacy renewal and prior remediation issues remain in scope
 Carry forward the renewal design requirements: case reuse, predecessor validation, lapse-aware expiry handling, approval invalidation, insurer-specific eligibility, idempotency/concurrency, trace ID `78b0634c-c612-454b-a13f-4ca035fd49e` investigation, cross-tenant isolation and all previously reported JEST Policy CRM production findings. Do not assume an earlier PR description proves runtime behaviour.
 
+## 2A. Additional findings from the 2026-11-11 runtime screenshots
+
+The supplied screenshots show two different application surfaces:
+
+- Sales > Motor Quotations: `Active Quotes (20)`; the visible customer/vehicle group `test test | KA00AA0000` has two saved quotation records. One displays `Partner Insurer`, demonstrating that placeholder-insurer records already exist in stored data. These records must be preserved and flagged for correction; do not rewrite their insurer identity without source evidence.
+- Operations > Policy Issuance: the visible queue contains three Motor cases. This is a Back Office work queue, not a complete archive of every historical policy or every Sales quotation.
+
+Source inspection explains part of the difference:
+- `BackOfficeQueueService.getBackOfficeQueue` includes only quotations where `backOfficeSubmittedAt IS NOT NULL`. A saved Sales quotation is intentionally absent until explicitly submitted.
+- The queue's primary query then considers a limited set of statuses and computes payment, inspection, customer and document gates. A draft test quotation cannot be issued merely because it appears in Sales.
+- `MotorQuotationsWorkspace` requests `GET /quotations?productType=MOTOR&page=...&limit=...`; it has page controls (10/20/50/100). Older quotations may be on later pages or excluded by tenant scope/productType. The screenshot's 20 is the currently loaded result total, not proof that all legacy Motor data has been imported.
+- `GetPolicyService.executeAll` returns only rows from the canonical `Policy` table under `ScopeResolver` scope and pagination. It does not automatically union legacy `MotorQuotation` records into the Policy register.
+- Both `BackOfficeQueueService` and the `GET /back-office/queue` controller catch broad errors and return an empty queue shape. This can make an API/query failure look like "there are no records". Replace silent empty fallbacks with observable errors and an explicit degraded-state response; never silently discard the error.
+- Queue summary counters are computed across the fetched submitted quotations before some display filters, while the cards' motor/health counts are computed from the filtered in-memory queue. Keep summary definitions consistent and label counts accurately.
+
+### Required separation of datasets and views
+
+1. **Sales quotations:** every accessible quotation, including draft/alternative versions, paginated and grouped by customer + vehicle + case.
+2. **Back Office pending handoffs:** only the explicitly selected and submitted quotation per case, with gates and approval state.
+3. **Issued policy register:** canonical issued policies and their policy documents/history.
+4. **Legacy issuance archive / reconciliation:** historical source records not yet represented as canonical Policy rows. Read-only until reconciled; never mix them into the live issue queue or allow issue actions on archive-only rows.
+
+A new quotation should be visible immediately in Sales after a successful save and refetch. It should appear in Back Office only after the agent explicitly selects and submits it and it meets the queue's lifecycle rules. A test/draft quote must not be silently promoted into an issue-ready item.
+
+### Additional confirmed defects / investigations
+
+- The queue catches database/query exceptions and returns `data: []`; frontend can interpret a service outage as a genuinely empty queue. Add structured error logging, request correlation and a visible retry/error state.
+- The queue query has no pagination in the inspected implementation; large historical backlogs can become expensive and may be truncated at API/database limits. Add server-side pagination and stable ordering.
+- The quotation list UI has pagination, but its request's `total` and loaded row counts need regression coverage across pages, filters, tenant scopes and legacy source types.
+- Investigate old policy rows that are soft-deleted, tenant-owned under a previous company mapping, absent from `Policy`, or retained only in `MotorQuotation` / other legacy tables. Distinguish "not imported", "filtered", "deleted", "unlinked" and "not visible" in the reconciliation report.
+
 ## 3. Implementation workstreams
 
 ### P0-A — Canonical Motor case and alternative quote lifecycle
