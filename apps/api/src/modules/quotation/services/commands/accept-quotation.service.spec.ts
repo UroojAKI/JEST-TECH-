@@ -113,6 +113,50 @@ describe('AcceptQuotationService (R5 Multi-Version & Single Accepted Rule)', () 
     });
   });
 
+  it('records customer acceptance when a quotation is internally approved but has no acceptance evidence', async () => {
+    const approvedWithoutAcceptance = {
+      id: 'q-approved-no-acceptance',
+      quotationCode: 'QTN-APPROVED-01',
+      status: QuotationStatus.APPROVED,
+      workflowState: MotorWorkflowState.READY_FOR_PROPOSAL,
+      leadId: null,
+      motorMetadata: {},
+      calculationVersion: 'v1',
+    };
+    mockTx.quotation.findFirst
+      .mockResolvedValueOnce(approvedWithoutAcceptance)
+      .mockResolvedValueOnce({
+        ...approvedWithoutAcceptance,
+        motorMetadata: {
+          customerAcceptance: {
+            evidenceMethod: CustomerAcceptanceMethod.EMAIL,
+            timestamp: expect.any(String),
+          },
+        },
+      });
+    mockTx.quotation.update.mockResolvedValue(approvedWithoutAcceptance);
+
+    await service.execute('q-approved-no-acceptance', 'agent-1', {
+      evidenceMethod: CustomerAcceptanceMethod.EMAIL,
+      evidenceReference: 'MAIL-123',
+    });
+
+    expect(mockTx.quotation.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'q-approved-no-acceptance' },
+        data: expect.objectContaining({
+          motorMetadata: expect.objectContaining({
+            customerAcceptance: expect.objectContaining({
+              evidenceMethod: CustomerAcceptanceMethod.EMAIL,
+              evidenceReference: 'MAIL-123',
+            }),
+          }),
+        }),
+      }),
+    );
+    expect(mockTx.quotationHistory.create).toHaveBeenCalled();
+  });
+
   it('rejects acceptance if another quote under the same lead is ALREADY accepted', async () => {
     const targetQuote = {
       id: 'q-v2',
