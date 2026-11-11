@@ -16,27 +16,37 @@ interface QuoteResult {
   gstTotal?: number;
   totalPremium: number;
   rating?: number;
+  quoteSource?: string;
+}
+
+interface UnavailableInsurer {
+  insurerId: string;
+  insurerName: string;
+  reason: string;
 }
 
 export default function AgentQuotationsPage() {
   const [vehicleIdv, setVehicleIdv] = useState('1685000');
   const [quotes, setQuotes] = useState<QuoteResult[]>([]);
+  const [unavailableInsurers, setUnavailableInsurers] = useState<UnavailableInsurer[]>([]);
   const [isCalculating, setIsCalculating] = useState(false);
 
   const handleCalculate = async () => {
     setIsCalculating(true);
     try {
       const res = await apiClient.post('/quotations/calculate', {
-        exShowroomPrice: Number(vehicleIdv) || 1000000,
-        manualOverrideIdv: Number(vehicleIdv) || 1000000,
+        exShowroomPrice: Number(vehicleIdv),
         registrationYear: new Date().getFullYear() - 1,
         engineCc: 1498,
         rtoZone: 'ZONE_A',
       });
-      const results = res.data?.comparativeQuotes || res.data || [];
+      const results = res.data?.comparativeQuotes || [];
       setQuotes(results);
-      toast.success(`Calculated ${results.length} live insurer quotes!`);
+      setUnavailableInsurers(res.data?.unavailableInsurers || []);
+      toast.success(`Calculated ${results.length} insurer quotes from configured rating rules.`);
     } catch (err: any) {
+      setQuotes([]);
+      setUnavailableInsurers([]);
       toast.error(err?.response?.data?.message || 'Failed to calculate quotes');
     } finally {
       setIsCalculating(false);
@@ -50,7 +60,7 @@ export default function AgentQuotationsPage() {
           <h1 className="text-xl font-bold tracking-tight flex items-center gap-2">
             <Zap className="h-5 w-5 text-primary" /> Instant Multi-Insurer Quote Generator & Comparison Matrix
           </h1>
-          <p className="text-xs text-muted-foreground">Compare live rating quotes across partner insurers and dispatch proposals directly to clients</p>
+          <p className="text-xs text-muted-foreground">Compare partner insurers using active Admin-configured rating rules. Insurers without pricing configuration are listed separately.</p>
         </div>
       </div>
 
@@ -88,7 +98,7 @@ export default function AgentQuotationsPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs mt-4">
         {quotes.length === 0 ? (
           <div className="col-span-3 p-8 text-center text-muted-foreground border rounded-2xl bg-card">
-            Enter vehicle parameters and click &quot;Calculate Insurer Quotes&quot; to fetch live underwriter premiums.
+            Enter vehicle parameters and calculate indicative quotes from each insurer's configured rating rules.
           </div>
         ) : (
           quotes.map((q, idx) => (
@@ -97,7 +107,7 @@ export default function AgentQuotationsPage() {
                 <div>
                   <span className="font-mono font-bold text-[10px] text-primary">{q.insurerCode || q.insurerId || `INS-${idx + 1}`}</span>
                   <h3 className="font-extrabold text-sm text-foreground">{q.insurerName}</h3>
-                  <span className="text-[10px] text-amber-500 font-bold">★ {q.rating || '4.8'} Partner Rating</span>
+                  <span className="text-[10px] text-amber-500 font-bold">★ {q.rating ? `${q.rating} Partner Rating` : 'Configured tariff'}</span>
                 </div>
               </div>
 
@@ -108,6 +118,7 @@ export default function AgentQuotationsPage() {
                 <div className="flex justify-between"><span>GST (18%):</span><strong className="text-foreground font-mono">₹{Number(q.gstTotal || 0).toLocaleString('en-IN')}</strong></div>
               </div>
 
+              <p className="text-[10px] text-muted-foreground">Pricing source: {q.quoteSource === 'ADMIN_CONFIGURED_RATING_RULE' ? 'Admin-configured insurer rating rule' : 'Unspecified'}</p>
               <div className="p-3 rounded-xl border bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 flex justify-between items-center font-bold">
                 <span>Final Premium Payable:</span>
                 <span className="text-base font-mono font-black">₹{Number(q.totalPremium || 0).toLocaleString('en-IN')}</span>
@@ -124,6 +135,21 @@ export default function AgentQuotationsPage() {
           ))
         )}
       </div>
+
+      {unavailableInsurers.length > 0 && (
+        <section className="mt-5 rounded-xl border p-4 space-y-2">
+          <h2 className="font-bold text-sm">Partner insurers requiring rating setup ({unavailableInsurers.length})</h2>
+          <p className="text-xs text-muted-foreground">These active Admin Insurer Master records are included in the partner list but cannot receive a priced comparison until an active product and BASE_RATE rule are configured. No estimated or fabricated premium is shown.</p>
+          <ul className="space-y-2">
+            {unavailableInsurers.map((insurer) => (
+              <li key={insurer.insurerId} className="text-xs flex flex-col sm:flex-row sm:justify-between gap-1 border-t pt-2">
+                <strong>{insurer.insurerName}</strong>
+                <span className="text-muted-foreground">{insurer.reason}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </AppShell>
   );
 }

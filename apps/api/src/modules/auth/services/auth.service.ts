@@ -393,10 +393,20 @@ export class AuthService {
       .digest('hex');
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.refreshToken.update({
-        where: { id: matchedRecord.id },
+      // Compare-and-set prevents two concurrent refresh requests from both
+      // rotating the same active token.
+      const revoked = await tx.refreshToken.updateMany({
+        where: {
+          id: matchedRecord.id,
+          userId: user.id,
+          revokedAt: null,
+          expiresAt: { gt: new Date() },
+        },
         data: { revokedAt: new Date() },
       });
+      if (revoked.count !== 1) {
+        throw new UnauthorizedException('Refresh token has already been used or expired');
+      }
       await tx.refreshToken.create({
         data: { userId: user.id, tokenHash, expiresAt },
       });

@@ -4,6 +4,7 @@ import {
   BadRequestException,
   Logger,
   Optional,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../../database/prisma.service';
 import {
@@ -339,7 +340,9 @@ export class BackOfficeQueueService {
           });
         } catch (fallbackErr: any) {
           this.logger.error(`Fallback quotation query failed: ${fallbackErr?.message}`, fallbackErr?.stack);
-          quotations = [];
+          throw new InternalServerErrorException(
+            'Unable to query submitted quotations for the Back Office issuance queue.',
+          );
         }
       }
 
@@ -661,7 +664,8 @@ export class BackOfficeQueueService {
           customerEmail: q.contact?.email || undefined,
           salesAgentName,
           productType: isHealth ? 'HEALTH' : (q.productType || 'MOTOR'),
-          insurerName: q.insurerName || 'HDFC ERGO',
+          insurerName:
+            q.policy?.insurerNameSnapshot || q.insurerName?.trim() || 'Insurer missing',
           totalPremium: payableAmt,
           paymentAmount: paidAmt,
           paymentReference: payment?.referenceNumber || undefined,
@@ -739,15 +743,9 @@ export class BackOfficeQueueService {
       };
     } catch (err: any) {
       this.logger.error(`Failed to get back-office queue: ${err?.message || err}`, err?.stack);
-      return {
-        data: [],
-        summary: {
-          totalPending: 0,
-          readyCount: 0,
-          blockedCount: 0,
-          issuedCount: 0,
-        },
-      };
+      throw new InternalServerErrorException(
+        'Unable to load the Back Office issuance queue. Please retry or contact support with the request ID.',
+      );
     }
   }
 

@@ -34,6 +34,17 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
 
   beforeEach(async () => {
     prisma = {
+      insurer: {
+        findMany: jest.fn(async ({ where }: any) => {
+          const requestedName = where?.name?.equals;
+          if (!requestedName) return [];
+          return [{
+            id: `insurer-${String(requestedName).toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+            name: requestedName,
+            isActive: true,
+          }];
+        }),
+      },
       motorJourney: {
         findUnique: jest.fn(),
         update: jest.fn(),
@@ -164,6 +175,62 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
     command = module.get<CreateMotorQuotationCommand>(
       CreateMotorQuotationCommand,
     );
+  });
+
+  describe('Insurer Master enforcement', () => {
+    it('rejects the former Partner Insurer placeholder', async () => {
+      await expect(command.execute({
+        vehicleCategory: 'PRIVATE_CAR',
+        policyType: 'PACKAGE',
+        insurerName: 'Partner Insurer',
+      } as any, mockUser)).rejects.toThrow(BadRequestException);
+      expect(prisma.insurer.findMany).not.toHaveBeenCalled();
+    });
+
+    it('rejects an insurer that is not active in Insurer Master', async () => {
+      prisma.insurer.findMany.mockResolvedValueOnce([]);
+      await expect(command.execute({
+        vehicleCategory: 'PRIVATE_CAR',
+        policyType: 'PACKAGE',
+        insurerName: 'Unknown Insurer',
+      } as any, mockUser)).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects duplicate active insurer names rather than selecting an arbitrary record', async () => {
+      prisma.insurer.findMany.mockResolvedValueOnce([
+        { id: 'insurer-1', name: 'Duplicate Insurer' },
+        { id: 'insurer-2', name: 'Duplicate Insurer' },
+      ]);
+      await expect(command.execute({
+        vehicleCategory: 'PRIVATE_CAR',
+        policyType: 'PACKAGE',
+        insurerName: 'Duplicate Insurer',
+      } as any, mockUser)).rejects.toThrow(BadRequestException);
+    });
+
+    it('persists the canonical active insurer ID and name', async () => {
+      prisma.quotation.create.mockResolvedValue({
+        id: 'q-insurer-master',
+        quotationCode: 'QTN-INSURER-1',
+        totalPremium: 11800,
+        workflowState: 'READY_FOR_PROPOSAL',
+        status: 'DRAFT',
+        createdAt: new Date(),
+      });
+      const result = await command.execute({
+        vehicleCategory: 'PRIVATE_CAR',
+        policyType: 'PACKAGE',
+        insurerName: 'HDFC ERGO',
+        contactId: 'c-1',
+      } as any, mockUser);
+      expect(result.id).toBe('q-insurer-master');
+      expect(prisma.quotation.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({
+          insurerId: 'insurer-hdfc-ergo',
+          insurerName: 'HDFC ERGO',
+        }),
+      }));
+    });
   });
 
   it('MOTOR-REG-19: should execute single transactional quotation creation and bind journey 1:1', async () => {
@@ -510,7 +577,18 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
   });
 
   it('MOTOR-V2-CASE: should link quotation to MotorQuotationCase when caseId is provided', async () => {
-    prisma.motorQuotationCase.findFirst.mockResolvedValue({ id: 'case-1', companyId: 'comp-test' });
+    prisma.motorQuotationCase.findFirst.mockResolvedValue({
+      id: 'case-1',
+      companyId: 'company-1',
+      contactId: 'c-1',
+      vehicleId: null,
+      registrationNumber: null,
+      customerSnapshot: {},
+      vehicleSnapshot: {},
+      previousPolicySnapshot: null,
+      selectedQuoteId: null,
+      status: 'QUOTED',
+    });
     prisma.quotation.create.mockResolvedValue({
       id: 'q-with-case',
       quotationCode: 'QTN-2026-CASE-1',
@@ -564,6 +642,54 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
         mockUser,
       ),
     ).rejects.toThrow(BadRequestException);
+  });
+
+  it('reuses the persisted case snapshot for an alternative insurer quote', async () => {
+    prisma.motorQuotationCase.findFirst.mockResolvedValue({
+      id: 'case-reuse-1',
+      companyId: 'company-1',
+      contactId: 'c-1',
+      vehicleId: 'vehicle-1',
+      registrationNumber: 'KA01AB1234',
+      customerSnapshot: { customerName: 'Canonical Customer', mobileNumber: '9876543210' },
+      vehicleSnapshot: { vehicleStatus: 'EXISTING', makeModel: 'Canonical Vehicle' },
+      previousPolicySnapshot: { previousPolicyType: 'COMPREHENSIVE', policyExpiryDate: '2026-12-01' },
+      selectedQuoteId: null,
+      status: 'QUOTED',
+    });
+    prisma.quotation.create.mockImplementation(({ data }: any) => Promise.resolve({
+      id: 'q-alternative-1',
+      quotationCode: 'QTN-ALT-1',
+      totalPremium: 11800,
+      createdAt: new Date(),
+      ...data,
+    }));
+
+    await command.execute({
+      vehicleCategory: 'PRIVATE_CAR',
+      policyType: 'PACKAGE',
+      insurerName: 'TATA AIG',
+      caseId: 'case-reuse-1',
+      contactId: 'c-1',
+      vehicleId: 'vehicle-1',
+      registrationNumber: 'KA01AB1234',
+      proposerDetails: { customerName: 'Tampered Customer' },
+      vehicleDetails: { makeModel: 'Tampered Vehicle' },
+    } as any, mockUser);
+
+    expect(prisma.quotation.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        caseId: 'case-reuse-1',
+        contactId: 'c-1',
+        vehicleId: 'vehicle-1',
+        registrationNumber: 'KA01AB1234',
+        motorMetadata: expect.objectContaining({
+          proposerDetails: expect.objectContaining({ customerName: 'Canonical Customer' }),
+          vehicleDetails: expect.objectContaining({ makeModel: 'Canonical Vehicle' }),
+          previousPolicyDetails: expect.objectContaining({ previousPolicyType: 'COMPREHENSIVE' }),
+        }),
+      }),
+    }));
   });
 
   it('MOTOR-V2-CASE-ORPHAN: should auto-provision a parent MotorQuotationCase when caseId is omitted', async () => {
@@ -825,6 +951,7 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
         vehicleCategory: 'PRIVATE_CAR',
         policyType: 'PACKAGE',
         registrationNumber: 'KA23TD0529',
+        insurerName: 'HDFC ERGO',
         leadId: 'lead-1',
         contactId: 'c-1',
       };

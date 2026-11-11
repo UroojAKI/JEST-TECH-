@@ -1116,7 +1116,7 @@ export class CustomersService {
     if (!contactId) throw new BadRequestException('Customer has no associated contact');
 
     let normalizedPlate: string | null = null;
-    let rtoLoc = dto.rtoLocation;
+    const rtoLoc = dto.rtoLocation;
     if (dto.registrationNumber && dto.registrationNumber.trim() && dto.registrationNumber.trim().toUpperCase() !== 'NEW') {
       const cleaned = dto.registrationNumber.toUpperCase().replace(/[\s\-\.]/g, '');
       normalizedPlate = cleaned;

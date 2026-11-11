@@ -206,9 +206,9 @@ export class PolicyAddressResolverService {
     const pincode = pinMatch ? pinMatch[1] : undefined;
 
     const parts = raw.split(',').map((p) => p.trim()).filter(Boolean);
-    let addressLine1 = parts[0] || raw;
-    let city = parts.length > 2 ? parts[parts.length - 2] : parts.length > 1 ? parts[1] : undefined;
-    let state = parts.length > 3 ? parts[parts.length - 1] : undefined;
+    const addressLine1 = parts[0] || raw;
+    const city = parts.length > 2 ? parts[parts.length - 2] : parts.length > 1 ? parts[1] : undefined;
+    const state = parts.length > 3 ? parts[parts.length - 1] : undefined;
 
     return {
       addressLine1,

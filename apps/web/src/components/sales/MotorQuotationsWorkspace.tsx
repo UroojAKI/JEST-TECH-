@@ -9,7 +9,6 @@ import { toast } from 'sonner';
 import { Car, Plus, Search, RefreshCw, FileSpreadsheet, Award, AlertTriangle, History, ArrowLeft, CheckCircle2, HeartPulse } from 'lucide-react';
 
 import { MotorQuoteWizard } from '../leads/motor-quote/MotorQuoteWizard';
-import { QuoteCard } from '../leads/motor-quote/QuoteCard';
 import { InspectionDialog } from '../leads/motor-quote/InspectionDialog';
 import { MotorProposalWizard } from '../leads/motor-quote/MotorProposalWizard';
 import { PolicyCompletionDialog } from '../leads/motor-quote/PolicyCompletionDialog';
@@ -28,6 +27,10 @@ export function MotorQuotationsWorkspace() {
   const isBackOfficeOrAdmin = userRoles.some((r) =>
     ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMINISTRATOR', 'BACK_OFFICE', 'OPERATIONS', 'UNDERWRITER'].includes(r)
   );
+  const isAdmin = userRoles.some((r) =>
+    ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMINISTRATOR'].includes(r)
+  );
+  const canSubmitToBackOffice = !isBackOfficeOrAdmin || isAdmin;
 
   const searchParams = useSearchParams();
   const leadIdParam = searchParams?.get('leadId') || undefined;
@@ -257,7 +260,7 @@ export function MotorQuotationsWorkspace() {
           vehicleCategory: item.motorMetadata?.vehicleCategory || item.vehicleCategory || 'PRIVATE_CAR',
           policyType: item.motorMetadata?.policyType || item.policyType || 'PACKAGE',
           registrationNumber: item.motorMetadata?.registrationNumber || item.registrationNumber || '',
-          insurerName: item.insurerName || 'Partner Insurer',
+          insurerName: item.insurerName?.trim() || 'Insurer missing',
           totalPremium: Number(item.totalPremium || 0),
           idv: Number(item.sumInsured || 0),
           ncbPercentage: Number(item.ncbPercentage || 0),
@@ -273,6 +276,7 @@ export function MotorQuotationsWorkspace() {
             item.status || item.motorMetadata?.workflowStatus || 'DRAFT',
           workflowState: item.workflowState,
           createdAt: item.createdAt || new Date().toISOString(),
+          updatedAt: item.updatedAt || item.createdAt || new Date().toISOString(),
           policyStartDate: item.motorMetadata?.policyDetails?.policyStartDate,
           policyEndDate: item.motorMetadata?.policyDetails?.policyEndDate,
           proposerDetails: item.motorMetadata?.proposerDetails,
@@ -286,8 +290,10 @@ export function MotorQuotationsWorkspace() {
         } as SavedMotorQuote));
         return { quotes, total };
       } catch (error: any) {
-        console.warn('Failed to load quotations:', error?.message);
-        return { quotes: [], total: 0 };
+        console.error('Failed to load quotations:', error);
+        // Let React Query expose the failure to the existing error/retry UI.
+        // Do not disguise an API outage as a genuinely empty quotation register.
+        throw error;
       }
     },
     refetchInterval: 10_000,
@@ -377,16 +383,16 @@ export function MotorQuotationsWorkspace() {
 
   const groupedQuotes = useMemo(() => {
     return filteredQuotes.reduce((acc, q) => {
-      // 1. Group by registration number if available (unique vehicle)
-      // 2. If new vehicle, group by mobile number
-      // 3. Fallback to leadId or quote id
-      let key = q.registrationNumber ? String(q.registrationNumber).trim() : '';
-      
-      if (!key) {
-        key = q.proposerDetails?.mobileNumber ? String(q.proposerDetails.mobileNumber).trim() : (q.leadId || q.id);
-      }
-      
-      const keyStr = String(key || 'UNKNOWN_VEHICLE').toUpperCase();
+      // Alternatives must be grouped by their durable case, not merely by
+      // registration number: the same vehicle can have distinct policy/case
+      // lifecycles. Legacy quotes without a case use customer + vehicle context.
+      const caseId = (q as any).caseId;
+      const registration = String(q.registrationNumber || '').trim().toUpperCase();
+      const mobile = String(q.proposerDetails?.mobileNumber || '').replace(/\\D/g, '');
+      const fallbackIdentity = q.leadId || mobile || q.id;
+      const keyStr = caseId
+        ? `CASE:${caseId}`
+        : `LEGACY:${registration || 'NO-REG'}:${fallbackIdentity}`;
 
       (acc[keyStr] ||= []).push(q);
       return acc;
@@ -582,47 +588,101 @@ export function MotorQuotationsWorkspace() {
                     caseId: (first as any)?.caseId,
                   })} className="px-3 py-1.5 rounded-md border bg-background hover:bg-muted text-xs font-semibold">{activeTab === 'RENEWALS' ? 'Generate Renewal Quote' : 'New Quote Version'}</button>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {quotes.map((quote, idx) => (
-                    <QuoteCard
-                      key={quote.id || quote.quotationCode || idx}
-                      quote={quote}
-                      onUploadQuote={(id) => toast.success(`Quotation document uploaded for record #${id.slice(-6)}`)}
-                      onConductInspection={setInspectionQuoteId}
-                      onCompleteProposal={setProposalQuote}
-                      onIssuePolicy={isBackOfficeOrAdmin ? setCompletionQuote : undefined}
-                      onSubmitToBackOffice={async (quotationId) => {
-                        try {
-                          const selected = allQuotes.find((item) => item.id === quotationId);
-                          if (!selected?.caseId) {
-                            throw new Error('This quotation is not linked to a quotation case and cannot be selected for handoff.');
-                          }
-                          // Select the winning alternative through the case state machine first.
-                          await apiClient.post(`/motor/quotation-cases/${selected.caseId}/select`, {
-                            quotationId,
-                          });
-                          await quotationsRepository.submitToBackOffice(quotationId);
-                          toast.success('Selected quotation sent to back office');
-                          await refetch();
-                        } catch (err: any) {
-                          const message =
-                            err?.response?.data?.message ||
-                            err?.message ||
-                            'Failed to send quotation to back office';
-                          toast.error(Array.isArray(message) ? message.join(', ') : message);
-                          throw err;
-                        }
-                      }}
-                      onAddComparisonQuote={(q) => handleOpenWizard(q.vehicleCategory, {
-                        vehicleDetails: q.vehicleDetails,
-                        proposerDetails: q.proposerDetails,
-                        previousPolicyDetails: (q as any).previousPolicyDetails,
-                        policyDetails: (q as any).policyDetails,
-                        caseId: (q as any).caseId,
-                        renewalOfPolicyId: (q as any).renewalOfPolicyId,
+                <div className="overflow-x-auto rounded-lg border">
+                  <table className="w-full min-w-[980px] text-xs">
+                    <thead className="bg-muted/60 text-muted-foreground">
+                      <tr className="text-left">
+                        <th className="px-3 py-3 font-semibold">Insurer / Quote</th>
+                        <th className="px-3 py-3 font-semibold">Cover</th>
+                        <th className="px-3 py-3 text-right font-semibold">IDV</th>
+                        <th className="px-3 py-3 text-right font-semibold">NCB</th>
+                        <th className="px-3 py-3 text-right font-semibold">Premium</th>
+                        <th className="px-3 py-3 font-semibold">Status</th>
+                        <th className="px-3 py-3 font-semibold">Updated</th>
+                        <th className="px-3 py-3 font-semibold">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {quotes.map((quote) => {
+                        const submitted = Boolean((quote as any).backOfficeSubmittedAt);
+                        const isTerminalQuoteStatus =
+                          ['ISSUED', 'CONVERTED_TO_POLICY', 'REJECTED', 'EXPIRED'].includes(
+                            String(quote.status || '').toUpperCase(),
+                          ) ||
+                          String((quote as any).issuanceStatus || '').toUpperCase() === 'ISSUED';
+                        const proposalReady = ['READY_FOR_PROPOSAL', 'APPROVED', 'PAYMENT_UNDER_PROCESS', 'PAYMENT_PENDING'].includes(String(quote.status));
+                        const issuanceReady = ['PAYMENT_DONE', 'PENDING_ISSUANCE'].includes(String(quote.status)) || (quote as any).issuanceStatus === 'ISSUANCE_PENDING';
+                        return (
+                          <tr key={quote.id} className="hover:bg-muted/30">
+                            <td className="px-3 py-3">
+                              <div className="font-semibold text-foreground">{quote.insurerName || 'Insurer not recorded'}</div>
+                              <div className="font-mono text-[10px] text-muted-foreground">{quote.quotationCode}</div>
+                            </td>
+                            <td className="px-3 py-3">
+                              <div className="font-medium">{(quote as any).policyType || '—'}</div>
+                              <div className="text-muted-foreground">{(quote as any).vehicleCategory || 'MOTOR'}</div>
+                            </td>
+                            <td className="px-3 py-3 text-right tabular-nums">₹{Number((quote as any).idv || (quote as any).sumInsured || 0).toLocaleString('en-IN')}</td>
+                            <td className="px-3 py-3 text-right tabular-nums">{quote.ncbPercentage ?? 0}%</td>
+                            <td className="px-3 py-3 text-right font-bold tabular-nums">₹{Number(quote.totalPremium || 0).toLocaleString('en-IN')}</td>
+                            <td className="px-3 py-3">
+                              <span className="inline-flex rounded-full border px-2 py-1 text-[10px] font-semibold">{String(quote.status || 'UNKNOWN').replaceAll('_', ' ')}</span>
+                              {submitted && <div className="mt-1 text-[10px] text-emerald-700">Sent to Back Office</div>}
+                            </td>
+                            <td className="px-3 py-3 text-muted-foreground whitespace-nowrap">{quote.updatedAt ? new Date(quote.updatedAt).toLocaleDateString('en-IN') : '—'}</td>
+                            <td className="px-3 py-3">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <button
+                                  onClick={() => handleOpenWizard(quote.vehicleCategory, {
+                                    vehicleDetails: quote.vehicleDetails,
+                                    proposerDetails: quote.proposerDetails,
+                                    previousPolicyDetails: (quote as any).previousPolicyDetails,
+                                    caseId: (quote as any).caseId,
+                                    renewalOfPolicyId: (quote as any).renewalOfPolicyId,
+                                  })}
+                                  className="rounded border px-2 py-1 hover:bg-muted disabled:opacity-50"
+                                  disabled={submitted || isTerminalQuoteStatus}
+                                  title="Create another insurer alternative from this case"
+                                >
+                                  Add insurer quote
+                                </button>
+                                {canSubmitToBackOffice && !submitted && !isTerminalQuoteStatus && (quote as any).caseId && (
+                                  <button onClick={async () => {
+                                    const selected = allQuotes.find((item) => item.id === quote.id);
+                                    if (!selected?.caseId) {
+                                      toast.error('This quotation is not linked to a quotation case.');
+                                      return;
+                                    }
+                                    try {
+                                      await apiClient.post(`/motor/quotation-cases/${selected.caseId}/select`, { quotationId: quote.id });
+                                      await quotationsRepository.submitToBackOffice(quote.id);
+                                      toast.success('Selected quotation sent to Back Office');
+                                      await refetch();
+                                    } catch (error: any) {
+                                      const message =
+                                        error?.response?.data?.message ||
+                                        error?.message ||
+                                        'Could not submit quotation to Back Office';
+                                      toast.error(Array.isArray(message) ? message.join(', ') : message);
+                                    }
+                                  }} className="rounded bg-primary px-2 py-1 text-primary-foreground">Select & Send</button>
+                                )}
+                                {quote.status === 'PENDING_INSPECTION' && (
+                                  <button onClick={() => setInspectionQuoteId(quote.id)} className="rounded border border-amber-300 px-2 py-1 text-amber-700">Inspection</button>
+                                )}
+                                {proposalReady && (
+                                  <button onClick={() => setProposalQuote(quote)} className="rounded border px-2 py-1 hover:bg-muted">Proposal / Payment</button>
+                                )}
+                                {issuanceReady && isBackOfficeOrAdmin && (
+                                  <button onClick={() => setCompletionQuote(quote)} className="rounded bg-emerald-600 px-2 py-1 text-white">Issue</button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
                       })}
-                    />
-                  ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             );
