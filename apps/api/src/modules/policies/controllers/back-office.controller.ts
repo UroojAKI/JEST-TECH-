@@ -48,12 +48,14 @@ export class BackOfficeController {
     @Query('status') status?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
+    @Query('productType') productType?: 'MOTOR' | 'HEALTH',
   ) {
     return this.backOfficeQueueService.getBackOfficeQueue(user, {
       search,
       status,
       page: page ? Number(page) : undefined,
       limit: limit ? Number(limit) : undefined,
+      productType,
     });
   }
 
