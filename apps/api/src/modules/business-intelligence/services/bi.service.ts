@@ -1070,81 +1070,73 @@ export class BiService {
     const now = new Date();
 
     const [tasks, backOfficeTasks, pendingProposals, inspectionQuotes] = await Promise.all([
-      this.prisma.task
-        ? this.prisma.task.findMany({
-            where: {
-              OR: [
-                { assignedTo: { companyId: cleanCompanyId } },
-                { customer: { companyId: cleanCompanyId } },
-                { lead: { companyId: cleanCompanyId } },
-              ],
-              status: { in: ['PENDING', 'IN_PROGRESS', 'OPEN'] as any[] },
-              deletedAt: null,
-            },
-            select: {
-              id: true,
-              title: true,
-              dueDate: true,
-              priority: true,
-              assignedTo: { select: { firstName: true, lastName: true } },
-              createdAt: true,
-            },
-            take: 50,
-          }).catch(() => [])
-        : Promise.resolve([]),
-      this.prisma.backOfficeTask
-        ? this.prisma.backOfficeTask.findMany({
-            where: {
-              companyId: cleanCompanyId,
-              status: { in: ['PENDING', 'ASSIGNED', 'IN_PROGRESS'] as any[] },
-              deletedAt: null,
-            },
-            select: {
-              id: true,
-              taskCode: true,
-              taskType: true,
-              priority: true,
-              assignedTo: { select: { firstName: true, lastName: true } },
-              createdAt: true,
-            },
-            take: 50,
-          }).catch(() => [])
-        : Promise.resolve([]),
-      this.prisma.proposal
-        ? this.prisma.proposal.findMany({
-            where: {
-              quotation: { companyId: cleanCompanyId },
-              status: { in: ['PAYMENT_PENDING', 'SUBMITTED', 'UNDERWRITING_REVIEW'] as any[] },
-            },
-            select: {
-              id: true,
-              proposalNumber: true,
-              status: true,
-              createdAt: true,
-              contact: { select: { firstName: true, lastName: true } },
-              quotation: { select: { totalPremium: true, insurerName: true } },
-            },
-            take: 50,
-          }).catch(() => [])
-        : Promise.resolve([]),
-      this.prisma.motorQuotation
-        ? this.prisma.motorQuotation.findMany({
-            where: {
-              companyId: cleanCompanyId,
-              status: { in: ['INSPECTION_PENDING', 'UNDERWRITING_PENDING'] as any[] },
-              deletedAt: null,
-            },
-            select: {
-              id: true,
-              quotationNumber: true,
-              status: true,
-              customer: { select: { firstName: true, lastName: true } },
-              createdAt: true,
-            },
-            take: 50,
-          }).catch(() => [])
-        : Promise.resolve([]),
-    ]);
+      this.prisma.task.findMany({
+        where: {
+          OR: [
+            { assignedTo: { companyId: cleanCompanyId } },
+            { customer: { companyId: cleanCompanyId } },
+            { lead: { companyId: cleanCompanyId } },
+          ],
+          status: { in: ['PENDING', 'IN_PROGRESS', 'OPEN'] as any[] },
+          deletedAt: null,
+        },
+        select: {
+          id: true,
+          title: true,
+          dueDate: true,
+          priority: true,
+          assignedTo: { select: { firstName: true, lastName: true } },
+          createdAt: true,
+        },
+        take: 50,
+      }),
+      this.prisma.backOfficeTask.findMany({
+        where: {
+          companyId: cleanCompanyId,
+          status: { in: ['PENDING', 'ASSIGNED', 'IN_PROGRESS'] as any[] },
+          deletedAt: null,
+        },
+        select: {
+          id: true,
+          taskCode: true,
+          taskType: true,
+          priority: true,
+          assignedTo: { select: { firstName: true, lastName: true } },
+          createdAt: true,
+        },
+        take: 50,
+      }),
+      this.prisma.proposal.findMany({
+        where: {
+          quotation: { companyId: cleanCompanyId },
+          status: { in: ['PAYMENT_PENDING', 'SUBMITTED', 'UNDERWRITING_REVIEW'] as any[] },
+        },
+        select: {
+          id: true,
+          proposalNumber: true,
+          status: true,
+          createdAt: true,
+          contact: { select: { firstName: true, lastName: true } },
+          quotation: { select: { totalPremium: true, insurerName: true } },
+        },
+        take: 50,
+      }),
+      this.prisma.motorQuotation.findMany({
+        where: {
+          companyId: cleanCompanyId,
+          status: { in: ['INSPECTION_PENDING', 'UNDERWRITING_PENDING'] as any[] },
+          deletedAt: null,
+        },
+        select: {
+          id: true,
+          quotationNumber: true,
+          status: true,
+          customer: { select: { firstName: true, lastName: true } },
+          createdAt: true,
+        },
+        take: 50,
+      }),
+    ]);;
 
     const overdueTasks: ActionCentreItem[] = [];
     for (const t of tasks) {
