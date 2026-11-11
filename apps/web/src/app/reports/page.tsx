@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Download, FileSpreadsheet, Loader2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
+import { apiClient, getApiErrorMessage } from '../../lib/api-client';
+import { useAuthStore } from '../../store/auth-store';
 import { AppShell } from '../../components/layout/app-shell';
 import {
   ReportDefinition,
@@ -27,6 +29,8 @@ export default function ReportsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState<string | null>(null);
+  const [isSeeding, setIsSeeding] = useState(false);
+  const user = useAuthStore((state) => state.user);
 
   useEffect(() => {
     let active = true;
@@ -53,6 +57,20 @@ export default function ReportsPage() {
       active = false;
     };
   }, [category]);
+
+  const seedSystemReports = async () => {
+    setIsSeeding(true);
+    try {
+      const result = await apiClient.post('/reports/system/seed');
+      toast.success(`Synchronized ${result.data?.seeded ?? 0} system report definitions`);
+      const refreshed = await reportsRepository.getReports(category === 'ALL' ? undefined : { category });
+      setReports(Array.isArray(refreshed) ? refreshed : []);
+    } catch (err) {
+      toast.error(getApiErrorMessage(err) || 'Could not seed system reports');
+    } finally {
+      setIsSeeding(false);
+    }
+  };
 
   const downloadReport = async (
     report: ReportDefinition,
@@ -91,13 +109,21 @@ export default function ReportsPage() {
               the report builder.
             </p>
           </div>
-          <Link
-            href="/reports/builder"
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground"
-          >
-            <FileSpreadsheet className="h-4 w-4" />
-            Open report builder
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            {user?.role === 'ADMIN' && (
+              <button type="button" onClick={() => void seedSystemReports()} disabled={isSeeding} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-50">
+                {isSeeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                Sync system reports
+              </button>
+            )}
+            <Link
+              href="/reports/builder"
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground"
+            >
+              <FileSpreadsheet className="h-4 w-4" />
+              Open report builder
+            </Link>
+          </div>
         </header>
 
         <div className="flex flex-wrap items-center gap-3 rounded-xl border bg-card p-3">
