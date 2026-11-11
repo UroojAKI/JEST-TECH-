@@ -268,6 +268,7 @@ export function MotorQuotationsWorkspace() {
           idv: Number(item.sumInsured || 0),
           ncbPercentage: Number(item.ncbPercentage || 0),
           status:
+            item.motorMetadata?.customerAcceptance ? 'ACCEPTED' :
             item.status === 'APPROVED' ? 'APPROVED' :
             item.status === 'ACCEPTED' ? 'ACCEPTED' :
             item.status === 'CONVERTED_TO_POLICY' ? 'ISSUED' :
@@ -290,6 +291,7 @@ export function MotorQuotationsWorkspace() {
           renewalOfPolicyId: item.renewalOfPolicyId,
           backOfficeSubmittedAt: item.backOfficeSubmittedAt,
           previousPolicyDetails: item.motorMetadata?.previousPolicyDetails,
+          customerAcceptance: item.motorMetadata?.customerAcceptance,
         } as SavedMotorQuote));
         return { quotes, total };
       } catch (error: any) {
