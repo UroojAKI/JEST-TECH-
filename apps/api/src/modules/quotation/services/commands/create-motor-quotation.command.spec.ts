@@ -65,6 +65,7 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
       },
       quotation: {
         findFirst: jest.fn().mockResolvedValue(null),
+        findMany: jest.fn().mockResolvedValue([]),
         create: jest.fn(),
       },
       saodTpVerification: {
@@ -247,12 +248,10 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
       vehicleSnapshot: {},
       previousPolicySnapshot: {},
     });
-    prisma.quotation.findFirst
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({
-        id: 'quote-existing',
-        quotationCode: 'QTN-EXISTING-HDFC',
-      });
+    prisma.quotation.findFirst.mockResolvedValueOnce({
+      id: 'quote-existing',
+      quotationCode: 'QTN-EXISTING-HDFC',
+    });
 
     await expect(command.execute({
       caseId: 'case-existing',
@@ -280,10 +279,16 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
       vehicleSnapshot: {},
       previousPolicySnapshot: {},
     });
-    prisma.quotation.findFirst.mockResolvedValueOnce({
+    prisma.quotation.findMany.mockResolvedValueOnce([{
       id: 'quote-accepted',
       quotationCode: 'QTN-ACCEPTED-01',
-    });
+      motorMetadata: {
+        customerAcceptance: {
+          evidenceMethod: 'EMAIL',
+          timestamp: new Date().toISOString(),
+        },
+      },
+    }]);
 
     await expect(command.execute({
       caseId: 'case-accepted',
