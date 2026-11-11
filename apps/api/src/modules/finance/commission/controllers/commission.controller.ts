@@ -44,6 +44,7 @@ export class CommissionController {
       dto.agentId,
       dto.premiumAmount,
       dto.planId,
+      companyId,
     );
   }
 
