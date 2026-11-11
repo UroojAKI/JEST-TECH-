@@ -12,7 +12,7 @@ export class PosPartnerRepository {
     return client.posPartner.create({
       data,
       include: {
-        insurerMapping: {
+        insurerMappings: {
           include: { insurer: true },
         },
       },
@@ -27,7 +27,7 @@ export class PosPartnerRepository {
         deletedAt: null,
       },
       include: {
-        insurerMapping: {
+        insurerMappings: {
           include: { insurer: true },
         },
         documents: {
@@ -68,7 +68,7 @@ export class PosPartnerRepository {
         deletedAt: null,
       },
       include: {
-        insurerMapping: {
+        insurerMappings: {
           include: { insurer: true },
         },
       },
@@ -91,9 +91,8 @@ export class PosPartnerRepository {
       ...(query.partnerType ? { partnerType: query.partnerType } : {}),
       ...(query.insurerId
         ? {
-            insurerMapping: {
-              insurerId: query.insurerId,
-              isActive: true,
+            insurerMappings: {
+              some: { insurerId: query.insurerId, isActive: true },
             },
           }
         : {}),
@@ -118,7 +117,7 @@ export class PosPartnerRepository {
         take: limit,
         orderBy: { createdAt: 'desc' },
         include: {
-          insurerMapping: {
+          insurerMappings: {
             include: {
               insurer: {
                 select: { id: true, name: true, code: true, logoUrl: true, isActive: true },
@@ -162,7 +161,8 @@ export class PosPartnerRepository {
           ],
         },
       ],
-      insurerMapping: {
+      insurerMappings: {
+        some: {
         isActive: true,
         AND: [
           { effectiveFrom: { lte: now } },
@@ -191,6 +191,7 @@ export class PosPartnerRepository {
               ]
             : []),
         ],
+        },
       },
     };
 
@@ -198,7 +199,7 @@ export class PosPartnerRepository {
       where,
       orderBy: { name: 'asc' },
       include: {
-        insurerMapping: {
+        insurerMappings: {
           include: {
             insurer: {
               select: { id: true, name: true, code: true, isActive: true },
@@ -215,7 +216,7 @@ export class PosPartnerRepository {
       where: { id },
       data,
       include: {
-        insurerMapping: {
+        insurerMappings: {
           include: { insurer: true },
         },
       },

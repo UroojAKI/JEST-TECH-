@@ -1540,6 +1540,8 @@ model Policy {
   posNameSnapshot     String?
   insurerCodeSnapshot String?
   insurerNameSnapshot String?
+  insurerPartnerCodeSnapshot String?
+  insurerPospIdSnapshot String?
 
   // ── Structured Address Snapshot at Issuance ──
   addressLine1        String?
@@ -5171,7 +5173,7 @@ model PosPartner {
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
-  insurerMapping       PosInsurerMapping?
+  insurerMappings      PosInsurerMapping[]
   documents            PosPartnerDocument[]
   commissionAgreements PosCommissionAgreement[]
   policies             Policy[]
@@ -5185,7 +5187,7 @@ model PosPartner {
 model PosInsurerMapping {
   id                 String    @id @default(uuid())
   companyId          String
-  posPartnerId       String    @unique
+  posPartnerId       String
   insurerId          String
   insurerPartnerCode String?
   insurerPospId      String?
@@ -5198,7 +5200,9 @@ model PosInsurerMapping {
   posPartner PosPartner @relation(fields: [posPartnerId], references: [id], onDelete: Restrict)
   insurer    Insurer    @relation("InsurerPosMappings", fields: [insurerId], references: [id], onDelete: Restrict)
 
+  @@unique([posPartnerId, insurerId])
   @@index([companyId, insurerId, isActive])
+  @@index([posPartnerId, isActive])
   @@map("pos_insurer_mappings")
 }
 

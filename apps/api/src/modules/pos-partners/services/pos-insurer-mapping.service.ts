@@ -14,7 +14,7 @@ export class PosInsurerMappingService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Retrieves the single authoritative insurer mapping for a POS partner.
+   * Retrieves all insurer-specific mappings for an Agent POS partner.
    */
   async getMapping(posPartnerId: string, companyId: string) {
     const partner = await this.prisma.posPartner.findFirst({
@@ -24,8 +24,8 @@ export class PosInsurerMappingService {
       throw new NotFoundException(`POS Partner '${posPartnerId}' not found`);
     }
 
-    const mapping = await this.prisma.posInsurerMapping.findUnique({
-      where: { posPartnerId },
+    const mappings = await this.prisma.posInsurerMapping.findMany({
+      where: { posPartnerId, companyId },
       include: {
         insurer: {
           select: { id: true, name: true, code: true, logoUrl: true, isActive: true },
@@ -33,16 +33,15 @@ export class PosInsurerMappingService {
       },
     });
 
-    if (!mapping) {
-      throw new NotFoundException(`No insurer mapping found for POS Partner '${posPartnerId}'`);
+    if (!mappings.length) {
+      throw new NotFoundException(`No insurer mappings found for POS Partner '${posPartnerId}'`);
     }
 
-    return mapping;
+    return mappings;
   }
 
   /**
-   * Creates or updates the single insurer mapping for a POS partner (DEC-03).
-   * One POS partner can have only ONE insurer association. Creating a second mapping is rejected.
+   * Adds an insurer-specific mapping to an Agent POS partner. Duplicate mappings for the same insurer are rejected.
    */
   async createMapping(posPartnerId: string, dto: PosInsurerMappingDto, user: RequestUser) {
     const companyId = user.companyId || (user as any).organizationId;
@@ -55,14 +54,14 @@ export class PosInsurerMappingService {
     }
 
     // Check if an insurer mapping already exists
-    const existing = await this.prisma.posInsurerMapping.findUnique({
-      where: { posPartnerId },
+    const existing = await this.prisma.posInsurerMapping.findFirst({
+      where: { posPartnerId, insurerId: dto.insurerId, companyId },
     });
     if (existing) {
       throw new ConflictException({
         code: 'POS_PARTNER_ALREADY_MAPPED',
         message:
-          'A POS partner can be mapped to exactly one insurer. To change insurer, perform an authorized remapping.',
+          'This Agent POS is already mapped to the selected insurer.',
       });
     }
 
@@ -111,6 +110,9 @@ export class PosInsurerMappingService {
           posCode: partner.posCode,
           insurerId: insurer.id,
           insurerName: insurer.name,
+          reason: dto.reason || 'Agent POS insurer registration',
+          insurerPartnerCode: mapping.insurerPartnerCode,
+          insurerPospId: mapping.insurerPospId,
         },
       },
     }).catch(() => null);
@@ -122,81 +124,8 @@ export class PosInsurerMappingService {
    * Explicit, authorized remapping of a POS partner to a new insurer.
    */
   async remapInsurer(posPartnerId: string, dto: PosInsurerMappingDto, user: RequestUser) {
-    const companyId = user.companyId || (user as any).organizationId;
-
-    const partner = await this.prisma.posPartner.findFirst({
-      where: { id: posPartnerId, companyId, deletedAt: null },
-    });
-    if (!partner) {
-      throw new NotFoundException(`POS Partner '${posPartnerId}' not found`);
-    }
-
-    const insurer = await this.prisma.insurer.findUnique({
-      where: { id: dto.insurerId },
-    });
-    if (!insurer) {
-      throw new NotFoundException(`Insurer with ID '${dto.insurerId}' not found`);
-    }
-    if (!insurer.isActive) {
-      throw new BadRequestException({
-        code: 'POS_INSURER_INACTIVE',
-        message: `Insurer '${insurer.name}' is inactive and cannot be mapped to a POS partner`,
-      });
-    }
-
-    const existing = await this.prisma.posInsurerMapping.findUnique({
-      where: { posPartnerId },
-      include: { insurer: true },
-    });
-
-    const previousInsurer = existing ? existing.insurer.name : 'None';
-
-    const updatedMapping = await this.prisma.posInsurerMapping.upsert({
-      where: { posPartnerId },
-      create: {
-        companyId,
-        posPartnerId,
-        insurerId: insurer.id,
-        insurerPartnerCode: dto.insurerPartnerCode?.trim() || null,
-        insurerPospId: dto.insurerPospId?.trim() || null,
-        effectiveFrom: dto.effectiveFrom ? new Date(dto.effectiveFrom) : new Date(),
-        effectiveUntil: dto.effectiveUntil ? new Date(dto.effectiveUntil) : null,
-        isActive: true,
-      },
-      update: {
-        insurerId: insurer.id,
-        insurerPartnerCode: dto.insurerPartnerCode?.trim() || null,
-        insurerPospId: dto.insurerPospId?.trim() || null,
-        effectiveFrom: dto.effectiveFrom ? new Date(dto.effectiveFrom) : new Date(),
-        effectiveUntil: dto.effectiveUntil ? new Date(dto.effectiveUntil) : null,
-        isActive: true,
-      },
-      include: { insurer: true },
-    });
-
-    // Audit log
-    await this.prisma.auditLog.create({
-      data: {
-        action: AuditAction.UPDATE,
-        entity: 'POS_INSURER_MAPPING',
-        entityType: 'PosInsurerMapping',
-        entityId: updatedMapping.id,
-        userId: user.id,
-        performedById: user.id,
-        module: 'POS_PARTNER',
-        metadata: {
-          companyId,
-          event: 'POS_INSURER_REMAPPED',
-          posPartnerId,
-          posCode: partner.posCode,
-          previousInsurer,
-          newInsurerId: insurer.id,
-          newInsurerName: insurer.name,
-          reason: dto.reason || 'Authorized partner remapping',
-        },
-      },
-    }).catch(() => null);
-
-    return updatedMapping;
+    // Backward-compatible endpoint: add a new insurer-specific mapping instead of replacing
+    // the partner's other insurer registrations.
+    return this.createMapping(posPartnerId, dto, user);
   }
 }

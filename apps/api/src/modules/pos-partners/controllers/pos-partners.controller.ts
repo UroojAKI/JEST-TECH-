@@ -7,9 +7,11 @@ import {
   Post,
   Query,
   UseGuards,
+  Res,
   ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { RoleType } from '@prisma/client';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -70,6 +72,16 @@ export class PosPartnersController {
       insurerName,
       productType,
     });
+  }
+
+  @Get('export.xlsx')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
+  @ApiOperation({ summary: 'Export Agent POS master, policy attribution and audit activity to Excel' })
+  async exportExcel(@CurrentUser() user: RequestUser, @Res() response: Response) {
+    const buffer = await this.partnerService.exportExcel(user);
+    response.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    response.setHeader('Content-Disposition', 'attachment; filename="agent-pos-register.xlsx"');
+    response.send(buffer);
   }
 
   @Get('kpis')

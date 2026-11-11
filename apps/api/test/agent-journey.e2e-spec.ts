@@ -399,7 +399,7 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
         status: 'ACTIVE',
         verificationStatus: 'VERIFIED',
         createdById: testUserId,
-        insurerMapping: {
+        insurerMappings: {
           create: {
             companyId: testCompanyId,
             insurerId: insurer.id,

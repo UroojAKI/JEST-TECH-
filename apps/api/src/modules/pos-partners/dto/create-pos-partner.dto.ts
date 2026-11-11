@@ -124,10 +124,10 @@ export class CreatePosPartnerDto {
   @Type(() => PolicyAddressDto)
   address?: PolicyAddressDto;
 
-  // ── Mandatory Single Insurer Mapping (DEC-03) ──
+  // Optional insurer-specific Agent POS mapping; one partner may map to multiple insurers.
+  @IsOptional()
   @IsString()
-  @IsNotEmpty({ message: 'Mapping to an existing Insurer is mandatory for POS Partner registration' })
-  insurerId: string;
+  insurerId?: string;
 
   @IsOptional()
   @IsString()

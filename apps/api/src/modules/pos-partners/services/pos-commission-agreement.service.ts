@@ -24,16 +24,17 @@ export class PosCommissionAgreementService {
     const companyId = user.companyId || (user as any).organizationId;
     const partner = await this.prisma.posPartner.findFirst({
       where: { id: posPartnerId, companyId, deletedAt: null },
-      include: { insurerMapping: true },
+      include: { insurerMappings: true },
     });
     if (!partner) {
       throw new NotFoundException(`POS Partner '${posPartnerId}' not found`);
     }
 
     // Verify insurer matches mapped insurer
-    if (partner.insurerMapping && partner.insurerMapping.insurerId !== dto.insurerId) {
+    const mappedInsurerIds = (partner.insurerMappings || []).map((mapping: any) => mapping.insurerId);
+    if (mappedInsurerIds.length && !mappedInsurerIds.includes(dto.insurerId)) {
       throw new BadRequestException(
-        `Commercial agreement insurer must match the POS partner's associated insurer`,
+        'Add an Agent POS mapping for this insurer before recording its commission agreement.',
       );
     }
 

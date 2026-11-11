@@ -646,16 +646,10 @@ export class MotorPolicyIssuanceService {
         };
       }
 
-      // ── Module B: Mandatory POS Partner Attribution (DEC-02 & DEC-03) ──
+      // ── Module B: Optional Agent POS attribution with insurer-specific validation ──
       let posSnapshotData: any = {};
       const requestedPosId = dto.posPartnerId;
-      if (this.posEligibilityService) {
-        if (!requestedPosId) {
-          throw new BadRequestException({
-            code: 'POLICY_POS_PARTNER_REQUIRED',
-            message: 'POS Partner selection is mandatory for policy issuance (DEC-02).',
-          });
-        }
+      if (this.posEligibilityService && requestedPosId) {
         const posEligibility = await this.posEligibilityService.assertEligibleForIssuance({
           posPartnerId: requestedPosId,
           companyId: quote.companyId,
@@ -670,12 +664,17 @@ export class MotorPolicyIssuanceService {
           posNameSnapshot: posEligibility.partner.name,
           insurerCodeSnapshot: posEligibility.insurer.code,
           insurerNameSnapshot: posEligibility.insurer.name,
+          insurerPartnerCodeSnapshot: posEligibility.mapping.insurerPartnerCode || null,
+          insurerPospIdSnapshot: posEligibility.mapping.insurerPospId || null,
         };
       } else if (requestedPosId) {
         posSnapshotData = {
           posPartnerId: requestedPosId,
           distributionChannel: 'POS',
         };
+      }
+      if (!requestedPosId) {
+        posSnapshotData = { distributionChannel: 'DIRECT' };
       }
 
       // ─── Create Policy with Concurrency Handling (P2002 -> 409) ───────────
