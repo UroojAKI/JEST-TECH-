@@ -6,8 +6,9 @@ import {
   InspectionStatus,
   DocumentVerificationStatus,
   Prisma,
+  RoleType,
 } from '@prisma/client';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { HealthDocumentRuleService } from '../../../health-insurance/services/health-document-rule.service';
 
 describe('BackOfficeQueueService (G021 Multi-Gate Policy Issuance Queue)', () => {
