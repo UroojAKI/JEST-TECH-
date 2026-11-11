@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AppShell } from '../../../components/layout/app-shell';
 import { PageLoadingState, PageErrorState } from '../../../components/ui/page-states';
 import { BookOpen, Plus, Shield, CheckCircle2, AlertTriangle, Search, Loader2 } from 'lucide-react';
 import { useLedgerEntries } from '../../../hooks/useFinance';
 import { StatusBadge } from '../../../components/ui/status-badge';
 import { toast } from 'sonner';
+import { apiClient, getApiErrorMessage } from '../../../lib/api-client';
 
 export default function DoubleEntryLedgerPage() {
   const [search, setSearch] = useState('');
@@ -20,14 +21,52 @@ export default function DoubleEntryLedgerPage() {
 
   const [showForm, setShowForm] = useState(false);
   const [description, setDescription] = useState('');
-  const [debitAccount, setDebitAccount] = useState('acc-bank');
-  const [creditAccount, setCreditAccount] = useState('acc-prem');
+  const [debitAccount, setDebitAccount] = useState('');
+  const [creditAccount, setCreditAccount] = useState('');
+  const [accounts, setAccounts] = useState<any[]>([]);
+  const [reconciliation, setReconciliation] = useState<any>(null);
+  const [isReconciling, setIsReconciling] = useState(false);
+
+  const loadAccountingContext = async () => {
+    try {
+      const [accountResponse, reconciliationResponse] = await Promise.all([
+        apiClient.get('/finance/accounts'),
+        apiClient.get('/finance/ledger/reconciliation'),
+      ]);
+      const nextAccounts = Array.isArray(accountResponse.data) ? accountResponse.data : [];
+      setAccounts(nextAccounts);
+      setDebitAccount((current) => current || nextAccounts.find((a) => a.type === 'ASSET')?.id || '');
+      setCreditAccount((current) => current || nextAccounts.find((a) => a.type === 'LIABILITY')?.id || '');
+      setReconciliation(reconciliationResponse.data);
+    } catch (error) {
+      toast.error(getApiErrorMessage(error) || 'Unable to load chart of accounts or reconciliation');
+    }
+  };
+
+  useEffect(() => { void loadAccountingContext(); }, []);
+
+  const runReconciliation = async () => {
+    setIsReconciling(true);
+    try {
+      const response = await apiClient.get('/finance/ledger/reconciliation');
+      setReconciliation(response.data);
+      toast.success(response.data?.ledgerIsBalanced ? 'Ledger reconciliation passed' : 'Ledger discrepancies detected');
+    } catch (error) {
+      toast.error(getApiErrorMessage(error) || 'Ledger reconciliation failed');
+    } finally {
+      setIsReconciling(false);
+    }
+  };
   const [amount, setAmount] = useState<number | ''>('');
   const [narration, setNarration] = useState('');
 
 
   const handlePostEntry = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!debitAccount || !creditAccount || debitAccount === creditAccount) {
+      toast.error('Select two different valid chart-of-account entries');
+      return;
+    }
     if (amount === '' || amount <= 0) {
       toast.error('Transaction amount must be greater than zero');
       return;
@@ -65,6 +104,9 @@ export default function DoubleEntryLedgerPage() {
           </div>
 
           <div className="flex items-center space-x-2">
+            <button onClick={() => void runReconciliation()} disabled={isReconciling} className="flex items-center gap-1 px-3 py-2 text-xs font-bold rounded-lg border disabled:opacity-50">
+              {isReconciling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shield className="h-4 w-4" />} Reconcile ledger
+            </button>
             <button
               onClick={() => setShowForm(true)}
               className="flex items-center space-x-1 px-4 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground shadow hover:bg-primary/90 transition"
@@ -75,6 +117,15 @@ export default function DoubleEntryLedgerPage() {
             </button>
           </div>
         </div>
+
+        {reconciliation && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="rounded-xl border bg-card p-3"><div className="text-xs text-muted-foreground">Posted entries checked</div><div className="text-xl font-bold">{reconciliation.checkedEntries}</div></div>
+            <div className="rounded-xl border bg-card p-3"><div className="text-xs text-muted-foreground">Balanced entries</div><div className="text-xl font-bold">{reconciliation.balancedEntries}</div></div>
+            <div className="rounded-xl border bg-card p-3"><div className="text-xs text-muted-foreground">Discrepancies</div><div className={`text-xl font-bold ${reconciliation.discrepancyCount ? 'text-destructive' : 'text-emerald-600'}`}>{reconciliation.discrepancyCount}</div></div>
+            <div className="rounded-xl border bg-card p-3"><div className="text-xs text-muted-foreground">Ledger status</div><div className="text-xl font-bold">{reconciliation.ledgerIsBalanced ? 'Balanced' : 'Review required'}</div></div>
+          </div>
+        )}
 
         {showForm && (
           <form onSubmit={handlePostEntry} className="p-5 border rounded-2xl bg-card space-y-4 shadow-sm">
@@ -108,9 +159,8 @@ export default function DoubleEntryLedgerPage() {
                   value={debitAccount}
                   onChange={(e) => setDebitAccount(e.target.value)}
                 >
-                  <option value="acc-bank">HDFC Bank Clearing (Asset)</option>
-                  <option value="acc-ar">Accounts Receivable - Customers (Asset)</option>
-                  <option value="acc-comm-exp">Commission Expense (Expense)</option>
+                  <option value="">Select debit account</option>
+                  {accounts.filter((account) => ['ASSET', 'EXPENSE'].includes(account.type)).map((account) => <option key={account.id} value={account.id}>{account.code} · {account.name} ({account.type})</option>)}
                 </select>
               </div>
               <div className="space-y-1">
@@ -120,9 +170,8 @@ export default function DoubleEntryLedgerPage() {
                   value={creditAccount}
                   onChange={(e) => setCreditAccount(e.target.value)}
                 >
-                  <option value="acc-prem">Gross Written Premium Income (Revenue)</option>
-                  <option value="acc-ap-insurer">Insurer Premium Payable (Liability)</option>
-                  <option value="acc-comm-inc">Brokerage Commission Revenue (Revenue)</option>
+                  <option value="">Select credit account</option>
+                  {accounts.filter((account) => ['LIABILITY', 'EQUITY', 'REVENUE'].includes(account.type)).map((account) => <option key={account.id} value={account.id}>{account.code} · {account.name} ({account.type})</option>)}
                 </select>
               </div>
               <div className="space-y-1 sm:col-span-2">
