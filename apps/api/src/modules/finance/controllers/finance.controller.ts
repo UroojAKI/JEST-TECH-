@@ -435,6 +435,14 @@ export class FinanceController {
     );
   }
 
+  @Get('ledger/reconciliation')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
+  @ApiOperation({ summary: 'Reconcile posted journal entry balances for the authenticated company' })
+  async reconcileLedger(@CurrentUser() actor: RequestUser) {
+    const companyId = this.resolveCompanyContext(actor);
+    return this.ledgerService.reconcileLedger(companyId);
+  }
+
   @Post('ledger/journal')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({ summary: 'Post new double-entry journal' })
