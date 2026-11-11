@@ -263,6 +263,7 @@ export function MotorQuotationsWorkspace() {
         const quotes = (Array.isArray(list) ? list : []).map((item: any) => ({
           id: item.id,
           quotationCode: item.quotationCode,
+          version: item.version || item.latestVersion?.versionNumber || null,
           vehicleCategory: item.motorMetadata?.vehicleCategory || item.vehicleCategory || 'PRIVATE_CAR',
           policyType: item.motorMetadata?.policyType || item.policyType || 'PACKAGE',
           registrationNumber: item.motorMetadata?.registrationNumber || item.registrationNumber || '',
@@ -645,6 +646,7 @@ export function MotorQuotationsWorkspace() {
                             <td className="px-3 py-3">
                               <div className="font-semibold text-foreground">{quote.insurerName || 'Insurer not recorded'}</div>
                               <div className="font-mono text-[10px] text-muted-foreground">{quote.quotationCode}</div>
+                              <div className="text-[10px] text-muted-foreground">Version {(quote as any).version ? `V${(quote as any).version}` : '—'}</div>
                             </td>
                             <td className="px-3 py-3">
                               <div className="font-medium">{(quote as any).policyType || '—'}</div>
@@ -853,6 +855,7 @@ export function MotorQuotationsWorkspace() {
                     ['Policy type', (quote: SavedMotorQuote) => String((quote as any).policyType || '—')],
                     ['Vehicle category', (quote: SavedMotorQuote) => String((quote as any).vehicleCategory || '—')],
                     ['Registration', (quote: SavedMotorQuote) => String(quote.registrationNumber || '—')],
+                    ['Version', (quote: SavedMotorQuote) => String((quote as any).version ? `V${(quote as any).version}` : '—')],
                     ['Status', (quote: SavedMotorQuote) => String(quote.status || '—').replaceAll('_', ' ')],
                     ['Created', (quote: SavedMotorQuote) => quote.createdAt ? new Date(quote.createdAt).toLocaleDateString('en-IN') : '—'],
                   ].map(([label, getter]: any) => (
