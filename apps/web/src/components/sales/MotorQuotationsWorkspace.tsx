@@ -626,7 +626,7 @@ export function MotorQuotationsWorkspace() {
                                 {onAddComparisonQuote && (
                                   <button onClick={() => onAddComparisonQuote(quote)} className="rounded border px-2 py-1 hover:bg-muted">Add insurer quote</button>
                                 )}
-                                {!isBackOfficeOrAdmin && onSubmitToBackOffice && !submitted && (quote as any).caseId && (
+                                {!isBackOfficeOrAdmin && !submitted && (quote as any).caseId && (
                                   <button onClick={async () => {
                                     const selected = allQuotes.find((item) => item.id === quote.id);
                                     if (!selected?.caseId) {
