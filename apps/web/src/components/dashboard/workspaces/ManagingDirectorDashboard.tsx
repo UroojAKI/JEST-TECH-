@@ -610,7 +610,12 @@ export default function ManagingDirectorDashboard() {
                             <td className="p-3 font-mono text-[11px] text-muted-foreground">
                               {item.category.replace('_', ' ')}
                             </td>
-                            <td className="p-3 font-semibold text-foreground">{item.title}</td>
+                            <td className="p-3 font-semibold text-foreground">
+                              <div>{item.title}</div>
+                              {item.entityType === 'Proposal' && <a className="text-primary text-[11px] hover:underline" href={`/sales/proposals/${item.entityId}`}>Open proposal</a>}
+                              {item.entityType === 'MotorQuotation' && <a className="text-primary text-[11px] hover:underline" href={`/workspace/operations/inspections/${item.entityId}`}>Open inspection</a>}
+                              {item.entityType === 'BackOfficeTask' && <a className="text-primary text-[11px] hover:underline" href="/workspace/operations/issuance">Open issuance queue</a>}
+                            </td>
                             <td className="p-3 font-mono font-bold text-primary">{item.referenceCode || '-'}</td>
                             <td className="p-3 text-muted-foreground">{item.assignedTo || 'Unassigned'}</td>
                             <td className="p-3 font-mono text-rose-600 font-semibold">
