@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { SettleClaimService } from './settle-claim.service';
 import { PrismaService } from '../../../../database/prisma.service';
 import { ClaimStatus, Prisma } from '@prisma/client';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 
 describe('SettleClaimService (Claims Settlement & Payment Confirmation)', () => {
   let service: SettleClaimService;
@@ -12,12 +12,15 @@ describe('SettleClaimService (Claims Settlement & Payment Confirmation)', () => 
     claim: {
       findUnique: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
     claimHistory: {
       create: jest.fn(),
     },
     settlement: {
-      upsert: jest.fn().mockResolvedValue({ id: 'set-1' }),
+      create: jest.fn().mockResolvedValue({ id: 'set-1', batchNumber: 'CLAIM-claim-2' }),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      findUnique: jest.fn(),
     },
     $transaction: jest.fn((cb) => cb(mockPrisma)),
   };
@@ -79,6 +82,20 @@ describe('SettleClaimService (Claims Settlement & Payment Confirmation)', () => 
     );
 
     expect(result.status).toBe(ClaimStatus.PAYMENT_PENDING);
+    expect(mockPrisma.claim.updateMany).toHaveBeenCalledWith({
+      where: { id: 'claim-2', status: ClaimStatus.APPROVED },
+      data: {
+        status: ClaimStatus.PAYMENT_PENDING,
+        updatedById: 'finance-officer-1',
+      },
+    });
+    expect(mockPrisma.settlement.create).toHaveBeenCalledWith({
+      data: {
+        batchNumber: 'CLAIM-claim-2',
+        totalAmount: new Prisma.Decimal(45000),
+        status: 'PENDING',
+      },
+    });
     expect(mockPrisma.claimHistory.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -88,6 +105,47 @@ describe('SettleClaimService (Claims Settlement & Payment Confirmation)', () => 
         }),
       }),
     );
+  });
+
+  it('rejects a second settlement request while the first is pending', async () => {
+    mockPrisma.claim.findUnique.mockResolvedValue({
+      ...approvedClaim,
+      status: ClaimStatus.PAYMENT_PENDING,
+    });
+
+    await expect(
+      service.execute(
+        'claim-2',
+        {
+          settlementAmount: 40000,
+          paymentReference: 'NEFT-SECOND',
+          paymentMethod: 'NEFT',
+        },
+        'finance-officer-2',
+      ),
+    ).rejects.toThrow(ConflictException);
+
+    expect(mockPrisma.settlement.create).not.toHaveBeenCalled();
+    expect(mockPrisma.claim.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('rejects a concurrent request when the compare-and-set transition loses', async () => {
+    mockPrisma.claim.findUnique.mockResolvedValue(approvedClaim);
+    mockPrisma.claim.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      service.execute(
+        'claim-2',
+        {
+          settlementAmount: 45000,
+          paymentReference: 'NEFT-RACE',
+          paymentMethod: 'NEFT',
+        },
+        'finance-officer-2',
+      ),
+    ).rejects.toThrow(ConflictException);
+
+    expect(mockPrisma.settlement.create).not.toHaveBeenCalled();
   });
 
   it('rejects settlement if actor is the same user who reported the claim (SoD)', async () => {
