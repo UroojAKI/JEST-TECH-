@@ -218,6 +218,21 @@ describe('BackOfficeQueueService (G021 Multi-Gate Policy Issuance Queue)', () =>
     expect(item.nextAction).toContain('Payment');
   });
 
+  it('returns newest-first server-side pages and counts from the filtered population', async () => {
+    const older = { ...baseQuote, id: 'quote-older', quotationCode: 'QT-2026-000' , createdAt: new Date('2026-01-01') };
+    const newer = { ...baseQuote, id: 'quote-newer', quotationCode: 'QT-2026-002', createdAt: new Date('2026-02-01') };
+    mockPrisma.quotation.findMany.mockResolvedValue([newer, older]);
+    mockPrisma.document.findMany.mockResolvedValue([]);
+
+    const result = await service.getBackOfficeQueue({ page: 2, limit: 1 });
+
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0].id).toBe('quote-older');
+    expect(result.meta).toEqual({ page: 2, limit: 1, total: 2, totalPages: 2 });
+    expect(result.summary.totalPending).toBe(2);
+    expect(result.summary.readyCount + result.summary.blockedCount).toBe(2);
+  });
+
   it('validateIssuanceGates throws BadRequestException when payment gate fails', async () => {
     const unpaidQuote = {
       ...baseQuote,
