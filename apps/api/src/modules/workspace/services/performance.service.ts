@@ -83,7 +83,9 @@ export class PerformanceService {
     if (companyId) policyWhere.companyId = companyId;
     if (userId && !isManager) policyWhere.createdById = userId;
 
-    const [todayRevenueAgg, totalRevenueAgg] = await Promise.all([
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const [todayRevenueAgg, totalRevenueAgg, targetAgg] = await Promise.all([
       this.prisma.policy.aggregate({
         _sum: { premiumAmount: true },
         where: {
@@ -95,10 +97,24 @@ export class PerformanceService {
         _sum: { premiumAmount: true },
         where: policyWhere,
       }),
+      this.prisma.salesTarget.aggregate({
+        where: {
+          year: now.getFullYear(),
+          month: now.getMonth() + 1,
+          user: { companyId },
+          ...(userId && !isManager ? { userId } : {}),
+        },
+        _sum: { targetGwp: true, targetPolicies: true },
+      }),
     ]);
 
     const todayRevenue = Number(todayRevenueAgg._sum?.premiumAmount || 0);
     const achievedGwp = Number(totalRevenueAgg._sum?.premiumAmount || 0);
+    const monthlyTargetGwp = Number(targetAgg._sum?.targetGwp || 0);
+    const monthlyTargetPolicies = Number(targetAgg._sum?.targetPolicies || 0);
+    const targetAchievementPercent = monthlyTargetGwp > 0
+      ? ((achievedGwp / monthlyTargetGwp) * 100).toFixed(1)
+      : null;
     const avgPolicyValue =
       policiesSold > 0 ? Math.round(achievedGwp / policiesSold) : 0;
 
@@ -115,13 +131,14 @@ export class PerformanceService {
       },
       bottomRow: {
         referralCount: referralsCount,
-        crossSellRatio: '0.0%',
+        crossSellRatio: '—',
         conversionPercentage: `${conversionPercentage}%`,
         averageTatHours: '—',
         averagePolicyValue: `₹${avgPolicyValue.toLocaleString('en-IN')}`,
-        targetAchievementPercent: '0.0%',
-        monthlyTargetGwp: '—',
+        targetAchievementPercent: targetAchievementPercent === null ? '—' : `${targetAchievementPercent}%`,
+        monthlyTargetGwp: monthlyTargetGwp > 0 ? `₹${monthlyTargetGwp.toLocaleString('en-IN')}` : '—',
         achievedGwp: `₹${achievedGwp.toLocaleString('en-IN')}`,
+        monthlyTargetPolicies: monthlyTargetPolicies > 0 ? monthlyTargetPolicies : '—',
         customerRating: '—',
       },
     };
