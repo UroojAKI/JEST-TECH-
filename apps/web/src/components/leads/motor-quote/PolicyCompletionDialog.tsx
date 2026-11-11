@@ -135,9 +135,8 @@ export function PolicyCompletionDialog({ isOpen, quote, onClose, onSuccess }: Pr
         if (isMounted) setIsLoadingDetails(false);
       });
 
-    // 3. Fetch eligible POS partners mapped to the quote's insurer (DEC-02 & DEC-03)
+    // 3. Fetch all active Agent POS records. Insurer mapping is optional.
     const posParams = new URLSearchParams();
-    if (quote.insurerName) posParams.set('insurerName', quote.insurerName);
     posParams.set('productType', 'MOTOR');
     setIsLoadingPos(true);
     apiClient
@@ -352,7 +351,7 @@ export function PolicyCompletionDialog({ isOpen, quote, onClose, onSuccess }: Pr
               <div className="flex items-center gap-2 text-xs font-bold text-foreground">
                 <Users className="h-4 w-4 text-emerald-600" />
                 <span>
-                  Agent POS Attribution <span className="text-muted-foreground font-medium">(Optional)</span>
+                  Agent POS Attribution <span className="text-muted-foreground font-medium">(Optional — no insurer mapping required)</span>
                 </span>
               </div>
             </div>
@@ -373,10 +372,13 @@ export function PolicyCompletionDialog({ isOpen, quote, onClose, onSuccess }: Pr
                 >
                   <option value="">No Agent POS attribution</option>
                   {posPartners.map((p: any) => {
-                    const mapping = p.insurerMappings?.find((m: any) => m.insurer?.name?.toLowerCase() === quote.insurerName?.toLowerCase()) || p.insurerMappings?.[0];
+                    const mappings = Array.isArray(p.insurerMappings) ? p.insurerMappings : [];
+                    const mappingSummary = mappings.length
+                      ? mappings.map((m: any) => String(m.insurer?.name || 'Insurer') + ': Partner code ' + (m.insurerPartnerCode || '—') + ', POS ID ' + (m.insurerPospId || '—')).join(' | ')
+                      : 'No insurer mapping';
                     return (
                       <option key={p.id} value={p.id}>
-                        {p.posCode} • {p.name} ({p.partnerType}) — {mapping?.insurer?.name || quote.insurerName} / Partner code: {mapping?.insurerPartnerCode || '—'} / POS ID: {mapping?.insurerPospId || '—'}
+                        {p.posCode} • {p.name} ({p.partnerType}) • Contact: {p.mobile || '—'} • Email: {p.email || '—'} • {mappingSummary}
                       </option>
                     );
                   })}
@@ -384,10 +386,10 @@ export function PolicyCompletionDialog({ isOpen, quote, onClose, onSuccess }: Pr
               ) : (
                 <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200 text-xs space-y-1.5">
                   <div className="font-bold flex items-center gap-1.5">
-                    <span>No Agent POS mapping available</span>
+                    <span>No active Agent POS records available</span>
                   </div>
                   <p className="text-[11px] leading-relaxed">
-                    No Agent POS is currently mapped to <strong>{quote.insurerName}</strong>. You can continue policy issuance without POS attribution.
+                    No active Agent POS records are available. You can continue policy issuance without POS attribution, or register a partner in Admin.
                   </p>
                   <div className="pt-1">
                     <a href="/admin/pos-partners" target="_blank" rel="noreferrer" className="inline-flex items-center text-xs font-bold underline text-primary hover:text-primary/80">
