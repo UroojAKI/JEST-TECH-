@@ -210,3 +210,7 @@ Preserve correlation ID `6e1fca82-956d-479c-8640-8cabc9a6e9a6` in the incident r
 ## 6. Validation status
 
 All changes described above are committed to the draft branch only. No production DB connection was available in this session, so the read-only reconciliation script has not been run. GitHub reported no CI status checks or workflow runs for the latest draft head at the time of inspection. Do not merge or deploy until API typecheck/tests, web typecheck/build, Prisma validation, tenant isolation tests, E2E flows and read-only production reconciliation have been completed.
+
+### QUOTE-LIST-COUNT-01 — page length was used as a false total
+
+The inspected `QuotationRepository.findAll` caught a failed COUNT query and substituted `fallbackData.length`. With a page size of 20, this could report a total of 20 even if the database held more records. The fallback has been removed: data and count now execute together, and count failures surface to the Sales list error state. This is a confirmed code defect, not proof that it caused the specific production screenshot; the read-only database report is still needed to establish the real record counts.
