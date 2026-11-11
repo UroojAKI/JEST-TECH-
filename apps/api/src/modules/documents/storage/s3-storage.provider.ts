@@ -5,6 +5,7 @@ import {
   PutObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,
+  HeadBucketCommand,
 } from '@aws-sdk/client-s3';
 import { StorageProvider } from './storage-provider.interface';
 
@@ -52,6 +53,16 @@ export class S3StorageProvider implements StorageProvider {
   getProviderName(): string {
     const provider = this.config.get<string>('STORAGE_PROVIDER', 'LOCAL');
     return provider === 'MINIO' ? 'MINIO' : 'S3';
+  }
+
+  async isAvailable(): Promise<boolean> {
+    try {
+      await this.client.send(new HeadBucketCommand({ Bucket: this.bucket }));
+      return true;
+    } catch (error: any) {
+      this.logger.warn(`S3 storage health check failed: ${error?.name || error?.message || 'unknown error'}`);
+      return false;
+    }
   }
 
   async uploadFile(
