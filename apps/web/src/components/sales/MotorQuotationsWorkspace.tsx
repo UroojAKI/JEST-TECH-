@@ -275,10 +275,13 @@ export function MotorQuotationsWorkspace() {
         const quotes = (Array.isArray(list) ? list : []).map((item: any) => ({
           id: item.id,
           quotationCode: item.quotationCode,
+          version: item.version || item.latestVersion?.versionNumber || null,
+          insurerId: item.insurerId || null,
+          customerAcceptance: item.motorMetadata?.customerAcceptance || null,
           vehicleCategory: item.motorMetadata?.vehicleCategory || item.vehicleCategory || 'PRIVATE_CAR',
           policyType: item.motorMetadata?.policyType || item.policyType || 'PACKAGE',
           registrationNumber: item.motorMetadata?.registrationNumber || item.registrationNumber || '',
-          insurerName: item.insurerName?.trim() || 'Insurer missing',
+          insurerName: item.insurerName?.trim() && item.insurerName.trim().toLowerCase() !== 'partner insurer' ? item.insurerName.trim() : 'Insurer missing',
           totalPremium: Number(item.totalPremium || 0),
           idv: Number(item.sumInsured || 0),
           ncbPercentage: Number(item.ncbPercentage || 0),
@@ -648,7 +651,9 @@ export function MotorQuotationsWorkspace() {
                       {quotes.map((quote) => {
                         const submitted = Boolean((quote as any).backOfficeSubmittedAt);
                         const isTerminalQuoteStatus = isTerminalQuoteStatusValue(quote);
-                        const proposalReady = ['READY_FOR_PROPOSAL', 'APPROVED', 'PAYMENT_UNDER_PROCESS', 'PAYMENT_PENDING'].includes(String(quote.status));
+                        const customerAccepted = quote.status === 'ACCEPTED' || Boolean((quote as any).customerAcceptance);
+                        const validInsurer = Boolean((quote as any).insurerId && quote.insurerName && !['insurer missing', 'partner insurer'].includes(quote.insurerName.toLowerCase()));
+                        const proposalReady = !isTerminalQuoteStatus && (quote as any).issuanceStatus !== 'ISSUED';
                         const issuanceReady = ['PAYMENT_DONE', 'PENDING_ISSUANCE'].includes(String(quote.status)) || (quote as any).issuanceStatus === 'ISSUANCE_PENDING';
                         return (
                           <tr key={quote.id} className="hover:bg-muted/30">
