@@ -247,10 +247,12 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
       vehicleSnapshot: {},
       previousPolicySnapshot: {},
     });
-    prisma.quotation.findFirst.mockResolvedValue({
-      id: 'quote-existing',
-      quotationCode: 'QTN-EXISTING-HDFC',
-    });
+    prisma.quotation.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: 'quote-existing',
+        quotationCode: 'QTN-EXISTING-HDFC',
+      });
 
     await expect(command.execute({
       caseId: 'case-existing',
@@ -261,6 +263,37 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
       vehicleId: 'veh-1',
       registrationNumber: 'MH02CB1234',
     } as any, mockUser)).rejects.toThrow(ConflictException);
+
+    expect(prisma.quotation.create).not.toHaveBeenCalled();
+  });
+
+  it('prevents adding any insurer alternative after customer acceptance locks the case', async () => {
+    prisma.motorQuotationCase.findFirst.mockResolvedValue({
+      id: 'case-accepted',
+      companyId: 'company-1',
+      status: 'QUOTED',
+      selectedQuoteId: null,
+      contactId: 'c-1',
+      vehicleId: 'veh-1',
+      registrationNumber: 'MH02CB1234',
+      customerSnapshot: {},
+      vehicleSnapshot: {},
+      previousPolicySnapshot: {},
+    });
+    prisma.quotation.findFirst.mockResolvedValueOnce({
+      id: 'quote-accepted',
+      quotationCode: 'QTN-ACCEPTED-01',
+    });
+
+    await expect(command.execute({
+      caseId: 'case-accepted',
+      vehicleCategory: 'PRIVATE_CAR',
+      policyType: 'PACKAGE',
+      insurerName: 'ICICI Lombard',
+      contactId: 'c-1',
+      vehicleId: 'veh-1',
+      registrationNumber: 'MH02CB1234',
+    } as any, mockUser)).rejects.toThrow(/customer-accepted quotation/i);
 
     expect(prisma.quotation.create).not.toHaveBeenCalled();
   });
