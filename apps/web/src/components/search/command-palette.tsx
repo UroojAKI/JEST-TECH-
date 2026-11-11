@@ -79,7 +79,7 @@ export function CommandPalette() {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search Customers, Policies, Claims, Leads, Documents... (Cmd+K)"
+            placeholder="Search Contacts, Leads, Policies, Claims, Proposals... (Cmd+K)"
             className="w-full min-w-0 py-3.5 text-sm bg-transparent border-none focus:outline-none placeholder:text-muted-foreground"
             aria-label="Search records"
           />
@@ -118,6 +118,7 @@ export function CommandPalette() {
                     {item.type === 'POLICY' && <ShieldCheck className="h-4 w-4" />}
                     {item.type === 'CLAIM' && <FileText className="h-4 w-4" />}
                     {item.type === 'LEAD' && <User className="h-4 w-4" />}
+                    {item.type === 'PROPOSAL' && <FileText className="h-4 w-4" />}
                   </div>
                   <div>
                     <div className="text-xs font-bold text-foreground">{item.title}</div>
