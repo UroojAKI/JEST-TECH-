@@ -157,11 +157,39 @@ export class CreateMotorQuotationCommand {
           `MotorQuotationCase '${activeCaseId}' not found or tenant access denied`,
         );
       }
-      if (['CANCELLED', 'COMPLETED'].includes(existingCase.status)) {
+      if (['CANCELLED', 'COMPLETED', 'ISSUED'].includes(existingCase.status)) {
         throw new BadRequestException(
           `Cannot create quotation for a ${existingCase.status} case '${activeCaseId}'`,
         );
       }
+      if (existingCase.selectedQuoteId) {
+        throw new ConflictException(
+          'This case already has a selected insurer quotation. Deselect or reopen the case through the authorized case workflow before adding another alternative.',
+        );
+      }
+
+      // The persisted case snapshot is authoritative for every insurer alternative.
+      // Ignore client-side edits to customer/vehicle/previous-policy fields so the
+      // user enters those details once and changes only the insurer/rating choice.
+      if (dto.contactId && dto.contactId !== existingCase.contactId) {
+        throw new BadRequestException('Alternative quotations must retain the case customer');
+      }
+      const normalizeRegistration = (value?: string | null) =>
+        String(value || '').replace(/[^a-z0-9]/gi, '').toUpperCase();
+      if (
+        dto.registrationNumber &&
+        existingCase.registrationNumber &&
+        normalizeRegistration(dto.registrationNumber) !== normalizeRegistration(existingCase.registrationNumber)
+      ) {
+        throw new BadRequestException('Alternative quotations must retain the case vehicle registration');
+      }
+      dto.contactId = existingCase.contactId;
+      dto.vehicleId = existingCase.vehicleId || dto.vehicleId;
+      dto.registrationNumber = existingCase.registrationNumber || dto.registrationNumber;
+      dto.proposerDetails = (existingCase.customerSnapshot as any) || dto.proposerDetails;
+      dto.vehicleDetails = (existingCase.vehicleSnapshot as any) || dto.vehicleDetails;
+      dto.previousPolicyDetails =
+        (existingCase.previousPolicySnapshot as any) || dto.previousPolicyDetails;
     }
 
     // ── 2. Contact Resolution (Tenant-Scoped) ──
