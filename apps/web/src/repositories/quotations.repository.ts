@@ -68,8 +68,11 @@ export const quotationsRepository = {
     return response.data;
   },
 
-  async acceptQuotation(id: string, comments?: string): Promise<QuotationItem> {
-    const response = await apiClient.post(`/quotations/${id}/accept`, { comments });
+  async acceptQuotation(
+    id: string,
+    evidence: { evidenceMethod: 'EMAIL' | 'SMS' | 'WHATSAPP' | 'PHYSICAL_SIGNATURE' | 'VERBAL_CALL_RECORDING' | 'PORTAL_CLICK'; evidenceReference?: string; comments?: string; selectedGstRate?: number },
+  ): Promise<QuotationItem> {
+    const response = await apiClient.post(`/quotations/${id}/accept`, evidence);
     return response.data;
   },
 
