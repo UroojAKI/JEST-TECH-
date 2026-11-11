@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, User, ShieldCheck, FileText, X, ArrowRight, Loader2 } from 'lucide-react';
 import { useUIStore } from '../../store/ui-store';
@@ -13,8 +13,31 @@ export function CommandPalette() {
   const setCommandPaletteOpen = useUIStore((s) => s.setCommandPaletteOpen);
   const { setActiveCustomer } = useCustomerContext();
   const [query, setQuery] = useState('');
+  const [activeIndex, setActiveIndex] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const { results, isLoading, isError, debouncedQuery } = useSearch(query);
+  const flatResults = useMemo(() => results, [results]);
 
-  const { results, isLoading } = useSearch(query);
+  useEffect(() => {
+    if (isCommandPaletteOpen) {
+      setQuery('');
+      setActiveIndex(0);
+      requestAnimationFrame(() => inputRef.current?.focus());
+    }
+  }, [isCommandPaletteOpen]);
+
+  useEffect(() => setActiveIndex(0), [debouncedQuery]);
+
+  useEffect(() => {
+    if (!isCommandPaletteOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'ArrowDown') { event.preventDefault(); setActiveIndex((index) => Math.min(index + 1, flatResults.length - 1)); }
+      if (event.key === 'ArrowUp') { event.preventDefault(); setActiveIndex((index) => Math.max(index - 1, 0)); }
+      if (event.key === 'Enter' && flatResults[activeIndex]) { event.preventDefault(); handleSelect(flatResults[activeIndex]); }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isCommandPaletteOpen, flatResults, activeIndex]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -38,24 +61,26 @@ export function CommandPalette() {
       setActiveCustomer(item.id, item.title, 'CORPORATE');
     }
     setCommandPaletteOpen(false);
+    setQuery('');
     if (item.link) {
       router.push(item.link);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-background/80 backdrop-blur-sm">
-      <div className="w-full max-w-xl bg-card border rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-background/80 px-2 pt-[max(1rem,8vh)] pb-4 backdrop-blur-sm sm:px-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setCommandPaletteOpen(false); }}>
+      <div role="dialog" aria-modal="true" aria-label="Global search" className="w-full max-w-2xl bg-card border rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         {/* Search Bar Input */}
         <div className="flex items-center px-4 border-b bg-muted/20">
           <Search className="h-4 w-4 text-muted-foreground mr-3" />
           <input
+            ref={inputRef}
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search Customers, Policies, Claims, Leads, Documents... (Cmd+K)"
-            className="w-full py-3.5 text-sm bg-transparent border-none focus:outline-none placeholder:text-muted-foreground"
-            autoFocus
+            className="w-full min-w-0 py-3.5 text-sm bg-transparent border-none focus:outline-none placeholder:text-muted-foreground"
+            aria-label="Search records"
           />
           {isLoading && <Loader2 className="h-4 w-4 text-primary animate-spin mr-2" />}
           <button
@@ -67,21 +92,24 @@ export function CommandPalette() {
         </div>
 
         {/* Results Container */}
-        <div className="p-2 max-h-80 overflow-y-auto space-y-1">
+        <div className="p-2 max-h-[65vh] overflow-y-auto space-y-1" role="listbox" aria-label="Search results">
           {query.trim().length < 2 ? (
             <div className="py-8 text-center text-xs text-muted-foreground">
               Type at least 2 characters to search across live database...
             </div>
           ) : results.length === 0 && !isLoading ? (
             <div className="py-8 text-center text-xs text-muted-foreground">
-              No records found matching "{query}".
+              {isError ? "Search is temporarily unavailable. Please retry." : `No records found matching "${query}".`}
             </div>
           ) : (
-            results.map((item) => (
+            flatResults.map((item, index) => (
               <button
-                key={item.id}
+                key={`${item.type}:${item.id}`}
+                role="option"
+                aria-selected={activeIndex === index}
+                onMouseEnter={() => setActiveIndex(index)}
                 onClick={() => handleSelect(item)}
-                className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-accent text-left transition-colors group"
+                className={`w-full flex items-center justify-between p-3 rounded-lg text-left transition-colors group ${activeIndex === index ? "bg-accent" : "hover:bg-accent"}`}
               >
                 <div className="flex items-center space-x-3">
                   <div className="p-2 rounded-md bg-primary/10 text-primary">
