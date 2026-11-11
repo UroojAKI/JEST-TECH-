@@ -121,40 +121,22 @@ export class LeadAssignmentService {
     correlationId?: string,
   ) {
     this.authzService.authorize(actor, 'LEAD', 'ASSIGN');
+    const companyId = actor.companyId || actor.organizationId;
+    if (!companyId) throw new ForbiddenException('Company context is required for lead assignment');
 
-    const lead = await this.prisma.lead.findUnique({
-      where: { id: leadId },
+    const lead = await this.prisma.lead.findFirst({
+      where: { id: leadId, companyId, deletedAt: null },
     });
     if (!lead || lead.deletedAt) {
       throw new NotFoundException(`Lead with ID ${leadId} not found`);
     }
 
-    if (
-      actor?.companyId &&
-      lead.companyId &&
-      lead.companyId !== actor.companyId
-    ) {
-      throw new ForbiddenException(
-        'Cross-organization lead assignment is strictly prohibited',
-      );
-    }
-
-    const targetAgent = await this.prisma.user.findUnique({
-      where: { id: targetAgentId },
+    const targetAgent = await this.prisma.user.findFirst({
+      where: { id: targetAgentId, companyId },
     });
     if (!targetAgent || targetAgent.deletedAt) {
       throw new NotFoundException(
         `Target agent with ID ${targetAgentId} not found`,
-      );
-    }
-
-    if (
-      actor?.companyId &&
-      targetAgent.companyId &&
-      targetAgent.companyId !== actor.companyId
-    ) {
-      throw new ForbiddenException(
-        'Cross-organization agent assignment is strictly prohibited',
       );
     }
 
@@ -218,29 +200,21 @@ export class LeadAssignmentService {
     actor?: ActorContext,
     correlationId?: string,
   ) {
-    const lead = await this.prisma.lead.findUnique({
-      where: { id: leadId },
+    const companyId = actor?.companyId || actor?.organizationId;
+    if (!companyId) throw new ForbiddenException('Company context is required for auto-assignment');
+    const lead = await this.prisma.lead.findFirst({
+      where: { id: leadId, companyId, deletedAt: null },
     });
     if (!lead || lead.deletedAt) {
       throw new NotFoundException(`Lead with ID ${leadId} not found`);
     }
 
-    if (
-      actor?.companyId &&
-      lead.companyId &&
-      lead.companyId !== actor.companyId
-    ) {
-      throw new ForbiddenException(
-        'Cross-organization lead assignment is strictly prohibited',
-      );
-    }
-
-    // Determine candidate pool
+    // Candidate pool is always constrained to the lead's authenticated tenant.
     const userWhere: any = {
       status: UserStatus.ACTIVE,
       role: RoleType.AGENT,
       deletedAt: null,
-      ...(actor?.companyId ? { companyId: actor.companyId } : lead.companyId ? { companyId: lead.companyId } : {}),
+      companyId,
     };
 
     if (actor?.teamId) {
@@ -323,9 +297,11 @@ export class LeadAssignmentService {
     if (!leadIds || leadIds.length === 0) {
       throw new BadRequestException('No lead IDs provided for bulk assignment');
     }
+    const companyId = actor.companyId || actor.organizationId;
+    if (!companyId) throw new ForbiddenException('Company context is required for bulk assignment');
 
-    const targetAgent = await this.prisma.user.findUnique({
-      where: { id: targetAgentId },
+    const targetAgent = await this.prisma.user.findFirst({
+      where: { id: targetAgentId, companyId },
     });
     if (!targetAgent || targetAgent.deletedAt) {
       throw new NotFoundException(
@@ -337,23 +313,13 @@ export class LeadAssignmentService {
       throw new BadRequestException('Cannot assign leads to an inactive agent');
     }
 
-    if (
-      actor?.companyId &&
-      targetAgent.companyId &&
-      targetAgent.companyId !== actor.companyId
-    ) {
-      throw new ForbiddenException(
-        'Cross-organization agent assignment is strictly prohibited',
-      );
-    }
-
     this.validateHierarchyBoundary(actor, targetAgent);
 
     return this.prisma.$transaction(async (tx) => {
       const leads = await tx.lead.findMany({
         where: {
           id: { in: leadIds },
-          companyId: actor.companyId,
+          companyId,
           deletedAt: null,
         },
       });
@@ -397,17 +363,14 @@ export class LeadAssignmentService {
    * Retrieves active workload telemetry across agents within actor's scope.
    */
   async getAgentWorkloadQueue(actor: ActorContext): Promise<WorkloadItem[]> {
+    const companyId = actor.companyId || actor.organizationId;
+    if (!companyId) throw new ForbiddenException('Company context is required for agent workload');
     const userWhere: any = {
       status: UserStatus.ACTIVE,
-      role: {
-        type: RoleType.AGENT,
-      },
+      role: { type: RoleType.AGENT },
       deletedAt: null,
+      companyId,
     };
-
-    if (actor.role !== RoleType.ADMIN) {
-      userWhere.companyId = actor.companyId;
-    }
 
     const agents = await this.prisma.user.findMany({
       where: userWhere,
