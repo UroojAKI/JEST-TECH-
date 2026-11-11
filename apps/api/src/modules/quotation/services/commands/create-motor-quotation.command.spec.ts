@@ -644,6 +644,54 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
+  it('reuses the persisted case snapshot for an alternative insurer quote', async () => {
+    prisma.motorQuotationCase.findFirst.mockResolvedValue({
+      id: 'case-reuse-1',
+      companyId: 'company-1',
+      contactId: 'c-1',
+      vehicleId: 'vehicle-1',
+      registrationNumber: 'KA01AB1234',
+      customerSnapshot: { customerName: 'Canonical Customer', mobileNumber: '9876543210' },
+      vehicleSnapshot: { vehicleStatus: 'EXISTING', makeModel: 'Canonical Vehicle' },
+      previousPolicySnapshot: { previousPolicyType: 'COMPREHENSIVE', policyExpiryDate: '2026-12-01' },
+      selectedQuoteId: null,
+      status: 'QUOTED',
+    });
+    prisma.quotation.create.mockImplementation(({ data }: any) => Promise.resolve({
+      id: 'q-alternative-1',
+      quotationCode: 'QTN-ALT-1',
+      totalPremium: 11800,
+      createdAt: new Date(),
+      ...data,
+    }));
+
+    await command.execute({
+      vehicleCategory: 'PRIVATE_CAR',
+      policyType: 'PACKAGE',
+      insurerName: 'TATA AIG',
+      caseId: 'case-reuse-1',
+      contactId: 'c-1',
+      vehicleId: 'vehicle-1',
+      registrationNumber: 'KA01AB1234',
+      proposerDetails: { customerName: 'Tampered Customer' },
+      vehicleDetails: { makeModel: 'Tampered Vehicle' },
+    } as any, mockUser);
+
+    expect(prisma.quotation.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        caseId: 'case-reuse-1',
+        contactId: 'c-1',
+        vehicleId: 'vehicle-1',
+        registrationNumber: 'KA01AB1234',
+        motorMetadata: expect.objectContaining({
+          proposerDetails: expect.objectContaining({ customerName: 'Canonical Customer' }),
+          vehicleDetails: expect.objectContaining({ makeModel: 'Canonical Vehicle' }),
+          previousPolicyDetails: expect.objectContaining({ previousPolicyType: 'COMPREHENSIVE' }),
+        }),
+      }),
+    }));
+  });
+
   it('MOTOR-V2-CASE-ORPHAN: should auto-provision a parent MotorQuotationCase when caseId is omitted', async () => {
     prisma.quotation.create.mockResolvedValue({
       id: 'q-auto-case',
