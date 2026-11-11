@@ -65,6 +65,7 @@ export function MotorQuotationsWorkspace() {
   const [acceptanceMethod, setAcceptanceMethod] = useState<'EMAIL' | 'SMS' | 'WHATSAPP' | 'PHYSICAL_SIGNATURE' | 'VERBAL_CALL_RECORDING' | 'PORTAL_CLICK'>('EMAIL');
   const [acceptanceReference, setAcceptanceReference] = useState('');
   const [acceptanceSubmitting, setAcceptanceSubmitting] = useState(false);
+  const [comparisonQuotes, setComparisonQuotes] = useState<SavedMotorQuote[] | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -583,12 +584,17 @@ export function MotorQuotationsWorkspace() {
               <div key={groupId} className="rounded-xl border bg-card p-5 space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-3 border-b gap-3">
                   <div><div className="text-sm font-bold">{customerName} <span className="text-muted-foreground">|</span> {vehicle}</div><div className="text-xs text-muted-foreground">{mobile} · {quotes.length} version{quotes.length === 1 ? '' : 's'}</div></div>
-                  <button onClick={() => handleOpenWizard(first?.vehicleCategory, {
-                    vehicleDetails: first?.vehicleDetails,
-                    proposerDetails: first?.proposerDetails,
-                    previousPolicyDetails: (first as any)?.previousPolicyDetails,
-                    caseId: (first as any)?.caseId,
-                  })} className="px-3 py-1.5 rounded-md border bg-background hover:bg-muted text-xs font-semibold">{activeTab === 'RENEWALS' ? 'Generate Renewal Quote' : 'New Quote Version'}</button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {quotes.length > 1 && (
+                      <button type="button" onClick={() => setComparisonQuotes(quotes)} className="px-3 py-1.5 rounded-md border bg-background hover:bg-muted text-xs font-semibold">Compare saved alternatives</button>
+                    )}
+                    <button onClick={() => handleOpenWizard(first?.vehicleCategory, {
+                      vehicleDetails: first?.vehicleDetails,
+                      proposerDetails: first?.proposerDetails,
+                      previousPolicyDetails: (first as any)?.previousPolicyDetails,
+                      caseId: (first as any)?.caseId,
+                    })} className="px-3 py-1.5 rounded-md border bg-background hover:bg-muted text-xs font-semibold">{activeTab === 'RENEWALS' ? 'Generate Renewal Quote' : 'New Quote Version'}</button>
+                  </div>
                 </div>
                 <div className="overflow-x-auto rounded-lg border">
                   <table className="w-full min-w-[980px] text-xs">
@@ -803,6 +809,37 @@ export function MotorQuotationsWorkspace() {
           onClose={() => setManagementQuoteId(null)}
           onUpdated={() => { void refetch(); }}
         />
+      )}
+
+      {comparisonQuotes && (
+        <div className="fixed inset-0 z-[105] flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-label="Compare saved insurer alternatives">
+          <div className="max-h-[85vh] w-full max-w-5xl overflow-auto rounded-xl border bg-background p-5 shadow-xl">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div><h3 className="font-bold">Saved insurer alternatives</h3><p className="text-xs text-muted-foreground">Read-only comparison of existing quotation snapshots. No quotation records are created.</p></div>
+              <button type="button" onClick={() => setComparisonQuotes(null)} className="rounded-lg border px-3 py-1.5 text-xs">Close</button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[700px] text-sm">
+                <thead className="bg-muted/60"><tr><th className="p-2 text-left">Comparison field</th>{comparisonQuotes.map((quote) => <th key={quote.id} className="p-2 text-left">{quote.insurerName}<div className="font-mono text-[10px] font-normal text-muted-foreground">{quote.quotationCode}</div></th>)}</tr></thead>
+                <tbody className="divide-y">
+                  {[
+                    ['Premium', (quote: SavedMotorQuote) => `₹${Number(quote.totalPremium || 0).toLocaleString('en-IN')}`],
+                    ['IDV', (quote: SavedMotorQuote) => `₹${Number((quote as any).idv || (quote as any).sumInsured || 0).toLocaleString('en-IN')}`],
+                    ['NCB', (quote: SavedMotorQuote) => `${quote.ncbPercentage ?? 0}%`],
+                    ['Policy type', (quote: SavedMotorQuote) => String((quote as any).policyType || '—')],
+                    ['Vehicle category', (quote: SavedMotorQuote) => String((quote as any).vehicleCategory || '—')],
+                    ['Registration', (quote: SavedMotorQuote) => String(quote.registrationNumber || '—')],
+                    ['Status', (quote: SavedMotorQuote) => String(quote.status || '—').replaceAll('_', ' ')],
+                    ['Created', (quote: SavedMotorQuote) => quote.createdAt ? new Date(quote.createdAt).toLocaleDateString('en-IN') : '—'],
+                  ].map(([label, getter]: any) => (
+                    <tr key={label}><th className="p-2 text-left font-medium text-muted-foreground">{label}</th>{comparisonQuotes.map((quote) => <td key={quote.id} className="p-2">{getter(quote)}</td>)}</tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">Open View / Complete on any alternative to inspect its full saved premium calculation, documents, payment record and history before selecting a winner.</p>
+          </div>
+        </div>
       )}
 
       {acceptanceQuoteId && (
