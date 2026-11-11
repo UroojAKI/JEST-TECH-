@@ -110,13 +110,16 @@ export function QuotationManagementDialog({ quotationId, isOpen, onClose, onUpda
   const snapshot = quotation?.calculationSnapshot || {};
   const outputs = snapshot.outputs || snapshot.result?.outputs || {};
   const premiumRows = [
-    ['Own Damage (OD)', outputs.odPremium ?? outputs.odBasePremium ?? quotation?.odPremium],
-    ['Third Party (TP)', outputs.tpPremium ?? quotation?.tpPremium],
-    ['Add-ons', outputs.addonPremium ?? outputs.addOnsPremium],
-    ['NCB discount', outputs.ncbDiscount ?? outputs.ncbDiscountAmount],
-    ['Commercial discount', outputs.commercialDiscountAmount],
-    ['GST', outputs.totalGst ?? quotation?.gstAmount],
-    ['Final payable', outputs.totalPremium ?? quotation?.totalPremium],
+    ['Own Damage (OD)', outputs.od?.gross ?? outputs.odPremium ?? outputs.baseOdPremium ?? quotation?.odPremium],
+    ['Third Party (TP)', outputs.tp?.base ?? outputs.baseTpPremium ?? outputs.annualTpPremium ?? outputs.netTpPremium ?? quotation?.tpPremium],
+    ['Add-ons', outputs.addonPremium ?? outputs.od?.addons ?? outputs.addOnsPremium],
+    ['NCB discount', outputs.od?.ncbDiscount ?? outputs.ncbDiscount ?? outputs.ncbDiscountAmount],
+    ['OD discount', outputs.od?.specialDiscount ?? outputs.odDiscountAmount ?? outputs.odDiscount],
+    ['TP discount', outputs.tp?.discount ?? outputs.tpDiscountAmount ?? outputs.tpDiscount],
+    ['Commercial discount', outputs.commercialDiscountAmount ?? outputs.discounts?.commercial?.amount],
+    ['Total discounts', outputs.totalDiscountAmount ?? outputs.totalDiscount ?? outputs.summary?.totalDiscount],
+    ['GST', outputs.summary?.totalGst ?? outputs.totalGst ?? outputs.gstAmount ?? quotation?.gstAmount],
+    ['Final payable', outputs.summary?.finalPayable ?? outputs.finalPayableAmount ?? outputs.totalPremium ?? quotation?.totalPremium],
   ].filter(([, value]) => value !== undefined && value !== null);
 
   const payments = quotation?.motorPaymentRecord
