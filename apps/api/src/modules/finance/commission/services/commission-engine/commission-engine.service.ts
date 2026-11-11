@@ -20,6 +20,22 @@ export class CommissionEngineService {
     premiumAmountStr: string,
     planId: string,
   ) {
+    const policy = await this.prisma.policy.findFirst({
+      where: { id: policyId, deletedAt: null },
+      select: { id: true, companyId: true, premiumAmount: true, quotation: { select: { totalPremium: true, gstAmount: true } } },
+    });
+    if (!policy?.companyId) {
+      throw new NotFoundException('Policy not found or tenant ownership is unavailable');
+    }
+
+    const agent = await this.prisma.user.findFirst({
+      where: { id: agentId, companyId: policy.companyId, status: 'ACTIVE' },
+      select: { id: true, status: true },
+    });
+    if (!agent) {
+      throw new ForbiddenException('Commission recipient must be an active user in the policy tenant');
+    }
+
     const premiumAmount = new Decimal(premiumAmountStr);
 
     if (premiumAmount.lte(0)) {
@@ -91,34 +107,15 @@ export class CommissionEngineService {
       );
     }
 
-    const agent = await this.prisma.user.findUnique({
-      where: { id: agentId },
-      select: { id: true, status: true },
-    });
-
-    if (!agent || agent.status !== 'ACTIVE') {
-      throw new BadRequestException(
-        'Commission recipient is not an active user',
-      );
-    }
-
-    // Authoritative Server-side Net Commission Base (Excluding GST)
-    // IRDAI Statutory Mandate: Commissions can only be calculated on net premium (base + addons - discounts), NEVER on GST
+    // The policy's stored premium/quotation snapshot is authoritative; caller input
+    // is retained only as a consistency check, never as a cross-tenant lookup key.
     let commissionableBase = premiumAmount;
-    if (typeof this.prisma?.policy?.findUnique === 'function') {
-      const policy = await this.prisma.policy.findUnique({
-        where: { id: policyId },
-        include: { quotation: true },
-      });
-
-      if (policy?.quotation) {
-        const q = policy.quotation;
-        const total = new Decimal(q.totalPremium || policy.premiumAmount);
-        const gst = new Decimal(q.gstAmount || 0);
-        const netWithoutGst = total.sub(gst);
-        if (netWithoutGst.gt(0)) {
-          commissionableBase = netWithoutGst;
-        }
+    if (policy.quotation) {
+      const total = new Decimal(policy.quotation.totalPremium || policy.premiumAmount);
+      const gst = new Decimal(policy.quotation.gstAmount || 0);
+      const netWithoutGst = total.sub(gst);
+      if (netWithoutGst.gt(0)) {
+        commissionableBase = netWithoutGst;
       }
     }
 
@@ -129,6 +126,7 @@ export class CommissionEngineService {
 
     commissionsData.push({
       policyId,
+      companyId: policy.companyId,
       userId: agentId,
       roleTier: 'AGENT',
       amount: agentCommissionAmt,
@@ -150,8 +148,8 @@ export class CommissionEngineService {
           );
         }
 
-        const recipient = await this.prisma.user.findUnique({
-          where: { id: override.userId },
+        const recipient = await this.prisma.user.findFirst({
+          where: { id: override.userId, companyId: policy.companyId, status: 'ACTIVE' },
           select: { id: true, status: true },
         });
 
@@ -165,6 +163,7 @@ export class CommissionEngineService {
 
         commissionsData.push({
           policyId,
+          companyId: policy.companyId,
           userId: override.userId,
           roleTier: override.roleTier,
           amount: overrideAmt,
@@ -178,7 +177,7 @@ export class CommissionEngineService {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${policyId}))`;
 
       const existing = await tx.commission.findMany({
-        where: { policyId },
+        where: { policyId, companyId: policy.companyId },
         orderBy: { createdAt: 'asc' },
       });
 
@@ -192,7 +191,7 @@ export class CommissionEngineService {
       await tx.commission.createMany({ data: commissionsData });
 
       return tx.commission.findMany({
-        where: { policyId },
+        where: { policyId, companyId: policy.companyId },
         orderBy: { createdAt: 'asc' },
       });
     });
