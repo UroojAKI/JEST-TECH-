@@ -16,7 +16,7 @@
 3. **Dynamic global-search interaction**
    - 250 ms debounce, React Query cache, input focus on open, Escape/backdrop close, arrow-key navigation and Enter selection.
    - Search errors now have an explicit unavailable message.
-   - Search entity coverage remains limited by the backend/repository response mapping; do not assume every entity type is indexed.
+   - Search now maps backend-supported proposals to the quotation workspace. Document search is not implemented by the backend search endpoint.
 4. **Quotation payment discoverability**
    - Added a **Complete Payment** action at the quotation row.
    - It opens the existing Proposal/Payment flow, which posts to `POST /motor/quotations/:id/payment` and uses the backend's authenticated actor/tenant context and payment rules.
@@ -37,7 +37,7 @@
 
 | Area | Finding | Current classification | Required follow-up |
 |---|---|---|---|
-| Global search | Frontend result mapping currently surfaces contacts/customers, leads, policies and claims. The UI placeholder mentions documents, but returned document/proposal entity coverage is not demonstrated by this repository mapping. | Capability gap | Verify backend indexed entity types, then add typed mapping and deep links for supported proposals/documents. |
+| Global search | Backend returns contacts, leads, policies, claims and proposals. Frontend now maps proposals to the quotation workspace. Documents are not part of the current backend search response despite the old placeholder. | Partially remediated; documents remain unsupported by this endpoint | Add tenant-scoped document search only after defining permitted metadata fields and document access checks; do not expose file contents or URLs without authorization. |
 | Customer notes | Notes themselves are submitted through `customerRepository.addCustomerNote(...)` and reloaded from the customer workspace. An **unsaved note draft** is kept in browser `localStorage` under `customer_note_draft_<customerId>`. | Not a server-persistence defect for saved notes; unsaved drafts are browser-local | Keep this as a documented UX limitation; optionally warn before clearing browser storage or provide explicit draft sync if cross-device drafts are required. |
 | Voucher PDF | `VoucherPreviewModal` disables Download PDF and explicitly says PDF export is not available. | Missing capability, honest disabled control | Implement an authorized server-generated voucher PDF, or keep unavailable state until then. |
 | Finance receipt issuance | Prior audit reports a hard-coded receipt toast. The current `/finance` page is a wrapper around `FinanceOperationsHub`; the prior literal was not found in the current page source inspected. | Historical finding requires current path verification | Search current FinanceOperationsHub receipt controls and confirm whether any route still exposes a false receipt-success action. |
