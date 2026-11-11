@@ -44,9 +44,9 @@ async function main() {
       const dbInfoRows = await tx.$queryRawUnsafe(
         'SELECT current_database() AS database_name, current_user AS database_user, now() AS inspected_at',
       );
+      const tableNamesSql = TABLES.map((name) => "'" + name.replace(/'/g, "''") + "'").join(', ');
       const tableRows = await tx.$queryRawUnsafe(
-        "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' AND table_name = ANY($1::text[])",
-        TABLES,
+        "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' AND table_name IN (" + tableNamesSql + ")",
       );
       const present = new Set(tableRows.map((row) => row.table_name));
       const result = {
