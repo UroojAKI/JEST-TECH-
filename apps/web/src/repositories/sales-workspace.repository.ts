@@ -17,12 +17,10 @@ export const salesWorkspaceRepository = {
   },
 
   async getAnalytics(): Promise<any> {
-    try {
-      const response = await apiClient.get('/workspace/sales/motor-widgets');
-      return response.data;
-    } catch {
-      return null;
-    }
+    // Preserve transport errors so the dashboard can render an error state instead
+    // of presenting an unavailable analytics response as legitimate zero metrics.
+    const response = await apiClient.get('/workspace/sales/motor-widgets');
+    return response.data;
   },
 
   async getMotorWidgets(): Promise<any> {
