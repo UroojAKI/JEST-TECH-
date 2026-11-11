@@ -206,30 +206,29 @@ export class CommissionEngineService {
    * Called when a policy is fully paid. Only approved commissions can become realized.
    */
   async realizeCommissions(policyId: string, companyId?: string) {
-    let effectiveCompanyId = companyId;
-    if (!effectiveCompanyId && typeof this.prisma?.policy?.findUnique === 'function') {
-      const policy = await this.prisma.policy.findUnique({
-        where: { id: policyId },
-        select: { companyId: true },
-      });
-      effectiveCompanyId = policy?.companyId;
+    if (!companyId) {
+      throw new ForbiddenException('Company context is required to realize commissions');
     }
 
-    const result = await this.prisma.commission.updateMany({
-      where: {
-        policyId,
-        status: 'APPROVED',
-        ...(effectiveCompanyId ? { companyId: effectiveCompanyId } : {}),
-      },
-      data: {
-        status: 'REALIZED',
-      },
-    });
+    return this.prisma.$transaction(async (tx) => {
+      const policy = await tx.policy.findFirst({
+        where: { id: policyId, companyId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!policy) {
+        throw new NotFoundException('Policy not found in the current company workspace');
+      }
 
-    this.logger.log(
-      `Realized ${result.count} approved commissions for policy ${policyId}`,
-    );
-    return result.count;
+      const result = await tx.commission.updateMany({
+        where: { policyId, companyId, status: 'APPROVED' },
+        data: { status: 'REALIZED' },
+      });
+
+      this.logger.log(
+        `Realized ${result.count} approved commissions for policy ${policyId} in company ${companyId}`,
+      );
+      return result.count;
+    });
   }
 
   /**
