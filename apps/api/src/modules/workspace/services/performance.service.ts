@@ -84,7 +84,7 @@ export class PerformanceService {
     if (userId && !isManager) policyWhere.createdById = userId;
 
     const now = new Date();
-    const [todayRevenueAgg, totalRevenueAgg, monthlyRevenueAgg, totalPoliciesCount, monthlyPoliciesCount, targetAgg] = await Promise.all([
+    const [todayRevenueAgg, totalRevenueAgg, monthlyRevenueAgg, monthlyPoliciesCount, targetAgg] = await Promise.all([
       this.prisma.policy.aggregate({
         _sum: { premiumAmount: true },
         where: { ...policyWhere, createdAt: { gte: todayStart } },
@@ -97,7 +97,6 @@ export class PerformanceService {
         _sum: { premiumAmount: true },
         where: { ...policyWhere, createdAt: { gte: new Date(now.getFullYear(), now.getMonth(), 1) } },
       }),
-      this.prisma.policy.count({ where: policyWhere }),
       this.prisma.policy.count({
         where: { ...policyWhere, createdAt: { gte: new Date(now.getFullYear(), now.getMonth(), 1) } },
       }),
