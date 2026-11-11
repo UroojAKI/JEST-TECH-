@@ -72,17 +72,21 @@ export class BackOfficeQueueService {
           search?: string;
           status?: string;
           quotationId?: string;
+          page?: number;
+          limit?: number;
         },
     maybeParams?: {
       search?: string;
       status?: string;
       quotationId?: string;
+      page?: number;
+      limit?: number;
     },
   ) {
     try {
       let actor: ActorContext | undefined;
       let params:
-        | { search?: string; status?: string; quotationId?: string }
+        | { search?: string; status?: string; quotationId?: string; page?: number; limit?: number }
         | undefined;
 
       if (
@@ -95,7 +99,7 @@ export class BackOfficeQueueService {
         params = maybeParams;
       } else {
         params = actorOrParams as
-          | { search?: string; status?: string; quotationId?: string }
+          | { search?: string; status?: string; quotationId?: string; page?: number; limit?: number }
           | undefined;
       }
 
@@ -183,7 +187,7 @@ export class BackOfficeQueueService {
               },
             },
           },
-          orderBy: { createdAt: 'asc' },
+          orderBy: { createdAt: 'desc' },
         });
       } catch (prismaErr: any) {
         this.logger.warn(`Primary quotation query failed: ${prismaErr?.message}. Falling back to baseline query.`);
@@ -203,7 +207,7 @@ export class BackOfficeQueueService {
               policy: true,
               healthCase: { include: { documents: true } },
             },
-            orderBy: { createdAt: 'asc' },
+            orderBy: { createdAt: 'desc' },
           });
         } catch (fallbackErr: any) {
           this.logger.error(`Fallback quotation query failed: ${fallbackErr?.message}`, fallbackErr?.stack);
@@ -240,9 +244,6 @@ export class BackOfficeQueueService {
 
       const now = Date.now();
       const items: BackOfficeQueueItem[] = [];
-
-      let readyCount = 0;
-      let blockedCount = 0;
       let issuedCount = 0;
 
       for (const q of quotations) {
@@ -468,12 +469,6 @@ export class BackOfficeQueueService {
           nextAction = 'Awaiting Customer Identity Completion';
         }
 
-        if (allGatesPassed) {
-          readyCount++;
-        } else {
-          blockedCount++;
-        }
-
         // SLA Countdown (IRDAI target 24h from quotation approval / payment)
         const quoteTime = new Date(q.updatedAt || q.createdAt).getTime();
         const elapsedHours = (now - quoteTime) / 3600000;
@@ -535,7 +530,11 @@ export class BackOfficeQueueService {
           const matches =
             item.quotationCode.toLowerCase().includes(query) ||
             item.customerName.toLowerCase().includes(query) ||
-            item.salesAgentName.toLowerCase().includes(query);
+            (item.customerPhone || '').toLowerCase().includes(query) ||
+            (item.customerEmail || '').toLowerCase().includes(query) ||
+            item.salesAgentName.toLowerCase().includes(query) ||
+            item.insurerName.toLowerCase().includes(query) ||
+            String(item.gates?.vehicle?.detail || '').toLowerCase().includes(query);
           if (!matches) continue;
         }
 
@@ -551,10 +550,21 @@ export class BackOfficeQueueService {
         items.push(item);
       }
 
+      // Summary metrics are derived from the same fully filtered population
+      // shown by the queue, before pagination is applied.
+      const readyCount = items.filter((item) => item.allGatesPassed).length;
+      const blockedCount = items.length - readyCount;
+      const page = Math.max(1, Math.floor(Number(params?.page) || 1));
+      const limit = Math.min(100, Math.max(1, Math.floor(Number(params?.limit) || 20)));
+      const total = items.length;
+      const totalPages = Math.ceil(total / limit);
+      const data = items.slice((page - 1) * limit, page * limit);
+
       return {
-        data: items,
+        data,
+        meta: { page, limit, total, totalPages },
         summary: {
-          totalPending: items.length,
+          totalPending: total,
           readyCount,
           blockedCount,
           issuedCount,
