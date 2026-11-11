@@ -242,6 +242,8 @@ export function MotorIssuanceQueue() {
     }
   };
 
+  useEffect(() => { setPage(1); }, [statusFilter, productFilter, search]);
+
   useEffect(() => {
     const timer = setTimeout(() => { void loadQueue(); }, search.trim() ? 300 : 0);
     return () => clearTimeout(timer);
