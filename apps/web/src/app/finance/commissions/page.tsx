@@ -17,10 +17,10 @@ export default function CommissionsWorkspacePage() {
       return;
     }
     try {
-      const result = await bulkApproveCommissions(pendingCommissions.map((c: any) => c.id));
-      toast.success(`Bulk approval completed: ${result.successfulCount} approved, ${result.alreadyProcessedCount} already processed, ${result.failedCount + result.stateMismatchCount} failed or mismatched.`);
-    } catch (error: any) {
-      toast.error(error?.response?.data?.message || 'Bulk approval failed');
+      // The mutation hook owns authoritative success/error feedback and cache invalidation.
+      await bulkApproveCommissions(pendingCommissions.map((c: any) => c.id));
+    } catch {
+      // useCommissions reports the API error; avoid duplicate or optimistic toasts here.
     }
   };
 
@@ -62,8 +62,8 @@ export default function CommissionsWorkspacePage() {
         </div>
       </div>
 
-      <div className="border rounded-xl overflow-hidden bg-card text-xs mt-4">
-        <table className="w-full text-left border-collapse">
+      <div className="mt-4 overflow-x-auto rounded-xl border bg-card text-xs">
+        <table className="w-full min-w-[980px] border-collapse text-left">
           <thead>
             <tr className="bg-muted/40 text-[10px] text-muted-foreground font-bold border-b uppercase">
               <th className="p-3">Policy No.</th>
