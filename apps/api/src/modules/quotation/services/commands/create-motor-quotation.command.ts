@@ -45,6 +45,23 @@ export class CreateMotorQuotationCommand {
     if (!selectedInsurer || selectedInsurer.toLowerCase() === 'partner insurer') {
       throw new BadRequestException('Select a valid insurer before generating a Motor quotation');
     }
+    const matchingInsurers = await this.prisma.insurer.findMany({
+      where: {
+        isActive: true,
+        ...(dto.insurerId ? { id: dto.insurerId } : {}),
+        name: { equals: selectedInsurer, mode: 'insensitive' },
+      },
+      select: { id: true, name: true },
+      take: 2,
+    });
+    if (matchingInsurers.length !== 1) {
+      throw new BadRequestException(
+        matchingInsurers.length === 0
+          ? 'The selected insurer is not active in Insurer Master. Refresh the insurer list and select an active insurer.'
+          : 'The selected insurer name is ambiguous in Insurer Master. Contact an administrator to resolve duplicate insurer names.',
+      );
+    }
+    const insurer = matchingInsurers[0];
 
     // ── 0. Vehicle Duplicate Policy & Quotation Prevention ──
     if (dto.registrationNumber) {
@@ -870,7 +887,8 @@ export class CreateMotorQuotationCommand {
             quotationCode,
             title: `Motor ${dto.vehicleCategory} — ${dto.policyType} | ${dto.registrationNumber || 'New Vehicle'}`,
             productType: 'MOTOR',
-            insurerName: dto.insurerName,
+            insurerId: insurer.id,
+            insurerName: insurer.name,
             sumInsured: dto.idv || 0,
             basePremium: calcResult.outputs.basePremium,
             gstAmount: calcResult.outputs.totalGst,
