@@ -690,7 +690,7 @@ export function MotorQuotationsWorkspace() {
                                 >
                                   Add insurer quote
                                 </button>
-                                {canSubmitToBackOffice && !submitted && !isTerminalQuoteStatus && (
+                                {canSubmitToBackOffice && !submitted && !isTerminalQuoteStatus && validInsurer && (
                                   <button
                                     type="button"
                                     disabled={submittingQuoteId === quote.id}
@@ -735,7 +735,7 @@ export function MotorQuotationsWorkspace() {
                                   </button>
                                 )}
                                 <button type="button" onClick={() => setManagementQuoteId(quote.id)} className="rounded border px-2 py-1 hover:bg-muted">Manage</button>
-                                {quote.status === 'APPROVED' && !(quote as any).customerAcceptance && !submitted && (
+                                {quote.status === 'APPROVED' && !customerAccepted && !submitted && (
                                   <button type="button" onClick={() => setAcceptanceQuoteId(quote.id)} className="rounded border border-emerald-500/40 px-2 py-1 text-emerald-700 hover:bg-emerald-500/10">Record acceptance</button>
                                 )}
                                 {quote.status === 'PENDING_INSPECTION' && (
