@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 
 @Injectable()
@@ -10,10 +10,10 @@ export class PerformanceService {
    * isManager only removes the userId/assignedToId filter, never bypasses tenant isolation.
    */
   async getSalesKpis(userId?: string, isManager = false, companyId?: string) {
-    const whereClause: any = {};
-    if (companyId) {
-      whereClause.companyId = companyId;
+    if (!companyId) {
+      throw new ForbiddenException('Company context is required for sales KPIs');
     }
+    const whereClause: any = { companyId };
     // Add deletedAt filter for soft-delete support
     whereClause.deletedAt = null;
     if (userId && !isManager) {
@@ -37,7 +37,7 @@ export class PerformanceService {
     const todayCalls = await this.prisma.callLog.count({
       where: {
         ...(userId && !isManager ? { userId } : {}),
-        ...(companyId ? { lead: { companyId } } : {}),
+        lead: { companyId },
         createdAt: { gte: todayStart },
       },
     });
@@ -45,6 +45,7 @@ export class PerformanceService {
     const todayMeetings = await this.prisma.meetingLog.count({
       where: {
         ...(userId && !isManager ? { userId } : {}),
+        lead: { companyId },
         scheduledAt: { gte: todayStart },
       },
     });
@@ -65,7 +66,10 @@ export class PerformanceService {
     });
 
     const referralsCount = await this.prisma.referral.count({
-      where: userId && !isManager ? { assignedToId: userId } : {},
+      where: {
+        assignedTo: { companyId },
+        ...(userId && !isManager ? { assignedToId: userId } : {}),
+      },
     });
 
     const conversionPercentage =
@@ -127,8 +131,10 @@ export class PerformanceService {
    * F-008 FIX: getSalesPipeline now accepts companyId and scopes all queries to that tenant.
    */
   async getSalesPipeline(userId?: string, companyId?: string) {
-    const where: any = { deletedAt: null };
-    if (companyId) where.companyId = companyId;
+    if (!companyId) {
+      throw new ForbiddenException('Company context is required for sales pipeline');
+    }
+    const where: any = { deletedAt: null, companyId };
     if (userId) where.assignedToId = userId;
 
     const leads = await this.prisma.lead.findMany({
