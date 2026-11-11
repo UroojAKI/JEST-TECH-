@@ -19,6 +19,7 @@ export class CommissionEngineService {
     agentId: string,
     premiumAmountStr: string,
     planId: string,
+    actorCompanyId?: string,
   ) {
     const policy = await this.prisma.policy.findFirst({
       where: { id: policyId, deletedAt: null },
@@ -26,6 +27,9 @@ export class CommissionEngineService {
     });
     if (!policy?.companyId) {
       throw new NotFoundException('Policy not found or tenant ownership is unavailable');
+    }
+    if (actorCompanyId && policy.companyId !== actorCompanyId) {
+      throw new ForbiddenException('Policy does not belong to the authenticated company');
     }
 
     const agent = await this.prisma.user.findFirst({
