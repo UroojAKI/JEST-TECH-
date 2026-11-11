@@ -416,6 +416,7 @@ export class PosPartnerService {
     ];
 
     const partnerById = new Map<string, any>();
+    const mappingById = new Map<string, any>();
     const policyById = new Map<string, any>();
     const entityIds: string[] = [];
     for (const partner of partners) {
@@ -428,6 +429,10 @@ export class PosPartnerService {
 
       const mappings = partner.insurerMappings || [];
       for (const mapping of mappings.length ? mappings : [null]) {
+        if (mapping) {
+          mappingById.set(mapping.id, partner);
+          entityIds.push(mapping.id);
+        }
         master.addRow({
           posCode: partner.posCode, name: partner.name, partnerType: partner.partnerType,
           mobile: partner.mobile, email: partner.email, status: partner.status,
@@ -454,22 +459,16 @@ export class PosPartnerService {
       }
     }
 
-    const auditScope = [
-      ...(entityIds.length ? [{ entityId: { in: entityIds } }] : []),
-      ...partners.map((partner: any) => ({
-        metadata: { path: ['posPartnerId'], equals: partner.id },
-      })),
-    ];
-    const auditRows = auditScope.length
+    const auditRows = entityIds.length
       ? await this.prisma.auditLog.findMany({
-          where: { OR: auditScope },
+          where: { entityId: { in: entityIds } },
           orderBy: { createdAt: 'desc' },
           take: 10000,
         })
       : [];
     for (const event of auditRows) {
       const policy = policyById.get(event.entityId);
-      const partner = partnerById.get(event.entityId) || policy?.partner;
+      const partner = partnerById.get(event.entityId) || policy?.partner || mappingById.get(event.entityId);
       if (!partner) continue;
       activity.addRow({
         posCode: partner.posCode, posName: partner.name, policyNumber: policy?.policyNumber || '',
