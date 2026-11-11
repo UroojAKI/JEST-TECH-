@@ -14,6 +14,7 @@ describe('AcceptQuotationService (R5 Multi-Version & Single Accepted Rule)', () 
   const mockTx = {
     quotation: {
       findFirst: jest.fn(),
+      findMany: jest.fn(),
       update: jest.fn(),
       updateMany: jest.fn(),
     },
@@ -59,12 +60,10 @@ describe('AcceptQuotationService (R5 Multi-Version & Single Accepted Rule)', () 
       leadId: 'lead-123',
     };
 
-    // 1st findFirst: finds target quote
-    // 2nd findFirst: checks if any OTHER quote for lead-123 is accepted -> returns null
-    // 3rd findFirst: final detail fetch
+    // First findFirst: target quotation; findMany checks only explicit
+    // customer-acceptance evidence; final findFirst fetches the detail.
     mockTx.quotation.findFirst
       .mockResolvedValueOnce(targetQuote)
-      .mockResolvedValueOnce(null)
       .mockResolvedValueOnce({
         ...targetQuote,
         status: QuotationStatus.APPROVED,
@@ -76,6 +75,7 @@ describe('AcceptQuotationService (R5 Multi-Version & Single Accepted Rule)', () 
         documents: [],
       });
 
+    mockTx.quotation.findMany.mockResolvedValue([]);
     mockTx.quotation.update.mockResolvedValue({
       ...targetQuote,
       status: QuotationStatus.APPROVED,
@@ -155,6 +155,50 @@ describe('AcceptQuotationService (R5 Multi-Version & Single Accepted Rule)', () 
       }),
     );
     expect(mockTx.quotationHistory.create).toHaveBeenCalled();
+  });
+
+  it('does not confuse internal underwriter approval with customer acceptance', async () => {
+    const targetQuote = {
+      id: 'q-v2',
+      quotationCode: 'QTN-0002-V1',
+      status: QuotationStatus.DRAFT,
+      leadId: 'lead-123',
+      companyId: 'company-1',
+      motorMetadata: {},
+    };
+    mockTx.quotation.findFirst
+      .mockResolvedValueOnce(targetQuote)
+      .mockResolvedValueOnce({
+        ...targetQuote,
+        status: QuotationStatus.APPROVED,
+        motorMetadata: {
+          customerAcceptance: {
+            evidenceMethod: CustomerAcceptanceMethod.EMAIL,
+            timestamp: new Date().toISOString(),
+          },
+        },
+      });
+    mockTx.quotation.findMany.mockResolvedValue([
+      {
+        id: 'q-underwriter-approved',
+        quotationCode: 'QTN-APPROVED-ONLY',
+        motorMetadata: {},
+      },
+    ]);
+    mockTx.quotation.update.mockResolvedValue({
+      ...targetQuote,
+      status: QuotationStatus.APPROVED,
+    });
+
+    await service.execute('q-v2', 'user-1', {
+      evidenceMethod: CustomerAcceptanceMethod.EMAIL,
+      evidenceReference: 'MAIL-456',
+    });
+
+    expect(mockTx.quotation.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ leadId: 'lead-123', companyId: 'company-1' }),
+    }));
+    expect(mockTx.quotation.update).toHaveBeenCalled();
   });
 
   it('rejects acceptance if another quote under the same lead is ALREADY accepted', async () => {
