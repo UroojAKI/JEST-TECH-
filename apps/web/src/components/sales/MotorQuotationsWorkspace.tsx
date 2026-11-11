@@ -623,9 +623,19 @@ export function MotorQuotationsWorkspace() {
                             <td className="px-3 py-3 text-muted-foreground whitespace-nowrap">{quote.updatedAt ? new Date(quote.updatedAt).toLocaleDateString('en-IN') : '—'}</td>
                             <td className="px-3 py-3">
                               <div className="flex flex-wrap items-center gap-1.5">
-                                {onAddComparisonQuote && (
-                                  <button onClick={() => onAddComparisonQuote(quote)} className="rounded border px-2 py-1 hover:bg-muted">Add insurer quote</button>
-                                )}
+                                <button
+                                  onClick={() => handleOpenWizard(quote.vehicleCategory, {
+                                    vehicleDetails: quote.vehicleDetails,
+                                    proposerDetails: quote.proposerDetails,
+                                    previousPolicyDetails: (quote as any).previousPolicyDetails,
+                                    caseId: (quote as any).caseId,
+                                  })}
+                                  className="rounded border px-2 py-1 hover:bg-muted"
+                                  disabled={Boolean((quote as any).backOfficeSubmittedAt)}
+                                  title="Create another insurer alternative from this case"
+                                >
+                                  Add insurer quote
+                                </button>
                                 {!isBackOfficeOrAdmin && !submitted && (quote as any).caseId && (
                                   <button onClick={async () => {
                                     const selected = allQuotes.find((item) => item.id === quote.id);
@@ -643,14 +653,14 @@ export function MotorQuotationsWorkspace() {
                                     }
                                   }} className="rounded bg-primary px-2 py-1 text-primary-foreground">Select & Send</button>
                                 )}
-                                {quote.status === 'PENDING_INSPECTION' && onConductInspection && (
-                                  <button onClick={() => onConductInspection(quote.id)} className="rounded border border-amber-300 px-2 py-1 text-amber-700">Inspection</button>
+                                {quote.status === 'PENDING_INSPECTION' && (
+                                  <button onClick={() => setInspectionQuoteId(quote.id)} className="rounded border border-amber-300 px-2 py-1 text-amber-700">Inspection</button>
                                 )}
-                                {proposalReady && onCompleteProposal && (
-                                  <button onClick={() => onCompleteProposal(quote)} className="rounded border px-2 py-1 hover:bg-muted">Proposal / Payment</button>
+                                {proposalReady && (
+                                  <button onClick={() => setProposalQuote(quote)} className="rounded border px-2 py-1 hover:bg-muted">Proposal / Payment</button>
                                 )}
-                                {issuanceReady && isBackOfficeOrAdmin && onIssuePolicy && (
-                                  <button onClick={() => onIssuePolicy(quote)} className="rounded bg-emerald-600 px-2 py-1 text-white">Issue</button>
+                                {issuanceReady && isBackOfficeOrAdmin && (
+                                  <button onClick={() => setCompletionQuote(quote)} className="rounded bg-emerald-600 px-2 py-1 text-white">Issue</button>
                                 )}
                               </div>
                             </td>
