@@ -714,6 +714,9 @@ export function MotorQuotationsWorkspace() {
                                   <button onClick={() => setInspectionQuoteId(quote.id)} className="rounded border border-amber-300 px-2 py-1 text-amber-700">Inspection</button>
                                 )}
                                 {proposalReady && (
+                                  <button onClick={() => setProposalQuote(quote)} className="rounded border border-emerald-600/40 px-2 py-1 text-emerald-700 hover:bg-emerald-50">Complete Payment</button>
+                                )}
+                                {proposalReady && (
                                   <button onClick={() => setProposalQuote(quote)} className="rounded border px-2 py-1 hover:bg-muted">Proposal / Payment</button>
                                 )}
                                 {issuanceReady && isBackOfficeOrAdmin && (
