@@ -146,6 +146,25 @@ describe('CommissionEngineService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
+    it('fails closed when commission tenant cannot be resolved', async () => {
+      const mockTx: any = {
+        commission: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'comm-legacy',
+            companyId: null,
+            status: 'ACCRUED',
+            user: { companyId: null },
+            policy: { companyId: null },
+          }),
+        },
+      };
+      jest.spyOn(prisma, '$transaction').mockImplementation(async (cb: any) => cb(mockTx));
+
+      await expect(
+        service.approveCommission('comm-legacy', actor as any),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
     it('rejects approval when commission belongs to another company', async () => {
       const mockTx: any = {
         commission: {
