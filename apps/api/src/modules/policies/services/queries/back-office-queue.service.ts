@@ -74,6 +74,7 @@ export class BackOfficeQueueService {
           quotationId?: string;
           page?: number;
           limit?: number;
+          productType?: 'MOTOR' | 'HEALTH';
         },
     maybeParams?: {
       search?: string;
@@ -81,12 +82,13 @@ export class BackOfficeQueueService {
       quotationId?: string;
       page?: number;
       limit?: number;
+      productType?: 'MOTOR' | 'HEALTH';
     },
   ) {
     try {
       let actor: ActorContext | undefined;
       let params:
-        | { search?: string; status?: string; quotationId?: string; page?: number; limit?: number }
+        | { search?: string; status?: string; quotationId?: string; page?: number; limit?: number; productType?: 'MOTOR' | 'HEALTH' }
         | undefined;
 
       if (
@@ -99,7 +101,7 @@ export class BackOfficeQueueService {
         params = maybeParams;
       } else {
         params = actorOrParams as
-          | { search?: string; status?: string; quotationId?: string; page?: number; limit?: number }
+          | { search?: string; status?: string; quotationId?: string; page?: number; limit?: number; productType?: 'MOTOR' | 'HEALTH' }
           | undefined;
       }
 
@@ -152,6 +154,7 @@ export class BackOfficeQueueService {
       const where: Prisma.QuotationWhereInput = {
         ...tenantFilter,
         backOfficeSubmittedAt: { not: null },
+        ...(params?.productType ? { productType: params.productType } : {}),
         ...(params?.quotationId
           ? { id: params.quotationId }
           : {
