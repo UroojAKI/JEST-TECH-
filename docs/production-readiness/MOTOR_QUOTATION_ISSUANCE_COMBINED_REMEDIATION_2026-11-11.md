@@ -174,3 +174,39 @@ A new quotation should be visible immediately in Sales after a successful save a
 - Historical-data absence cannot be conclusively diagnosed from source code alone.
 - Do not run destructive migrations, bulk updates or production backfills from this workstream without backup, dry-run output and explicit approval.
 - Do not mark this work production-ready based on TypeScript/build success alone.
+
+## 4. User-approved implementation order and current branch state
+
+| Priority | Workstream | Completion requirement | Draft branch status |
+|---|---|---|---|
+| P0 | Insurer validation | Only active Insurer Master records can receive quotations | Implemented in draft: UI uses active DB insurer list only; API resolves exact active insurer and stores insurerId |
+| P0 | Case reuse | Enter customer and vehicle details once | Implemented in draft: server reuses persisted case snapshots for alternatives and rejects customer/registration drift |
+| P0 | Alternative quotations | Multiple insurer quotes under one case | Partially implemented: case-linked quote creation is reused; same-case duplicate vehicle block bypassed; insurer-specific rating adapter still needs proof |
+| P0 | Comparison | Read-only comparison of saved quotes | Existing saved-quote compare path retained; tenant scope tightened; requires 2–10 distinct saved IDs and same case/customer/product context |
+| P0 | Line-view workspace | Replace quote cards with table rows | Implemented in draft UI: insurer/quote, cover, IDV, NCB, premium, status, date and workflow actions |
+| P0 | Selected-only handoff | Only one selected quote enters Back Office | Existing selected-case handoff retained; backend issuance now requires selected quote; queue remains explicitly handoff-only; E2E concurrency tests pending |
+| P0 | Issuance mapping | Quotation data correctly appears in issued policy | Partial: insurer snapshot and renewal lineage are persisted; full field-by-field mapping audit and policy schedule verification remain |
+| P0 | Historical records | Recover visibility and reconcile legacy records | Read-only reconciliation script and runbook added; production execution blocked pending approved read-only DB access |
+| P1 | Insurer punching | Submission, acknowledgement, rejection and verified issuance are distinct | Not complete; insurer integration adapter and state machine required |
+| P1 | Renewal lifecycle | Preserve previous policy, lapse checks and renewal lineage | Partial; source-policy and lineage checks exist; insurer-specific eligibility and lapse edge cases remain |
+| P1 | Regression/security | Tenant isolation, concurrency, permissions and E2E verification | Partial; comparison tenant check and refresh-token CAS tests added; full CI/runtime suite pending |
+
+## 5. Production log findings supplied on 2026-11-11
+
+### AUTH-REFRESH-01 — Prisma array transaction failure
+
+The supplied `POST /api/v1/auth/refresh` error reports that an element passed to Prisma's array-form `$transaction([...])` was not a Prisma Client promise. Both refresh-token replay revocation and normal token rotation were changed in this draft to interactive callback transactions. Normal rotation uses a conditional update on `revokedAt IS NULL` and an unexpired token, then creates the replacement token in the same transaction. A concurrent loser receives an Unauthorized response instead of issuing a second token.
+
+A focused unit test was added for normal rotation and the compare-and-set concurrency loser. Exact-head API CI and a live concurrent-refresh test are still required.
+
+### RATE-LIMIT-01 — 429 lacks route attribution
+
+The supplied throttler stack trace does not include the rejected HTTP method/path, correlation ID, user, or throttle bucket. The visible successful workflow-projection GET is not evidence that it caused the 429. This draft adds structured, credential-safe rate-limit diagnostics to `CustomThrottlerGuard`, including correlation ID, route path, authenticated user/tenant, role, limit, TTL and retry interval. It does not loosen limits or exempt routes. Capture a fresh occurrence after deployment before changing thresholds.
+
+### AUTH-REFRESH-02 — request correlation
+
+Preserve correlation ID `6e1fca82-956d-479c-8640-8cabc9a6e9a6` in the incident record. The preceding successful request had correlation ID `86fbd102-7be0-452e-8280-4339b764c6ba`. These are separate requests; the first successful projection does not establish a causal relationship with the later refresh failure.
+
+## 6. Validation status
+
+All changes described above are committed to the draft branch only. No production DB connection was available in this session, so the read-only reconciliation script has not been run. GitHub reported no CI status checks or workflow runs for the latest draft head at the time of inspection. Do not merge or deploy until API typecheck/tests, web typecheck/build, Prisma validation, tenant isolation tests, E2E flows and read-only production reconciliation have been completed.
