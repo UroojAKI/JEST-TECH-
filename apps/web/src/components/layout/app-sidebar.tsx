@@ -114,6 +114,7 @@ export function AppSidebar() {
     .filter(Boolean)
     .map((value) => String(value).toUpperCase());
   const rolesForNavigation = assignedRoles.length ? assignedRoles : ['AGENT'];
+  const role = rolesForNavigation[0] || 'AGENT';
   const rolesKey = rolesForNavigation.join('|');
 
   const { data: healthData } = useQuery({
