@@ -4,7 +4,8 @@ import { ThrottlerRequest, ThrottlerLimitDetail } from '@nestjs/throttler/dist/t
 import { THROTTLER_LIMIT } from '@nestjs/throttler/dist/throttler.constants';
 
 @Injectable()
-export class CustomThrottlerGuard extends ThrottlerGuard {\n  private readonly logger = new Logger(CustomThrottlerGuard.name);
+export class CustomThrottlerGuard extends ThrottlerGuard {
+  private readonly logger = new Logger(CustomThrottlerGuard.name);
   protected async handleRequest(requestProps: ThrottlerRequest): Promise<boolean> {
     const { context, throttler } = requestProps;
     const handler = context.getHandler();
