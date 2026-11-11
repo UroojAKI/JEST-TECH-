@@ -9,7 +9,6 @@ import { toast } from 'sonner';
 import { Car, Plus, Search, RefreshCw, FileSpreadsheet, Award, AlertTriangle, History, ArrowLeft, CheckCircle2, HeartPulse } from 'lucide-react';
 
 import { MotorQuoteWizard } from '../leads/motor-quote/MotorQuoteWizard';
-import { QuoteCard } from '../leads/motor-quote/QuoteCard';
 import { InspectionDialog } from '../leads/motor-quote/InspectionDialog';
 import { MotorProposalWizard } from '../leads/motor-quote/MotorProposalWizard';
 import { PolicyCompletionDialog } from '../leads/motor-quote/PolicyCompletionDialog';
