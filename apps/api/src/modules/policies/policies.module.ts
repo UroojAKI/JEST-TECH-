@@ -2,6 +2,8 @@ import { PosPartnersModule } from '../pos-partners/pos-partners.module';
 import { HealthInsuranceModule } from '../health-insurance/health-insurance.module';
 import { PolicyAddressResolverService } from './services/policy-address-resolver.service';
 import { Module } from '@nestjs/common';
+import { LegacyPoliciesController } from './controllers/legacy-policies.controller';
+import { LegacyPoliciesService } from './services/legacy-policies.service';
 
 import { QuotationModule } from '../quotation/quotation.module';
 import { ContactsModule } from '../contacts/contacts.module';
@@ -54,9 +56,10 @@ import { EndorsementModule } from '../endorsements/endorsements.module';
     HealthInsuranceModule,
     BullModule.registerQueue({ name: 'renewal-reminders' }),
   ],
-  controllers: [PoliciesController, BackOfficeController, RenewalsController],
+  controllers: [PoliciesController, BackOfficeController, RenewalsController, LegacyPoliciesController],
   providers: [
     PolicyRepository,
+    LegacyPoliciesService,
     PolicyDomainService,
     PolicyAddressResolverService,
     BackOfficeQueueService,
