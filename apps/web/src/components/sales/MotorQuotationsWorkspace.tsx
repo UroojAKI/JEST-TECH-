@@ -585,10 +585,20 @@ export function MotorQuotationsWorkspace() {
             const customerName = first?.proposerDetails?.customerName || 'Customer';
             const mobile = first?.proposerDetails?.mobileNumber || '';
             const vehicle = first?.registrationNumber || 'New Vehicle';
+            const insurerCounts = quotes.reduce((counts, quote) => {
+              const insurer = String(quote.insurerName || '').trim().toLowerCase();
+              if (insurer && insurer !== 'insurer missing') counts[insurer] = (counts[insurer] || 0) + 1;
+              return counts;
+            }, {} as Record<string, number>);
+            const duplicateInsurers = Object.entries(insurerCounts).filter(([, count]) => count > 1).map(([insurer]) => insurer);
             return (
               <div key={groupId} className="rounded-xl border bg-card p-5 space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-3 border-b gap-3">
-                  <div><div className="text-sm font-bold">{customerName} <span className="text-muted-foreground">|</span> {vehicle}</div><div className="text-xs text-muted-foreground">{mobile} · {quotes.length} version{quotes.length === 1 ? '' : 's'}</div></div>
+                  <div>
+                    <div className="text-sm font-bold">{customerName} <span className="text-muted-foreground">|</span> {vehicle}</div>
+                    <div className="text-xs text-muted-foreground">{mobile} · {quotes.length} saved alternative{quotes.length === 1 ? '' : 's'}</div>
+                    {duplicateInsurers.length > 0 && <div className="mt-1 text-[11px] font-medium text-amber-700">Duplicate insurer records detected: {duplicateInsurers.join(', ')}. Review history and snapshots before selecting a winner.</div>}
+                  </div>
                   <div className="flex flex-wrap items-center gap-2">
                     {quotes.length > 1 && (
                       <button type="button" onClick={() => setComparisonQuotes(quotes)} className="px-3 py-1.5 rounded-md border bg-background hover:bg-muted text-xs font-semibold">Compare saved alternatives</button>
