@@ -72,17 +72,23 @@ export class BackOfficeQueueService {
           search?: string;
           status?: string;
           quotationId?: string;
+          page?: number;
+          limit?: number;
+          productType?: 'MOTOR' | 'HEALTH';
         },
     maybeParams?: {
       search?: string;
       status?: string;
       quotationId?: string;
+      page?: number;
+      limit?: number;
+      productType?: 'MOTOR' | 'HEALTH';
     },
   ) {
     try {
       let actor: ActorContext | undefined;
       let params:
-        | { search?: string; status?: string; quotationId?: string }
+        | { search?: string; status?: string; quotationId?: string; page?: number; limit?: number; productType?: 'MOTOR' | 'HEALTH' }
         | undefined;
 
       if (
@@ -95,7 +101,7 @@ export class BackOfficeQueueService {
         params = maybeParams;
       } else {
         params = actorOrParams as
-          | { search?: string; status?: string; quotationId?: string }
+          | { search?: string; status?: string; quotationId?: string; page?: number; limit?: number; productType?: 'MOTOR' | 'HEALTH' }
           | undefined;
       }
 
@@ -148,6 +154,7 @@ export class BackOfficeQueueService {
       const where: Prisma.QuotationWhereInput = {
         ...tenantFilter,
         backOfficeSubmittedAt: { not: null },
+        ...(params?.productType ? { productType: params.productType } : {}),
         ...(params?.quotationId
           ? { id: params.quotationId }
           : {
@@ -155,63 +162,37 @@ export class BackOfficeQueueService {
                 { status: { in: statusFilter } },
                 { issuanceStatus: 'ISSUANCE_PENDING' },
                 { workflowState: 'PAYMENT_DONE' },
+                { policy: { isNot: null } },
               ],
             }),
       };
 
-      let quotations: any[] = [];
-      try {
-        quotations = await this.prisma.quotation.findMany({
-          where,
-
-          include: {
-            contact: true,
-            account: true,
-            vehicle: true,
-            createdBy: {
-              select: { id: true, firstName: true, lastName: true, email: true },
-            },
-            policy: true,
-            motorInspection: true,
-            motorPaymentRecord: true,
-            motorDocuments: true,
-            healthDocuments: true,
-            healthCase: { include: { documents: true } },
-            motorPreviousPolicy: {
-              include: {
-                ruleEvaluation: true,
-              },
+      // Do not fall back to a broader, branch-unscoped query when the primary
+      // query fails. A degraded response must never expose records outside the
+      // actor's exact tenant/branch filter or silently omit gate relations.
+      const quotations: any[] = await this.prisma.quotation.findMany({
+        where,
+        include: {
+          contact: true,
+          account: true,
+          vehicle: true,
+          createdBy: {
+            select: { id: true, firstName: true, lastName: true, email: true },
+          },
+          policy: true,
+          motorInspection: true,
+          motorPaymentRecord: true,
+          motorDocuments: true,
+          healthDocuments: true,
+          healthCase: { include: { documents: true } },
+          motorPreviousPolicy: {
+            include: {
+              ruleEvaluation: true,
             },
           },
-          orderBy: { createdAt: 'asc' },
-        });
-      } catch (prismaErr: any) {
-        this.logger.warn(`Primary quotation query failed: ${prismaErr?.message}. Falling back to baseline query.`);
-        try {
-          quotations = await this.prisma.quotation.findMany({
-            where: {
-              ...(actor?.companyId ? { companyId: actor.companyId } : {}),
-              backOfficeSubmittedAt: { not: null },
-            },
-            include: {
-              contact: true,
-              account: true,
-              vehicle: true,
-              createdBy: {
-                select: { id: true, firstName: true, lastName: true, email: true },
-              },
-              policy: true,
-              healthCase: { include: { documents: true } },
-            },
-            orderBy: { createdAt: 'asc' },
-          });
-        } catch (fallbackErr: any) {
-          this.logger.error(`Fallback quotation query failed: ${fallbackErr?.message}`, fallbackErr?.stack);
-          throw new InternalServerErrorException(
-            'Unable to query submitted quotations for the Back Office issuance queue.',
-          );
-        }
-      }
+        },
+        orderBy: { createdAt: 'desc' },
+      });
 
       // Optimize: batch-fetch all related documents in a single roundtrip rather than N+1 queries
       const quotationIds = quotations.map((q) => q.id);
@@ -240,15 +221,28 @@ export class BackOfficeQueueService {
 
       const now = Date.now();
       const items: BackOfficeQueueItem[] = [];
-
-      let readyCount = 0;
-      let blockedCount = 0;
       let issuedCount = 0;
 
       for (const q of quotations) {
-        // Exclude already issued policies
+        // Exclude issued policies from pending work, but keep the issued
+        // metric aligned with the active search and product filter.
         if (q.policy) {
-          issuedCount++;
+          const query = String(params?.search || '').toLowerCase().trim();
+          const issuedSearchFields = [
+            q.quotationCode,
+            q.contact?.firstName,
+            q.contact?.lastName,
+            q.contact?.phone,
+            q.contact?.email,
+            q.createdBy?.firstName,
+            q.createdBy?.lastName,
+            q.insurerName,
+            q.registrationNumber,
+            q.vehicle?.registrationNumber,
+            (q.motorMetadata as any)?.registrationNumber,
+          ].filter(Boolean).map((value) => String(value).toLowerCase());
+          const matchesSearch = !query || issuedSearchFields.some((value) => value.includes(query));
+          if (matchesSearch && (!params?.status || params.status === 'ALL')) issuedCount++;
           continue;
         }
 
@@ -468,12 +462,6 @@ export class BackOfficeQueueService {
           nextAction = 'Awaiting Customer Identity Completion';
         }
 
-        if (allGatesPassed) {
-          readyCount++;
-        } else {
-          blockedCount++;
-        }
-
         // SLA Countdown (IRDAI target 24h from quotation approval / payment)
         const quoteTime = new Date(q.updatedAt || q.createdAt).getTime();
         const elapsedHours = (now - quoteTime) / 3600000;
@@ -535,7 +523,11 @@ export class BackOfficeQueueService {
           const matches =
             item.quotationCode.toLowerCase().includes(query) ||
             item.customerName.toLowerCase().includes(query) ||
-            item.salesAgentName.toLowerCase().includes(query);
+            (item.customerPhone || '').toLowerCase().includes(query) ||
+            (item.customerEmail || '').toLowerCase().includes(query) ||
+            item.salesAgentName.toLowerCase().includes(query) ||
+            item.insurerName.toLowerCase().includes(query) ||
+            String(item.gates?.vehicle?.detail || '').toLowerCase().includes(query);
           if (!matches) continue;
         }
 
@@ -551,10 +543,21 @@ export class BackOfficeQueueService {
         items.push(item);
       }
 
+      // Summary metrics are derived from the same fully filtered population
+      // shown by the queue, before pagination is applied.
+      const readyCount = items.filter((item) => item.allGatesPassed).length;
+      const blockedCount = items.length - readyCount;
+      const page = Math.max(1, Math.floor(Number(params?.page) || 1));
+      const limit = Math.min(100, Math.max(1, Math.floor(Number(params?.limit) || 20)));
+      const total = items.length;
+      const totalPages = Math.ceil(total / limit);
+      const data = items.slice((page - 1) * limit, page * limit);
+
       return {
-        data: items,
+        data,
+        meta: { page, limit, total, totalPages },
         summary: {
-          totalPending: items.length,
+          totalPending: total,
           readyCount,
           blockedCount,
           issuedCount,
