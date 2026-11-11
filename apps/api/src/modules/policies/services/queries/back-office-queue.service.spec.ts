@@ -251,6 +251,42 @@ describe('BackOfficeQueueService (G021 Multi-Gate Policy Issuance Queue)', () =>
     expect(unmatched.summary.blockedCount).toBe(0);
   });
 
+  it('preserves branch isolation alongside the queue status OR condition', async () => {
+    mockPrisma.quotation.findMany.mockResolvedValue([baseQuote]);
+    mockPrisma.document.findMany.mockResolvedValue([]);
+
+    await service.getBackOfficeQueue({
+      companyId: 'company-1',
+      branchId: 'branch-1',
+      role: 'AGENT',
+      userId: 'agent-1',
+    } as any);
+
+    const query = mockPrisma.quotation.findMany.mock.calls[0][0];
+    expect(query.where.companyId).toBe('company-1');
+    expect(query.where.AND).toEqual([
+      {
+        OR: [
+          { createdBy: { branchId: 'branch-1' } },
+          { contact: { branchId: 'branch-1' } },
+        ],
+      },
+    ]);
+    expect(query.where.OR).toEqual(expect.arrayContaining([
+      { status: { in: expect.any(Array) } },
+      { issuanceStatus: 'ISSUANCE_PENDING' },
+    ]));
+  });
+
+  it('fails closed when an authenticated non-platform actor has no company context', async () => {
+    await expect(service.getBackOfficeQueue({
+      branchId: 'branch-1',
+      role: 'AGENT',
+      userId: 'agent-1',
+    } as any)).rejects.toThrow(BadRequestException);
+    expect(mockPrisma.quotation.findMany).not.toHaveBeenCalled();
+  });
+
   it('passes the selected product type into the tenant-scoped quotation query', async () => {
     mockPrisma.quotation.findMany.mockResolvedValue([baseQuote]);
     mockPrisma.document.findMany.mockResolvedValue([]);
