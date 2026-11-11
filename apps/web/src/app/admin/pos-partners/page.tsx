@@ -434,10 +434,12 @@ export default function PosPartnerManagementPage() {
               <table className="w-full text-left text-xs">
                 <thead className="bg-muted/50 border-b text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                   <tr>
-                    <th className="py-3 px-4">Agent POS Code & Name</th>
+                    <th className="py-3 px-4">Agent POS</th>
                     <th className="py-3 px-4">Type</th>
+                    <th className="py-3 px-4">Partner Code at Insurer</th>
+                    <th className="py-3 px-4">Insurer POS ID</th>
                     <th className="py-3 px-4">Contact</th>
-                    <th className="py-3 px-4">Agent POS / Insurer IDs</th>
+                    <th className="py-3 px-4">Email</th>
                     <th className="py-3 px-4">Address</th>
                     <th className="py-3 px-4">KYC Status</th>
                     <th className="py-3 px-4">Status</th>
@@ -484,29 +486,29 @@ export default function PosPartnerManagementPage() {
                         </td>
 
                         <td className="py-3.5 px-4">
-                          <div className="font-medium text-foreground">{partner.mobile}</div>
-                          <div className="text-[11px] text-muted-foreground truncate max-w-[150px]">
-                            {partner.email}
-                          </div>
+                          {mappings.length ? mappings.map((mapping: any) => (
+                            <div key={mapping.id} className="text-[10px] leading-4 mb-1">
+                              <div className="text-muted-foreground">{mapping.insurer?.name || 'Insurer'}</div>
+                              <div className="font-mono font-semibold text-foreground">{mapping.insurerPartnerCode || '—'}</div>
+                            </div>
+                          )) : <span className="text-muted-foreground">—</span>}
                         </td>
 
                         <td className="py-3.5 px-4">
-                          {mappings.length ? (
-                            <div className="space-y-1.5">
-                              {mappings.map((mapping: any) => (
-                                <div key={mapping.id} className="text-[10px] leading-4">
-                                  <div className="font-bold text-foreground">{mapping.insurer?.name || 'Insurer'}</div>
-                                  <div className="font-mono text-muted-foreground">
-                                    Partner Code: {mapping.insurerPartnerCode || '—'} · Insurer POS ID: {mapping.insurerPospId || '—'}
-                                  </div>
-                                </div>
-                              ))}
+                          {mappings.length ? mappings.map((mapping: any) => (
+                            <div key={mapping.id} className="text-[10px] leading-4 mb-1">
+                              <div className="text-muted-foreground">{mapping.insurer?.name || 'Insurer'}</div>
+                              <div className="font-mono font-semibold text-foreground">{mapping.insurerPospId || '—'}</div>
                             </div>
-                          ) : (
-                            <span className="text-[10px] font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded">
-                              No insurer mapping
-                            </span>
-                          )}
+                          )) : <span className="text-muted-foreground">—</span>}
+                        </td>
+
+                        <td className="py-3.5 px-4">
+                          <div className="font-medium text-foreground">{partner.mobile || '—'}</div>
+                        </td>
+
+                        <td className="py-3.5 px-4">
+                          <div className="text-[11px] text-muted-foreground break-all max-w-[190px]">{partner.email || '—'}</div>
                         </td>
 
                         <td className="py-3.5 px-4 text-muted-foreground">
