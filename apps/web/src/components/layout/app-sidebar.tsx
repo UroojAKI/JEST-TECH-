@@ -127,7 +127,7 @@ export function AppSidebar() {
   // hide either Sales, Back Office or Admin navigation.
   const filteredNav = React.useMemo(() => {
     const merged = new Map<string, NavigationItem>();
-    for (const assignedRole of rolesForNavigation) {
+    for (const assignedRole of rolesKey.split('|')) {
       for (const item of getRoleNavigation(assignedRole)) {
         const existing = merged.get(item.href);
         if (!existing) {
