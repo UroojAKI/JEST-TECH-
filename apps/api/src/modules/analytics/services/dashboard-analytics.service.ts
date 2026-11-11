@@ -396,6 +396,19 @@ export class DashboardAnalyticsService {
                 actualPremium: true,
               },
             },
+            salesTargets: {
+              where: {
+                year: new Date().getFullYear(),
+                ...(period === 'ytd'
+                  ? { month: { lte: new Date().getMonth() + 1 } }
+                  : { month: new Date().getMonth() + 1 }),
+              },
+              select: { targetGwp: true, targetPolicies: true },
+            },
+            leadsAssigned: {
+              where: { deletedAt: null },
+              select: { id: true, status: true },
+            },
           },
         },
       },
@@ -403,65 +416,58 @@ export class DashboardAnalyticsService {
     });
 
     return branches.map((b: any) => {
-      try {
-        const policyMap = new Map<string, number>();
-        let unkeyedSum = 0;
-        let unkeyedCount = 0;
+      const policyMap = new Map<string, number>();
+      let unkeyedSum = 0;
+      let unkeyedCount = 0;
 
-        const contacts = b.contacts || [];
-        for (const c of contacts) {
-          for (const p of c.policies || []) {
-            const premium = Number(p.actualPremium ?? p.premiumAmount ?? 0);
-            if (p.id) {
-              policyMap.set(p.id, premium);
-            } else {
-              unkeyedSum += premium;
-              unkeyedCount++;
-            }
-          }
+      for (const contact of b.contacts || []) {
+        for (const policy of contact.policies || []) {
+          const premium = Number(policy.actualPremium ?? policy.premiumAmount ?? 0);
+          if (policy.id) policyMap.set(policy.id, premium);
+          else { unkeyedSum += premium; unkeyedCount++; }
         }
-
-        const usersList = b.users || [];
-        for (const u of usersList) {
-          for (const p of u.policiesCreated || []) {
-            const premium = Number(p.actualPremium ?? p.premiumAmount ?? 0);
-            if (p.id) {
-              if (!policyMap.has(p.id)) {
-                policyMap.set(p.id, premium);
-              }
-            } else {
-              unkeyedSum += premium;
-              unkeyedCount++;
-            }
-          }
-        }
-
-        const totalPolicies = policyMap.size + unkeyedCount;
-        const gwp =
-          Array.from(policyMap.values()).reduce((sum, p) => sum + p, 0) +
-          unkeyedSum;
-
-        return {
-          branchId: b.id,
-          branchName: b.name,
-          branchCode: b.code,
-          gwp,
-          formattedGwp: `₹${gwp.toLocaleString('en-IN')}`,
-          policyCount: totalPolicies,
-          hasData: true,
-        };
-      } catch {
-        return {
-          branchId: b.id,
-          branchName: b.name,
-          branchCode: b.code,
-          gwp: null,
-          formattedGwp: null,
-          policyCount: 0,
-          hasData: false,
-        };
       }
-    });
+
+      const usersList = b.users || [];
+      let targetGwp = 0;
+      let targetPolicies = 0;
+      let totalLeads = 0;
+      let convertedLeads = 0;
+      for (const user of usersList) {
+        for (const policy of user.policiesCreated || []) {
+          const premium = Number(policy.actualPremium ?? policy.premiumAmount ?? 0);
+          if (policy.id && !policyMap.has(policy.id)) policyMap.set(policy.id, premium);
+          else if (!policy.id) { unkeyedSum += premium; unkeyedCount++; }
+        }
+        for (const target of user.salesTargets || []) {
+          targetGwp += Number(target.targetGwp || 0);
+          targetPolicies += Number(target.targetPolicies || 0);
+        }
+        for (const lead of user.leadsAssigned || []) {
+          totalLeads++;
+          if (lead.status === 'CONVERTED') convertedLeads++;
+        }
+      }
+
+      const policyCount = policyMap.size + unkeyedCount;
+      const gwp = Array.from(policyMap.values()).reduce((sum, premium) => sum + premium, 0) + unkeyedSum;
+      return {
+        branchId: b.id,
+        branchName: b.name,
+        branchCode: b.code,
+        gwp,
+        formattedGwp: `₹${gwp.toLocaleString('en-IN')}`,
+        policyCount,
+        targetGwp,
+        formattedTargetGwp: targetGwp > 0 ? `₹${targetGwp.toLocaleString('en-IN')}` : null,
+        targetPolicies,
+        targetAchievementPercent: targetGwp > 0 ? Number(((gwp / targetGwp) * 100).toFixed(1)) : null,
+        totalLeads,
+        convertedLeads,
+        conversionRate: totalLeads > 0 ? Number(((convertedLeads / totalLeads) * 100).toFixed(1)) : null,
+        hasData: true,
+      };
+    });;
   }
 
   /**
