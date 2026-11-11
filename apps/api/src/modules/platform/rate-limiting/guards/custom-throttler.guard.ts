@@ -1,10 +1,10 @@
-import { ExecutionContext, Injectable } from '@nestjs/common';
+import { ExecutionContext, Injectable, Logger } from '@nestjs/common';
 import { ThrottlerGuard, ThrottlerException } from '@nestjs/throttler';
 import { ThrottlerRequest, ThrottlerLimitDetail } from '@nestjs/throttler/dist/throttler.guard.interface';
 import { THROTTLER_LIMIT } from '@nestjs/throttler/dist/throttler.constants';
 
 @Injectable()
-export class CustomThrottlerGuard extends ThrottlerGuard {
+export class CustomThrottlerGuard extends ThrottlerGuard {\n  private readonly logger = new Logger(CustomThrottlerGuard.name);
   protected async handleRequest(requestProps: ThrottlerRequest): Promise<boolean> {
     const { context, throttler } = requestProps;
     const handler = context.getHandler();
@@ -50,9 +50,31 @@ export class CustomThrottlerGuard extends ThrottlerGuard {
     context: ExecutionContext,
     throttlerLimitDetail: ThrottlerLimitDetail,
   ): Promise<void> {
-    const res = context.switchToHttp().getResponse();
+    const http = context.switchToHttp();
+    const req = http.getRequest();
+    const res = http.getResponse();
     const timeToBlockExpire = throttlerLimitDetail?.timeToBlockExpire ?? 60;
     const seconds = Math.max(1, Math.ceil(timeToBlockExpire / 1000));
+    const correlationId =
+      req?.correlationId ||
+      req?.headers?.['x-correlation-id'] ||
+      req?.headers?.['x-request-id'] ||
+      null;
+
+    // Keep 429s diagnosable without logging credentials, request bodies or tokens.
+    this.logger.warn(JSON.stringify({
+      event: 'RATE_LIMIT_EXCEEDED',
+      correlationId,
+      method: req?.method,
+      path: String(req?.originalUrl || req?.url || '').split('?')[0],
+      userId: req?.user?.id || null,
+      companyId: req?.user?.companyId || req?.user?.organizationId || null,
+      role: req?.user?.role || null,
+      limit: throttlerLimitDetail?.limit,
+      ttl: throttlerLimitDetail?.ttl,
+      totalHits: throttlerLimitDetail?.totalHits,
+      retryAfterSeconds: seconds,
+    }));
 
     if (res && typeof res.header === 'function') {
       res.header('Retry-After', seconds.toString());
