@@ -382,7 +382,7 @@ export class IssuePolicyService {
       };
     }
 
-    // ── Module B: Mandatory POS Partner Attribution (DEC-02 & DEC-03) ──
+    // ── Module B: Optional Agent POS attribution with insurer-specific validation ──
     let posSnapshotData: any = {};
     const requestedPosId = dto.posPartnerId;
     if (this.posEligibilityService && requestedPosId) {

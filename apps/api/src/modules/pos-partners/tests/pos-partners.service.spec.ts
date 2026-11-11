@@ -458,7 +458,7 @@ describe('POS Partner & Mandatory Policy Address Specifications', () => {
       }));
     });
 
-  describe('DEC-02: Mandatory POS Attribution & Eligibility', () => {
+  describe('DEC-02: Optional Agent POS Attribution & Eligibility', () => {
     it('should throw NotFoundException if requested POS partner is not found in tenant', async () => {
       mockPrisma.posPartner.findUnique.mockResolvedValue(null);
 
