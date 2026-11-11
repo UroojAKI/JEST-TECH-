@@ -8,16 +8,22 @@ import { StatusBadge } from '../../../components/ui/status-badge';
 import { toast } from 'sonner';
 
 export default function CommissionsWorkspacePage() {
-  const { commissions = [], approveCommission, isLoading, isError, isApproving } = useCommissions();
+  const { commissions = [], approveCommission, bulkApproveCommissions, isLoading, isError, isApproving, isBulkApproving } = useCommissions();
 
-  const handleBulkApprove = () => {
+  const handleBulkApprove = async () => {
     const pendingCommissions = (Array.isArray(commissions) ? commissions : (((commissions as any)?.data || (commissions as any)?.items || []))).filter((c: any) => c.payoutStatus === 'PENDING_APPROVAL');
     if (pendingCommissions.length === 0) {
       toast.info('No pending commissions to approve.');
       return;
     }
-    pendingCommissions.forEach((c: any) => approveCommission(c.id));
-    toast.success(`Bulk approval started for ${pendingCommissions.length} commissions.`);
+    try {
+      const result = await bulkApproveCommissions(pendingCommissions.map((c: any) => c.id));
+      if (result.failedCount > 0 || result.stateMismatchCount > 0) {
+        toast.warning(`Bulk approval completed: ${result.successfulCount} approved, ${result.alreadyProcessedCount} already processed, ${result.failedCount + result.stateMismatchCount} failed or mismatched.`);
+      }
+    } catch {
+      // The mutation hook owns error feedback.
+    }
   };
 
   if (isLoading) {
@@ -49,17 +55,17 @@ export default function CommissionsWorkspacePage() {
         <div className="flex items-center space-x-2">
           <button
             onClick={handleBulkApprove}
-            disabled={isApproving}
+            disabled={isApproving || isBulkApproving}
             className="flex items-center space-x-1 px-4 py-2 text-xs font-bold rounded-lg bg-emerald-600 text-white shadow hover:bg-emerald-700 disabled:opacity-50"
           >
             <CheckCircle2 className="h-4 w-4" />
-            <span>{isApproving ? 'Approving...' : '✓ Bulk Approve Payouts'}</span>
+            <span>{isBulkApproving ? 'Approving...' : '✓ Bulk Approve Payouts'}</span>
           </button>
         </div>
       </div>
 
-      <div className="border rounded-xl overflow-hidden bg-card text-xs mt-4">
-        <table className="w-full text-left border-collapse">
+      <div className="border rounded-xl overflow-x-auto bg-card text-xs mt-4">
+        <table className="w-full min-w-[980px] text-left border-collapse">
           <thead>
             <tr className="bg-muted/40 text-[10px] text-muted-foreground font-bold border-b uppercase">
               <th className="p-3">Policy No.</th>
@@ -106,8 +112,14 @@ export default function CommissionsWorkspacePage() {
                       >
                         Approve Payout
                       </button>
+                    ) : c.payoutStatus === 'PAID' ? (
+                      <span className="text-emerald-600 font-bold text-[10px]">Paid</span>
+                    ) : c.payoutStatus === 'APPROVED' ? (
+                      <span className="text-sky-600 font-bold text-[10px]">Approved · awaiting payout</span>
+                    ) : c.integrityStatus === 'DATA_INTEGRITY_EXCEPTION' ? (
+                      <span className="text-destructive font-bold text-[10px]">Review data integrity</span>
                     ) : (
-                      <span className="text-emerald-600 font-bold text-[10px]">✓ Disbursed</span>
+                      <span className="text-muted-foreground text-[10px]">No action available</span>
                     )}
                   </td>
                 </tr>
