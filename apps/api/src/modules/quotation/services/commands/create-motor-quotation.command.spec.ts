@@ -34,6 +34,17 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
 
   beforeEach(async () => {
     prisma = {
+      insurer: {
+        findMany: jest.fn(async ({ where }: any) => {
+          const requestedName = where?.name?.equals;
+          if (!requestedName) return [];
+          return [{
+            id: `insurer-${String(requestedName).toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+            name: requestedName,
+            isActive: true,
+          }];
+        }),
+      },
       motorJourney: {
         findUnique: jest.fn(),
         update: jest.fn(),
@@ -164,6 +175,62 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
     command = module.get<CreateMotorQuotationCommand>(
       CreateMotorQuotationCommand,
     );
+  });
+
+  describe('Insurer Master enforcement', () => {
+    it('rejects the former Partner Insurer placeholder', async () => {
+      await expect(command.execute({
+        vehicleCategory: 'PRIVATE_CAR',
+        policyType: 'PACKAGE',
+        insurerName: 'Partner Insurer',
+      } as any, mockUser)).rejects.toThrow(BadRequestException);
+      expect(prisma.insurer.findMany).not.toHaveBeenCalled();
+    });
+
+    it('rejects an insurer that is not active in Insurer Master', async () => {
+      prisma.insurer.findMany.mockResolvedValueOnce([]);
+      await expect(command.execute({
+        vehicleCategory: 'PRIVATE_CAR',
+        policyType: 'PACKAGE',
+        insurerName: 'Unknown Insurer',
+      } as any, mockUser)).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects duplicate active insurer names rather than selecting an arbitrary record', async () => {
+      prisma.insurer.findMany.mockResolvedValueOnce([
+        { id: 'insurer-1', name: 'Duplicate Insurer' },
+        { id: 'insurer-2', name: 'Duplicate Insurer' },
+      ]);
+      await expect(command.execute({
+        vehicleCategory: 'PRIVATE_CAR',
+        policyType: 'PACKAGE',
+        insurerName: 'Duplicate Insurer',
+      } as any, mockUser)).rejects.toThrow(BadRequestException);
+    });
+
+    it('persists the canonical active insurer ID and name', async () => {
+      prisma.quotation.create.mockResolvedValue({
+        id: 'q-insurer-master',
+        quotationCode: 'QTN-INSURER-1',
+        totalPremium: 11800,
+        workflowState: 'READY_FOR_PROPOSAL',
+        status: 'DRAFT',
+        createdAt: new Date(),
+      });
+      const result = await command.execute({
+        vehicleCategory: 'PRIVATE_CAR',
+        policyType: 'PACKAGE',
+        insurerName: 'HDFC ERGO',
+        contactId: 'c-1',
+      } as any, mockUser);
+      expect(result.id).toBe('q-insurer-master');
+      expect(prisma.quotation.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({
+          insurerId: 'insurer-hdfc-ergo',
+          insurerName: 'HDFC ERGO',
+        }),
+      }));
+    });
   });
 
   it('MOTOR-REG-19: should execute single transactional quotation creation and bind journey 1:1', async () => {
@@ -510,7 +577,18 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
   });
 
   it('MOTOR-V2-CASE: should link quotation to MotorQuotationCase when caseId is provided', async () => {
-    prisma.motorQuotationCase.findFirst.mockResolvedValue({ id: 'case-1', companyId: 'comp-test' });
+    prisma.motorQuotationCase.findFirst.mockResolvedValue({
+      id: 'case-1',
+      companyId: 'company-1',
+      contactId: 'c-1',
+      vehicleId: null,
+      registrationNumber: null,
+      customerSnapshot: {},
+      vehicleSnapshot: {},
+      previousPolicySnapshot: null,
+      selectedQuoteId: null,
+      status: 'QUOTED',
+    });
     prisma.quotation.create.mockResolvedValue({
       id: 'q-with-case',
       quotationCode: 'QTN-2026-CASE-1',
