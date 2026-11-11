@@ -203,7 +203,7 @@ function computeEligibilityContext(
 export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId, initialCategory, cloneQuoteData, leadContact, onClose, onSaved }: Props) {
   const [step, setStep] = useState(1);
   const [isSaving, setIsSaving] = useState(false);
-  const { insurerOptions } = useInsurers();
+  const { insurerOptions, activeInsurers, isLoading: insurersLoading, isError: insurersError } = useInsurers();
 
   const { data: currentUserPreference } = useQuery({
     queryKey: ['current-user-contact-preference'],
@@ -934,8 +934,15 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
   };
 
   const handleSave = async () => {
-    if (!insurerName || !insurerName.trim() || insurerName.trim().toLowerCase() === 'partner insurer') {
-      toast.error('Select an active insurer before generating a quotation.');
+    const selectedInsurer = activeInsurers.find(
+      (insurer) => insurer.name.trim().toLowerCase() === insurerName.trim().toLowerCase(),
+    );
+    if (insurersLoading || insurersError || !selectedInsurer) {
+      toast.error(
+        insurersLoading
+          ? 'Wait for the active insurer list to load.'
+          : 'Select an active insurer from Insurer Master before generating a quotation.',
+      );
       return;
     }
 
@@ -1039,7 +1046,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
         vehicleCategory,
         policyType,
         registrationNumber: registrationNumber || '',
-        insurerName: insurerName.trim(),
+        insurerId: selectedInsurer.id,\n        insurerName: selectedInsurer.name,
         leadId: leadId && leadId !== 'new' ? leadId : undefined,
         contactId: resolvedContactId || contactId || undefined,
         customerId: resolvedCustomerId || customerId || undefined,
