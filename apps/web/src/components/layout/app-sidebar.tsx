@@ -103,6 +103,12 @@ export function AppSidebar() {
   const currentSearch = searchParams?.toString() || '';
   const { canAccess } = usePermissions();
   const isSidebarOpen = useUIStore((s) => s.isSidebarOpen);
+  const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
+
+  useEffect(() => {
+    // On small screens, do not cover the page with an open navigation drawer at startup.
+    if (window.matchMedia('(max-width: 1023px)').matches) setSidebarOpen(false);
+  }, [setSidebarOpen]);
   const user = useAuthStore((s) => s.user);
   const assignedRoles = [...(user?.roles || []), user?.role]
     .filter(Boolean)
@@ -221,8 +227,8 @@ export function AppSidebar() {
 
   return (
     <>
-      <button type="button" aria-label="Close navigation" onClick={() => useUIStore.getState().setSidebarOpen(false)} className="fixed inset-0 z-40 bg-black/40 lg:hidden" />
-      <aside className="fixed inset-y-14 left-0 z-50 w-[min(18rem,85vw)] border-r bg-card shadow-xl flex flex-col justify-between lg:sticky lg:top-14 lg:z-auto lg:h-[calc(100vh-3.5rem)] lg:shadow-none">
+      <button type="button" aria-label="Close navigation" onClick={() => setSidebarOpen(false)} className="fixed inset-0 z-40 bg-black/40 lg:hidden" />
+      <aside className="fixed inset-y-14 left-0 z-50 w-[min(18rem,85vw)] border-r bg-card shadow-xl flex flex-col justify-between lg:sticky lg:top-14 lg:left-auto lg:bottom-auto lg:z-auto lg:h-[calc(100vh-3.5rem)] lg:shadow-none">
       {/* Brand Header / Workspace identity */}
       <div className="p-4 border-b flex items-center space-x-2">
         <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-black text-sm">
