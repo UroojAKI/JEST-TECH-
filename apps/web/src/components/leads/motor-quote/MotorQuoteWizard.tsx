@@ -19,7 +19,7 @@ import { InspectionDialog } from './InspectionDialog';
 import { AgentSelector } from '../../agents/AgentSelector';
 import { SaodTpVerificationCard } from './SaodTpVerificationCard';
 
-import { INSURER_OPTIONS, CATEGORY_LABEL, POLICY_TYPE_LABEL, VEHICLE_FIELDS } from './motorFormConfig';
+import { CATEGORY_LABEL, POLICY_TYPE_LABEL, VEHICLE_FIELDS } from './motorFormConfig';
 import { useInsurers } from '../../../hooks/useInsurers';
 import type {
   VehicleCategory,
