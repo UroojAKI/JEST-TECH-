@@ -1,9 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, Optional } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { ConfigurationService } from '../platform/configuration/configuration.service';
 import Redis from 'ioredis';
 import * as os from 'os';
 import * as fs from 'fs';
+import { STORAGE_PROVIDER_TOKEN, StorageProvider } from '../documents/storage/storage-provider.interface';
 
 export type RedisConfigState = 'DISABLED' | 'CONFIGURED' | 'CONFIG_ERROR';
 
@@ -18,6 +19,7 @@ export class HealthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigurationService,
+    @Optional() @Inject(STORAGE_PROVIDER_TOKEN) private readonly storage?: StorageProvider,
   ) {}
 
   getRedisConfigurationState(): RedisHealthState {
@@ -43,6 +45,19 @@ export class HealthService {
     } catch (err: any) {
       details.database = { status: 'down', error: err?.message || 'Database unreachable' };
       return { ready: false, reason: 'Database is unreachable', details };
+    }
+
+    if (!this.storage?.isAvailable) {
+      details.storage = { status: 'unsupported', provider: this.storage?.getProviderName?.() || 'UNCONFIGURED' };
+    } else {
+      const storageAvailable = await this.storage.isAvailable();
+      details.storage = {
+        status: storageAvailable ? 'ok' : 'down',
+        provider: this.storage.getProviderName(),
+      };
+      if (!storageAvailable) {
+        return { ready: false, reason: 'Configured document storage is unavailable', details };
+      }
     }
 
     const redisConfig = this.getRedisConfigurationState();
@@ -97,6 +112,20 @@ export class HealthService {
       dbStatus = 'ok';
     } catch {
       dbStatus = 'down';
+    }
+
+    let storageStatus = 'unsupported';
+    let storageProvider = this.storage?.getProviderName?.() || 'UNCONFIGURED';
+    let storageMessage: string | undefined;
+    if (this.storage?.isAvailable) {
+      try {
+        const storageAvailable = await this.storage.isAvailable();
+        storageStatus = storageAvailable ? 'ok' : 'down';
+        if (!storageAvailable) storageMessage = 'Configured document storage is unreachable or its bucket is unavailable';
+      } catch (error: any) {
+        storageStatus = 'down';
+        storageMessage = error?.message || 'Storage health probe failed';
+      }
     }
 
     const redisConfig = this.getRedisConfigurationState();
@@ -200,6 +229,7 @@ export class HealthService {
 
     const checks = {
       database: { status: dbStatus, latencyMs: dbLatencyMs },
+      storage: { status: storageStatus, provider: storageProvider, message: storageMessage },
       redis: {
         status: redisStatus,
         latencyMs: redisLatencyMs,
@@ -230,6 +260,7 @@ export class HealthService {
       overallStatus = 'down';
     } else if (
       (redisConfig.policyEnabled && redisStatus === 'down') ||
+      storageStatus === 'down' ||
       outboxStatus === 'down' ||
       diskStatus === 'down' ||
       memoryStatus === 'degraded' ||

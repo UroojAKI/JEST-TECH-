@@ -71,9 +71,9 @@ export class LeadsService {
         'Cross-organization lead creation is strictly prohibited',
       );
     }
-    const companyId = effectiveCompanyId || dto.companyId;
+    const companyId = effectiveCompanyId;
     if (!companyId) {
-      throw new ForbiddenException('Tenant organizational context is required');
+      throw new ForbiddenException('Authenticated tenant context is required for lead creation');
     }
 
     let linkedCustomer: any = null;

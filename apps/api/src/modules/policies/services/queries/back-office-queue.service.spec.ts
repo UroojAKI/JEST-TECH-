@@ -6,8 +6,9 @@ import {
   InspectionStatus,
   DocumentVerificationStatus,
   Prisma,
+  RoleType,
 } from '@prisma/client';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { HealthDocumentRuleService } from '../../../health-insurance/services/health-document-rule.service';
 
 describe('BackOfficeQueueService (G021 Multi-Gate Policy Issuance Queue)', () => {
@@ -216,6 +217,75 @@ describe('BackOfficeQueueService (G021 Multi-Gate Policy Issuance Queue)', () =>
     expect(item.allGatesPassed).toBe(false);
     expect(item.gates.payment.passed).toBe(false);
     expect(item.nextAction).toContain('Payment');
+  });
+
+  it('includes issued policies in the issued metric without returning them as pending', async () => {
+    const issuedQuote = {
+      ...baseQuote,
+      id: 'quote-issued',
+      quotationCode: 'QT-ISSUED-001',
+      status: QuotationStatus.CONVERTED_TO_POLICY,
+      policy: { id: 'policy-issued', policyNumber: 'POL-001' },
+    };
+    mockPrisma.quotation.findMany.mockResolvedValue([baseQuote, issuedQuote]);
+    mockPrisma.document.findMany.mockResolvedValue([]);
+    const result = await service.getBackOfficeQueue();
+    expect(result.data).toHaveLength(1);
+    expect(result.summary.totalPending).toBe(1);
+    expect(result.summary.issuedCount).toBe(1);
+  });
+
+  it('preserves branch isolation alongside status OR filters', async () => {
+    mockPrisma.quotation.findMany.mockResolvedValue([baseQuote]);
+    mockPrisma.document.findMany.mockResolvedValue([]);
+    await service.getBackOfficeQueue({
+      companyId: 'company-1',
+      branchId: 'branch-1',
+      role: RoleType.AGENT,
+      userId: 'agent-1',
+    } as any);
+    const query = mockPrisma.quotation.findMany.mock.calls[0][0];
+    expect(query.where.companyId).toBe('company-1');
+    expect(query.where.AND).toEqual([{
+      OR: [
+        { createdBy: { branchId: 'branch-1' } },
+        { contact: { branchId: 'branch-1' } },
+      ],
+    }]);
+    expect(query.where.OR).toEqual(expect.arrayContaining([
+      { status: { in: expect.any(Array) } },
+      { issuanceStatus: 'ISSUANCE_PENDING' },
+    ]));
+  });
+
+  it('fails closed when an authenticated actor has no company context', async () => {
+    await expect(service.getBackOfficeQueue({
+      branchId: 'branch-1',
+      role: RoleType.AGENT,
+      userId: 'agent-1',
+    } as any)).rejects.toThrow(BadRequestException);
+    expect(mockPrisma.quotation.findMany).not.toHaveBeenCalled();
+  });
+
+  it('applies product filtering and server-side pagination before returning queue rows', async () => {
+    const older = { ...baseQuote, id: 'quote-older', quotationCode: 'QT-2026-000', createdAt: new Date('2026-01-01') };
+    const newer = { ...baseQuote, id: 'quote-newer', quotationCode: 'QT-2026-002', createdAt: new Date('2026-02-01') };
+    mockPrisma.quotation.findMany.mockResolvedValue([newer, older]);
+    mockPrisma.document.findMany.mockResolvedValue([]);
+    const result = await service.getBackOfficeQueue({ productType: 'MOTOR', page: 2, limit: 1 });
+    expect(mockPrisma.quotation.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ productType: 'MOTOR' }),
+      orderBy: { createdAt: 'desc' },
+    }));
+    expect(result.data.map((item) => item.id)).toEqual(['quote-older']);
+    expect(result.meta).toEqual({ page: 2, limit: 1, total: 2, totalPages: 2 });
+    expect(result.summary.totalPending).toBe(2);
+  });
+
+  it('surfaces document query failures instead of silently passing the document gate', async () => {
+    mockPrisma.quotation.findMany.mockResolvedValue([baseQuote]);
+    mockPrisma.document.findMany.mockRejectedValue(new Error('document store unavailable'));
+    await expect(service.getBackOfficeQueue()).rejects.toThrow(InternalServerErrorException);
   });
 
   it('validateIssuanceGates throws BadRequestException when payment gate fails', async () => {

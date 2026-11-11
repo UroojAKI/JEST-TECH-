@@ -353,14 +353,18 @@ describe('RenewalEngineService (Iteration 10)', () => {
       expect(service.calculateStatutoryDepreciation(3)).toBe(30);
       expect(service.calculateStatutoryDepreciation(4)).toBe(40);
       expect(service.calculateStatutoryDepreciation(5)).toBe(50);
-      expect(service.calculateStatutoryDepreciation(6)).toBe(60);
-      expect(service.calculateStatutoryDepreciation(10)).toBe(80);
+      expect(() => service.calculateStatutoryDepreciation(6)).toThrow(BadRequestException);
+      expect(() => service.calculateStatutoryDepreciation(10)).toThrow(BadRequestException);
+    });
+
+    it('requires manual mutually agreed IDV for vehicles older than five years', () => {
+      expect(() => service.calculateRevisedIdv(500000, 6)).toThrow(BadRequestException);
     });
 
     it('should compute revised IDV applying statutory step down', () => {
       const res = service.calculateRevisedIdv(500000, 2);
       expect(res.depreciationPercentage).toBe(20);
-      expect(res.revisedIdv).toBe(450000); // 500000 * 0.90
+      expect(res.revisedIdv).toBe(470588); // 500000 * (1 - 20%) / (1 - 15%)
     });
   });
 

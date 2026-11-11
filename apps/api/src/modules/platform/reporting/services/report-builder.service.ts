@@ -124,7 +124,7 @@ export class ReportBuilderService {
 
       const res = await provider.execute({
         companyId,
-        parameters: { ...inputParams },
+        parameters: { ...inputParams, reportCode: report.code },
         filters: filtersList,
         search: options.search,
         limit: options.limit,

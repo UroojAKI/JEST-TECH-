@@ -128,7 +128,7 @@ export interface AgentPerformanceAnalytics {
 
 export interface ActionCentreItem {
   id: string;
-  category: 'OVERDUE_TASK' | 'PENDING_INSPECTION' | 'PAYMENT_VERIFICATION' | 'COMPLIANCE_BLOCK';
+  category: 'OVERDUE_TASK' | 'BACK_OFFICE_TASK' | 'PENDING_INSPECTION' | 'PAYMENT_VERIFICATION' | 'COMPLIANCE_BLOCK';
   title: string;
   referenceCode?: string;
   severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
@@ -147,6 +147,7 @@ export interface OperationalActionCentre {
     pendingInspectionsCount: number;
     pendingPaymentsCount: number;
     complianceBlocksCount: number;
+    backOfficeTasksCount: number;
   };
   criticalItems: ActionCentreItem[];
   itemsByCategory: {
@@ -154,6 +155,7 @@ export interface OperationalActionCentre {
     pendingInspections: ActionCentreItem[];
     pendingPayments: ActionCentreItem[];
     complianceBlocks: ActionCentreItem[];
+    backOfficeTasks: ActionCentreItem[];
   };
 }
 
@@ -405,8 +407,7 @@ export class BiService {
                 select: { productType: true },
               },
             },
-          }).catch(() => [])
-        : Promise.resolve([]),
+          }),
     ]);
 
     // Also include motor insurance revenue from MotorPaymentRecord (PAID status)
@@ -1069,81 +1070,93 @@ export class BiService {
     const now = new Date();
 
     const [tasks, backOfficeTasks, pendingProposals, inspectionQuotes] = await Promise.all([
-      this.prisma.task
-        ? this.prisma.task.findMany({
-            where: {
+      this.prisma.task.findMany({
+        where: {
+          AND: [
+            { OR: [{ leadId: null }, { lead: { companyId: cleanCompanyId } }] },
+            { OR: [{ customerId: null }, { customer: { companyId: cleanCompanyId } }] },
+            { OR: [{ policyId: null }, { policy: { companyId: cleanCompanyId } }] },
+            { OR: [{ claimId: null }, { claim: { companyId: cleanCompanyId } }] },
+            { OR: [{ vehicleId: null }, { vehicle: { OR: [{ companyId: cleanCompanyId }, { customer: { companyId: cleanCompanyId } }] } }] },
+            { OR: [{ assignedToId: null }, { assignedTo: { companyId: cleanCompanyId } }] },
+            { OR: [{ createdById: null }, { createdBy: { companyId: cleanCompanyId } }] },
+            {
               OR: [
-                { assignedTo: { companyId: cleanCompanyId } },
-                { customer: { companyId: cleanCompanyId } },
                 { lead: { companyId: cleanCompanyId } },
+                { customer: { companyId: cleanCompanyId } },
+                { policy: { companyId: cleanCompanyId } },
+                { claim: { companyId: cleanCompanyId } },
+                { vehicle: { companyId: cleanCompanyId } },
+                { vehicle: { customer: { companyId: cleanCompanyId } } },
+                { assignedTo: { companyId: cleanCompanyId } },
               ],
-              status: { in: ['PENDING', 'IN_PROGRESS', 'OPEN'] as any[] },
-              deletedAt: null,
             },
+          ],
+          status: { in: ['PENDING', 'IN_PROGRESS'] as any[] },
+          deletedAt: null,
+        },
+        select: {
+          id: true,
+          title: true,
+          dueDate: true,
+          priority: true,
+          assignedTo: { select: { firstName: true, lastName: true } },
+          createdAt: true,
+        },
+        take: 50,
+      }),
+      this.prisma.backOfficeTask.findMany({
+        where: {
+          companyId: cleanCompanyId,
+          status: { in: ['PENDING', 'IN_REVIEW', 'UNRESOLVED_MIGRATION'] as any[] },
+          deletedAt: null,
+        },
+        select: {
+          id: true,
+          taskCode: true,
+          taskType: true,
+          priority: true,
+          assignedTo: { select: { firstName: true, lastName: true } },
+          createdAt: true,
+        },
+        take: 50,
+      }),
+      this.prisma.proposal.findMany({
+        where: {
+          quotation: { companyId: cleanCompanyId },
+          status: 'APPROVED',
+        },
+        select: {
+          id: true,
+          proposalNumber: true,
+          status: true,
+          createdAt: true,
+          contact: { select: { firstName: true, lastName: true } },
+          quotation: { select: { totalPremium: true, insurerName: true, motorPaymentRecord: { select: { status: true, amount: true } } } },
+        },
+        take: 50,
+      }),
+      this.prisma.motorInspection.findMany({
+        where: {
+          companyId: cleanCompanyId,
+          status: { in: ['REQUIRED', 'PENDING', 'IN_PROGRESS', 'SUBMITTED_FOR_REVIEW'] as any[] },
+        },
+        select: {
+          id: true,
+          quotationId: true,
+          inspectionCode: true,
+          status: true,
+          createdAt: true,
+          quotation: {
             select: {
-              id: true,
-              title: true,
-              dueDate: true,
-              priority: true,
-              assignedTo: { select: { firstName: true, lastName: true } },
-              createdAt: true,
-            },
-            take: 50,
-          }).catch(() => [])
-        : Promise.resolve([]),
-      this.prisma.backOfficeTask
-        ? this.prisma.backOfficeTask.findMany({
-            where: {
-              companyId: cleanCompanyId,
-              status: { in: ['PENDING', 'ASSIGNED', 'IN_PROGRESS'] as any[] },
-              deletedAt: null,
-            },
-            select: {
-              id: true,
-              taskCode: true,
-              taskType: true,
-              priority: true,
-              assignedTo: { select: { firstName: true, lastName: true } },
-              createdAt: true,
-            },
-            take: 50,
-          }).catch(() => [])
-        : Promise.resolve([]),
-      this.prisma.proposal
-        ? this.prisma.proposal.findMany({
-            where: {
-              quotation: { companyId: cleanCompanyId },
-              status: { in: ['PAYMENT_PENDING', 'SUBMITTED', 'UNDERWRITING_REVIEW'] as any[] },
-            },
-            select: {
-              id: true,
-              proposalNumber: true,
-              status: true,
-              createdAt: true,
+              quotationCode: true,
               contact: { select: { firstName: true, lastName: true } },
-              quotation: { select: { totalPremium: true, insurerName: true } },
             },
-            take: 50,
-          }).catch(() => [])
-        : Promise.resolve([]),
-      this.prisma.motorQuotation
-        ? this.prisma.motorQuotation.findMany({
-            where: {
-              companyId: cleanCompanyId,
-              status: { in: ['INSPECTION_PENDING', 'UNDERWRITING_PENDING'] as any[] },
-              deletedAt: null,
-            },
-            select: {
-              id: true,
-              quotationNumber: true,
-              status: true,
-              customer: { select: { firstName: true, lastName: true } },
-              createdAt: true,
-            },
-            take: 50,
-          }).catch(() => [])
-        : Promise.resolve([]),
-    ]);
+          },
+        },
+        take: 50,
+      }),
+    ]);;
 
     const overdueTasks: ActionCentreItem[] = [];
     for (const t of tasks) {
@@ -1165,23 +1178,37 @@ export class BiService {
       }
     }
 
+    const backOfficeQueue: ActionCentreItem[] = backOfficeTasks.map((task) => ({
+      id: task.id,
+      category: 'BACK_OFFICE_TASK',
+      title: `${task.taskType.replace(/_/g, ' ')} verification task`,
+      referenceCode: task.taskCode,
+      severity: task.priority === 'URGENT' || task.priority === 'HIGH' ? 'CRITICAL' : 'HIGH',
+      assignedTo: task.assignedTo ? `${task.assignedTo.firstName} ${task.assignedTo.lastName || ''}`.trim() : undefined,
+      entityType: 'BackOfficeTask',
+      entityId: task.id,
+      createdAt: task.createdAt.toISOString(),
+    }));
+
     const pendingInspections: ActionCentreItem[] = [];
-    for (const q of inspectionQuotes) {
-      const cust = q.customer ? `${q.customer.firstName} ${q.customer.lastName || ''}`.trim() : 'Customer';
+    for (const inspection of inspectionQuotes) {
+      const cust = inspection.quotation?.contact
+        ? `${inspection.quotation.contact.firstName} ${inspection.quotation.contact.lastName || ''}`.trim()
+        : 'Customer';
       pendingInspections.push({
-        id: q.id,
+        id: inspection.id,
         category: 'PENDING_INSPECTION',
-        title: `Vehicle Inspection Required for ${cust}`,
-        referenceCode: q.quotationNumber,
+        title: `Vehicle Inspection ${inspection.status.toLowerCase().replace(/_/g, ' ')} for ${cust}`,
+        referenceCode: inspection.inspectionCode || inspection.quotation?.quotationCode,
         severity: 'HIGH',
-        entityType: 'MotorQuotation',
-        entityId: q.id,
-        createdAt: q.createdAt.toISOString(),
+        entityType: 'MotorInspection',
+        entityId: inspection.quotationId,
+        createdAt: inspection.createdAt.toISOString(),
       });
     }
 
     const pendingPayments: ActionCentreItem[] = [];
-    for (const p of pendingProposals.filter((pr: any) => pr.status === 'PAYMENT_PENDING')) {
+    for (const p of pendingProposals.filter((pr: any) => pr.status === 'APPROVED' && pr.quotation?.motorPaymentRecord?.status !== 'PAID')) {
       const cust = p.contact ? `${p.contact.firstName} ${p.contact.lastName || ''}`.trim() : 'Customer';
       pendingPayments.push({
         id: p.id,
@@ -1210,7 +1237,7 @@ export class BiService {
       });
     }
 
-    const allItems = [...overdueTasks, ...pendingInspections, ...pendingPayments, ...complianceBlocks];
+    const allItems = [...overdueTasks, ...backOfficeQueue, ...pendingInspections, ...pendingPayments, ...complianceBlocks];
     const criticalItems = allItems.filter((i) => i.severity === 'CRITICAL');
 
     return {
@@ -1220,6 +1247,7 @@ export class BiService {
         pendingInspectionsCount: pendingInspections.length,
         pendingPaymentsCount: pendingPayments.length,
         complianceBlocksCount: complianceBlocks.length,
+        backOfficeTasksCount: backOfficeQueue.length,
       },
       criticalItems,
       itemsByCategory: {
@@ -1227,6 +1255,7 @@ export class BiService {
         pendingInspections,
         pendingPayments,
         complianceBlocks,
+        backOfficeTasks: backOfficeQueue,
       },
     };
   }

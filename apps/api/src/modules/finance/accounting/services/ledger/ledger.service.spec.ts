@@ -49,7 +49,7 @@ describe('LedgerService', () => {
         ],
       };
 
-      await expect(service.postEntry(data)).rejects.toThrow(
+      await expect(service.postEntry(data, 'comp-1')).rejects.toThrow(
         BadRequestException,
       );
       await expect(service.postEntry(data)).rejects.toThrow(
@@ -114,7 +114,7 @@ describe('LedgerService', () => {
         _sum: { debit: new Decimal(500), credit: new Decimal(100) },
       } as any);
 
-      const balance = await service.getAccountBalance('acc-asset');
+      const balance = await service.getAccountBalance('acc-asset', 'comp-1');
       expect(balance.toNumber()).toBe(400); // 500 - 100
     });
 
@@ -126,7 +126,7 @@ describe('LedgerService', () => {
         _sum: { debit: new Decimal(100), credit: new Decimal(500) },
       } as any);
 
-      const balance = await service.getAccountBalance('acc-liability');
+      const balance = await service.getAccountBalance('acc-liability', 'comp-1');
       expect(balance.toNumber()).toBe(400); // 500 - 100
     });
   });
@@ -187,7 +187,7 @@ describe('LedgerService', () => {
         },
       ]);
 
-      const result = await service.getLedgerEntries();
+      const result = await service.getLedgerEntries({ companyId: 'comp-1' });
 
       expect(result.data).toHaveLength(1);
       const entry = result.data[0];

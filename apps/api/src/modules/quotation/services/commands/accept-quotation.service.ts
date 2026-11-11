@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -26,10 +27,20 @@ export class AcceptQuotationService {
    * Records agentId, timestamp, quotationVersion, selectedGstRate, and evidenceMethod.
    * Supercedes/rejects competing draft versions under the same lead.
    */
-  async execute(id: string, actorId: string, commentsOrDto?: string | CustomerAcceptanceDto) {
+  async execute(
+    id: string,
+    actorId: string,
+    commentsOrDto?: string | CustomerAcceptanceDto,
+    actor?: { companyId?: string; organizationId?: string },
+  ) {
+    const companyId = actor?.companyId || actor?.organizationId;
+    if (actor && !companyId) {
+      throw new ForbiddenException('Company context is required to accept a quotation');
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const quotation = await tx.quotation.findFirst({
-        where: { id, deletedAt: null },
+        where: { id, deletedAt: null, ...(companyId ? { companyId } : {}) },
       });
 
       if (!quotation) {
@@ -51,10 +62,14 @@ export class AcceptQuotationService {
         );
       }
 
-      // If already accepted, return idempotently
+      // Underwriter approval and customer acceptance are distinct events.
+      // Only an auditable customer-acceptance record makes this request idempotent.
+      const priorAcceptance = (quotation.motorMetadata as any)?.customerAcceptance;
       if (
         quotation.status === QuotationStatus.APPROVED &&
-        quotation.workflowState === MotorWorkflowState.READY_FOR_PROPOSAL
+        quotation.workflowState === MotorWorkflowState.READY_FOR_PROPOSAL &&
+        priorAcceptance?.evidenceMethod &&
+        priorAcceptance?.timestamp
       ) {
         const detail = await this.quotationRepository.findDetail(id);
         return QuotationMapper.toResponse(detail!);
@@ -62,18 +77,23 @@ export class AcceptQuotationService {
 
       // Check if another quotation for this lead is already accepted
       if (quotation.leadId) {
-        const existingAccepted = await tx.quotation.findFirst({
+        const competingLeadQuotes = await tx.quotation.findMany({
           where: {
             leadId: quotation.leadId,
-            status: QuotationStatus.APPROVED,
+            ...(companyId ? { companyId } : {}),
             id: { not: quotation.id },
             deletedAt: null,
           },
+          select: { id: true, quotationCode: true, motorMetadata: true },
+        });
+        const existingAccepted = competingLeadQuotes.find((candidate: any) => {
+          const evidence = (candidate.motorMetadata as any)?.customerAcceptance;
+          return Boolean(evidence?.evidenceMethod && evidence?.timestamp);
         });
 
         if (existingAccepted) {
           throw new BadRequestException(
-            `Lead already has an accepted quotation (${existingAccepted.quotationCode}). Only one quotation can be accepted per opportunity.`,
+            `Lead already has a customer-accepted quotation (${existingAccepted.quotationCode}). Only one quotation can be accepted per opportunity.`,
           );
         }
 
@@ -81,6 +101,7 @@ export class AcceptQuotationService {
         await tx.quotation.updateMany({
           where: {
             leadId: quotation.leadId,
+            ...(companyId ? { companyId } : {}),
             id: { not: quotation.id },
             status: {
               in: [QuotationStatus.DRAFT, QuotationStatus.PENDING_APPROVAL],
@@ -162,7 +183,7 @@ export class AcceptQuotationService {
       });
 
       const finalDetail = await tx.quotation.findFirst({
-        where: { id },
+        where: { id, ...(companyId ? { companyId } : {}) },
         include: {
           contact: true,
           account: true,

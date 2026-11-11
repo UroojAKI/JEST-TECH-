@@ -5,6 +5,7 @@ import {
   Logger,
   Optional,
   InternalServerErrorException,
+  HttpException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../../database/prisma.service';
 import {
@@ -167,17 +168,23 @@ export class BackOfficeQueueService {
           search?: string;
           status?: string;
           quotationId?: string;
+          page?: number;
+          limit?: number;
+          productType?: 'MOTOR' | 'HEALTH';
         },
     maybeParams?: {
       search?: string;
       status?: string;
       quotationId?: string;
+      page?: number;
+      limit?: number;
+      productType?: 'MOTOR' | 'HEALTH';
     },
   ) {
     try {
       let actor: ActorContext | undefined;
       let params:
-        | { search?: string; status?: string; quotationId?: string }
+        | { search?: string; status?: string; quotationId?: string; page?: number; limit?: number; productType?: 'MOTOR' | 'HEALTH' }
         | undefined;
 
       if (
@@ -225,16 +232,20 @@ export class BackOfficeQueueService {
         actor?.role === ('SYSTEM_ADMINISTRATOR' as any) ||
         actor?.isPlatformAdmin;
       const isBackOffice = actor?.role === RoleType.BACK_OFFICE;
+      if (actor && !actor.companyId && !actor.isPlatformAdmin) {
+        throw new BadRequestException('Company context is required to access the Back Office queue');
+      }
 
       const tenantFilter: Prisma.QuotationWhereInput = {
         ...(actor?.companyId ? { companyId: actor.companyId } : {}),
-        // Only restrict to branch if user is an agent and has branchId assigned
         ...(!isPlatformOrCompanyAdmin && !isBackOffice && actor?.branchId
           ? {
-              OR: [
-                { createdBy: { branchId: actor.branchId } },
-                { contact: { branchId: actor.branchId } },
-              ],
+              AND: [{
+                OR: [
+                  { createdBy: { branchId: actor.branchId } },
+                  { contact: { branchId: actor.branchId } },
+                ],
+              }],
             }
           : {}),
       };
@@ -245,6 +256,7 @@ export class BackOfficeQueueService {
       const where: Prisma.QuotationWhereInput = {
         ...tenantFilter,
         backOfficeSubmittedAt: { not: null },
+        ...(params?.productType ? { productType: params.productType } : {}),
         ...(params?.quotationId
           ? { id: params.quotationId }
           : requestedIssuedOnly
@@ -259,13 +271,12 @@ export class BackOfficeQueueService {
                   { status: { in: statusFilter } },
                   { issuanceStatus: 'ISSUANCE_PENDING' },
                   { workflowState: 'PAYMENT_DONE' },
+                  { policy: { isNot: null } },
                 ],
               }),
       };
 
-      let quotations: any[] = [];
-      try {
-        quotations = await this.prisma.quotation.findMany({
+      const quotations: any[] = await this.prisma.quotation.findMany({
           where,
 
           include: {
@@ -316,50 +327,19 @@ export class BackOfficeQueueService {
               },
             },
           },
-          orderBy: { createdAt: 'asc' },
-        });
-      } catch (prismaErr: any) {
-        this.logger.warn(`Primary quotation query failed: ${prismaErr?.message}. Falling back to baseline query.`);
-        try {
-          quotations = await this.prisma.quotation.findMany({
-            where: {
-              ...(actor?.companyId ? { companyId: actor.companyId } : {}),
-              backOfficeSubmittedAt: { not: null },
-            },
-            include: {
-              contact: true,
-              account: true,
-              vehicle: true,
-              createdBy: {
-                select: { id: true, firstName: true, lastName: true, email: true },
-              },
-              policy: true,
-              healthCase: { include: { documents: true } },
-            },
-            orderBy: { createdAt: 'asc' },
-          });
-        } catch (fallbackErr: any) {
-          this.logger.error(`Fallback quotation query failed: ${fallbackErr?.message}`, fallbackErr?.stack);
-          throw new InternalServerErrorException(
-            'Unable to query submitted quotations for the Back Office issuance queue.',
-          );
-        }
-      }
+          orderBy: { createdAt: 'desc' },
+      });
 
       // Optimize: batch-fetch all related documents in a single roundtrip rather than N+1 queries
       const quotationIds = quotations.map((q) => q.id);
       let allDocuments: any[] = [];
-      if (quotationIds.length > 0 && this.prisma?.document?.findMany) {
-        try {
-          allDocuments = await this.prisma.document.findMany({
-            where: {
-              entityId: { in: quotationIds },
-              deletedAt: null,
-            },
-          });
-        } catch {
-          allDocuments = [];
-        }
+      if (quotationIds.length > 0) {
+        allDocuments = await this.prisma.document.findMany({
+          where: {
+            entityId: { in: quotationIds },
+            deletedAt: null,
+          },
+        });
       }
       const docsByQuoteId = new Map<string, any[]>();
       for (const doc of allDocuments) {
@@ -374,17 +354,21 @@ export class BackOfficeQueueService {
       const now = Date.now();
       const items: BackOfficeQueueItem[] = [];
 
-      let readyCount = 0;
-      let blockedCount = 0;
       let issuedCount = 0;
 
       for (const q of quotations) {
         // Track issued policies; only include them when explicitly querying status=ISSUED
         if (q.policy) {
-          issuedCount++;
-          if (!requestedIssuedOnly) {
-            continue;
-          }
+          const searchTerm = String(params?.search || '').toLowerCase().trim();
+          const issuedSearchFields = [
+            q.quotationCode, q.contact?.firstName, q.contact?.lastName,
+            q.contact?.phone, q.contact?.email, q.createdBy?.firstName,
+            q.createdBy?.lastName, q.insurerName, q.registrationNumber,
+            q.vehicle?.registrationNumber, (q.motorMetadata as any)?.registrationNumber,
+          ].filter(Boolean).map((value) => String(value).toLowerCase());
+          const matchesIssuedSearch = !searchTerm || issuedSearchFields.some((value) => value.includes(searchTerm));
+          if (matchesIssuedSearch && (!params?.status || params.status === 'ALL' || requestedIssuedOnly)) issuedCount++;
+          if (!requestedIssuedOnly) continue;
         } else if (requestedIssuedOnly) {
           continue;
         }
@@ -607,14 +591,6 @@ export class BackOfficeQueueService {
           nextAction = 'Awaiting Customer Identity Completion';
         }
 
-        if (!q.policy) {
-          if (allGatesPassed) {
-            readyCount++;
-          } else {
-            blockedCount++;
-          }
-        }
-
         // SLA Countdown (IRDAI target 24h from quotation approval / payment)
         const quoteTime = new Date(q.updatedAt || q.createdAt).getTime();
         const elapsedHours = (now - quoteTime) / 3600000;
@@ -664,8 +640,7 @@ export class BackOfficeQueueService {
           customerEmail: q.contact?.email || undefined,
           salesAgentName,
           productType: isHealth ? 'HEALTH' : (q.productType || 'MOTOR'),
-          insurerName:
-            q.policy?.insurerNameSnapshot || q.insurerName?.trim() || 'Insurer missing',
+          insurerName: q.policy?.insurerNameSnapshot || q.insurerName?.trim() || 'Insurer not recorded',
           totalPremium: payableAmt,
           paymentAmount: paidAmt,
           paymentReference: payment?.referenceNumber || undefined,
@@ -709,6 +684,7 @@ export class BackOfficeQueueService {
             item.customerPhone,
             item.customerEmail,
             item.insurerName,
+            String(item.gates?.vehicle?.detail || ''),
             item.caseCode,
             item.vehicleDetails?.registrationNumber,
             item.vehicleDetails?.makeModel,
@@ -732,16 +708,26 @@ export class BackOfficeQueueService {
         items.push(item);
       }
 
+      const readyCount = items.filter((item) => item.allGatesPassed).length;
+      const blockedCount = items.length - readyCount;
+      const page = Math.max(1, Math.floor(Number(params?.page) || 1));
+      const limit = Math.min(100, Math.max(1, Math.floor(Number(params?.limit) || 20)));
+      const total = items.length;
+      const totalPages = Math.ceil(total / limit);
+      const data = items.slice((page - 1) * limit, page * limit);
+
       return {
-        data: items,
+        data,
+        meta: { page, limit, total, totalPages },
         summary: {
-          totalPending: items.length,
+          totalPending: total,
           readyCount,
           blockedCount,
           issuedCount,
         },
       };
     } catch (err: any) {
+      if (err instanceof HttpException) throw err;
       this.logger.error(`Failed to get back-office queue: ${err?.message || err}`, err?.stack);
       throw new InternalServerErrorException(
         'Unable to load the Back Office issuance queue. Please retry or contact support with the request ID.',

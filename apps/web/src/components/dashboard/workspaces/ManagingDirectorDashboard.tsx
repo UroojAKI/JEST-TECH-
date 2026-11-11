@@ -80,7 +80,7 @@ export default function ManagingDirectorDashboard() {
   });
 
   // Workstream 3: Operational Action Centre
-  const { data: actionCentre, isLoading: isActionCentreLoading } = useQuery({
+  const { data: actionCentre, isLoading: isActionCentreLoading, isError: isActionCentreError, error: actionCentreError, refetch: refetchActionCentre } = useQuery({
     queryKey: ['bi-operational-action-centre'],
     enabled: canFetch,
     queryFn: () => biRepository.getOperationalActionCentre(),
@@ -344,6 +344,13 @@ export default function ManagingDirectorDashboard() {
                             <div className="text-sm font-bold font-mono">
                               {b.formattedGwp || `₹${Number(b.gwp).toLocaleString('en-IN')}`}
                             </div>
+                            <div className="text-[10px] text-muted-foreground">
+                              Target: {b.formattedTargetGwp || 'Not configured'}
+                              {b.targetAchievementPercent !== null && b.targetAchievementPercent !== undefined ? ` · ${b.targetAchievementPercent}% achieved` : ''}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground">
+                              Conversion: {b.conversionRate !== null && b.conversionRate !== undefined ? `${b.conversionRate}% (${b.convertedLeads}/${b.totalLeads})` : 'No lead data'}
+                            </div>
                           )}
                         </div>
                       </div>
@@ -514,6 +521,8 @@ export default function ManagingDirectorDashboard() {
         <div className="space-y-6">
           {isActionCentreLoading ? (
             <div className="p-12 text-center text-xs text-muted-foreground">Loading operational action centre...</div>
+          ) : isActionCentreError ? (
+            <div className="p-6 border border-destructive/30 rounded-xl flex items-center justify-between"><span className="text-xs text-destructive">{getApiErrorMessage(actionCentreError) || 'Failed to load operational queues.'}</span><button onClick={() => refetchActionCentre()} className="px-3 py-1.5 rounded border text-xs font-semibold">Retry</button></div>
           ) : !actionCentre ? (
             <div className="p-8 text-center text-xs text-muted-foreground">No operational action items pending.</div>
           ) : (
@@ -590,6 +599,7 @@ export default function ManagingDirectorDashboard() {
                       <tbody className="divide-y font-mono">
                         {[
                           ...actionCentre.itemsByCategory.overdueTasks,
+                          ...actionCentre.itemsByCategory.backOfficeTasks,
                           ...actionCentre.itemsByCategory.pendingInspections,
                           ...actionCentre.itemsByCategory.pendingPayments,
                           ...actionCentre.itemsByCategory.complianceBlocks,
@@ -607,7 +617,12 @@ export default function ManagingDirectorDashboard() {
                             <td className="p-3 font-mono text-[11px] text-muted-foreground">
                               {item.category.replace('_', ' ')}
                             </td>
-                            <td className="p-3 font-semibold text-foreground">{item.title}</td>
+                            <td className="p-3 font-semibold text-foreground">
+                              <div>{item.title}</div>
+                              {item.entityType === 'Proposal' && <a className="text-primary text-[11px] hover:underline" href={`/sales/proposals/${item.entityId}`}>Open proposal</a>}
+                              {item.entityType === 'MotorInspection' && <a className="text-primary text-[11px] hover:underline" href={`/workspace/operations/inspections/${item.entityId}`}>Open inspection</a>}
+                              {item.entityType === 'BackOfficeTask' && <a className="text-primary text-[11px] hover:underline" href="/workspace/operations/issuance">Open issuance queue</a>}
+                            </td>
                             <td className="p-3 font-mono font-bold text-primary">{item.referenceCode || '-'}</td>
                             <td className="p-3 text-muted-foreground">{item.assignedTo || 'Unassigned'}</td>
                             <td className="p-3 font-mono text-rose-600 font-semibold">

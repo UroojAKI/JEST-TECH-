@@ -78,36 +78,34 @@ describe('Authoritative Workflow Invariants & Financial Correctness Audit', () =
       // Total: 23600, GST: 3600 => Net commissionable base: 20000
       // Agent percent: 15% => Commission should be 3000 (NOT 3540 on gross!)
       // Override percent: 5% => Override should be 1000 (NOT 1180 on gross!)
-      const mockPrisma: any = {
-        policy: {
-          findUnique: jest.fn().mockResolvedValue({
-            id: 'policy-10',
-            premiumAmount: new Decimal(23600),
-            agentId: 'user-agent-1',
-            quotation: {
-              totalPremium: new Decimal(23600),
-              gstAmount: new Decimal(3600),
-            },
-          }),
+      const createdCommissions: any[] = [];
+      const policyRecord = {
+        id: 'policy-10',
+        companyId: 'company-1',
+        premiumAmount: new Decimal(23600),
+        agentId: 'user-agent-1',
+        quotation: {
+          totalPremium: new Decimal(23600),
+          gstAmount: new Decimal(3600),
         },
+      };
+      const mockPrisma: any = {
+        policy: { findFirst: jest.fn().mockResolvedValue(policyRecord) },
         commissionPlan: {
-          findUnique: jest.fn().mockResolvedValue({
+          findFirst: jest.fn().mockResolvedValue({
             id: 'plan-1',
             isActive: true,
             rules: JSON.stringify({
               agentPercent: 15,
               overrides: [
-                {
-                  userId: 'user-manager-1',
-                  roleTier: 'BRANCH_MANAGER',
-                  percent: 5,
-                },
+                { userId: 'user-manager-1', roleTier: 'BRANCH_MANAGER', percent: 5 },
               ],
+              accounting: { expenseAccountId: 'expense-1', payableAccountId: 'payable-1' },
             }),
           }),
         },
         user: {
-          findUnique: jest.fn().mockImplementation(({ where }) => ({
+          findFirst: jest.fn().mockImplementation(({ where }) => ({
             id: where.id,
             status: 'ACTIVE',
           })),
@@ -115,14 +113,27 @@ describe('Authoritative Workflow Invariants & Financial Correctness Audit', () =
         $transaction: jest.fn().mockImplementation(async (callback) => {
           const tx: any = {
             $executeRaw: jest.fn(),
+            $queryRaw: jest.fn().mockResolvedValue([{ nextval: 1001n }]),
+            policy: { findFirst: jest.fn().mockResolvedValue(policyRecord) },
+            chartOfAccount: {
+              findMany: jest.fn().mockResolvedValue([
+                { id: 'expense-1', type: 'EXPENSE' },
+                { id: 'payable-1', type: 'LIABILITY' },
+              ]),
+            },
+            journalEntry: {
+              findFirst: jest.fn().mockResolvedValue(null),
+              create: jest.fn().mockResolvedValue({ id: 'journal-1' }),
+            },
             commission: {
-              findMany: jest.fn().mockResolvedValue([]),
-              createMany: jest.fn(),
+              findMany: jest.fn().mockImplementation(async () => createdCommissions),
+              createMany: jest.fn().mockImplementation(async ({ data }) => {
+                createdCommissions.push(...data);
+                return { count: data.length };
+              }),
             },
           };
-          await callback(tx);
-          // Return captured commissions from createMany call
-          return tx.commission.createMany.mock.calls[0][0].data;
+          return callback(tx);
         }),
       };
 

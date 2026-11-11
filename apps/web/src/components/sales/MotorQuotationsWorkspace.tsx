@@ -13,6 +13,7 @@ import { InspectionDialog } from '../leads/motor-quote/InspectionDialog';
 import { MotorProposalWizard } from '../leads/motor-quote/MotorProposalWizard';
 import { PolicyCompletionDialog } from '../leads/motor-quote/PolicyCompletionDialog';
 import { QuotationCompletionView } from '../leads/motor-quote/QuotationCompletionView';
+import { QuotationManagementDialog } from './QuotationManagementDialog';
 import type { VehicleCategory, SavedMotorQuote } from '../leads/motor-quote/motorFormTypes';
 import { MotorProductCards } from '../workspaces/sales/MotorProductCards';
 import { useAuthStore } from '../../store/auth-store';
@@ -73,6 +74,12 @@ export function MotorQuotationsWorkspace() {
   const [proposalQuote, setProposalQuote] = useState<SavedMotorQuote | null>(null);
   const [completionQuote, setCompletionQuote] = useState<SavedMotorQuote | null>(null);
   const [completionEditQuote, setCompletionEditQuote] = useState<{ id: string; quotationCode?: string } | null>(null);
+  const [managementQuoteId, setManagementQuoteId] = useState<string | null>(null);
+  const [acceptanceQuoteId, setAcceptanceQuoteId] = useState<string | null>(null);
+  const [acceptanceMethod, setAcceptanceMethod] = useState<'EMAIL' | 'SMS' | 'WHATSAPP' | 'PHYSICAL_SIGNATURE' | 'VERBAL_CALL_RECORDING' | 'PORTAL_CLICK'>('EMAIL');
+  const [acceptanceReference, setAcceptanceReference] = useState('');
+  const [acceptanceComments, setAcceptanceComments] = useState('');
+  const [acceptanceSubmitting, setAcceptanceSubmitting] = useState(false);
   const [submittingQuoteId, setSubmittingQuoteId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
@@ -268,10 +275,13 @@ export function MotorQuotationsWorkspace() {
         const quotes = (Array.isArray(list) ? list : []).map((item: any) => ({
           id: item.id,
           quotationCode: item.quotationCode,
+          version: item.version || item.latestVersion?.versionNumber || null,
+          insurerId: item.insurerId || null,
+          customerAcceptance: item.motorMetadata?.customerAcceptance || null,
           vehicleCategory: item.motorMetadata?.vehicleCategory || item.vehicleCategory || 'PRIVATE_CAR',
           policyType: item.motorMetadata?.policyType || item.policyType || 'PACKAGE',
           registrationNumber: item.motorMetadata?.registrationNumber || item.registrationNumber || '',
-          insurerName: item.insurerName?.trim() || 'Insurer missing',
+          insurerName: item.insurerName?.trim() && item.insurerName.trim().toLowerCase() !== 'partner insurer' ? item.insurerName.trim() : 'Insurer missing',
           totalPremium: Number(item.totalPremium || 0),
           idv: Number(item.sumInsured || 0),
           ncbPercentage: Number(item.ncbPercentage || 0),
@@ -641,7 +651,9 @@ export function MotorQuotationsWorkspace() {
                       {quotes.map((quote) => {
                         const submitted = Boolean((quote as any).backOfficeSubmittedAt);
                         const isTerminalQuoteStatus = isTerminalQuoteStatusValue(quote);
-                        const proposalReady = ['READY_FOR_PROPOSAL', 'APPROVED', 'PAYMENT_UNDER_PROCESS', 'PAYMENT_PENDING'].includes(String(quote.status));
+                        const customerAccepted = quote.status === 'ACCEPTED' || Boolean((quote as any).customerAcceptance);
+                        const validInsurer = Boolean((quote as any).insurerId && quote.insurerName && !['insurer missing', 'partner insurer'].includes(quote.insurerName.toLowerCase()));
+                        const proposalReady = !isTerminalQuoteStatus && (quote as any).issuanceStatus !== 'ISSUED';
                         const issuanceReady = ['PAYMENT_DONE', 'PENDING_ISSUANCE'].includes(String(quote.status)) || (quote as any).issuanceStatus === 'ISSUANCE_PENDING';
                         return (
                           <tr key={quote.id} className="hover:bg-muted/30">
@@ -678,7 +690,7 @@ export function MotorQuotationsWorkspace() {
                                 >
                                   Add insurer quote
                                 </button>
-                                {canSubmitToBackOffice && !submitted && !isTerminalQuoteStatus && (
+                                {canSubmitToBackOffice && !submitted && !isTerminalQuoteStatus && validInsurer && (
                                   <button
                                     type="button"
                                     disabled={submittingQuoteId === quote.id}
@@ -721,6 +733,10 @@ export function MotorQuotationsWorkspace() {
                                       </>
                                     )}
                                   </button>
+                                )}
+                                <button type="button" onClick={() => setManagementQuoteId(quote.id)} className="rounded border px-2 py-1 hover:bg-muted">Manage</button>
+                                {quote.status === 'APPROVED' && !customerAccepted && !submitted && (
+                                  <button type="button" onClick={() => setAcceptanceQuoteId(quote.id)} className="rounded border border-emerald-500/40 px-2 py-1 text-emerald-700 hover:bg-emerald-500/10">Record acceptance</button>
                                 )}
                                 {quote.status === 'PENDING_INSPECTION' && (
                                   <button onClick={() => setInspectionQuoteId(quote.id)} className="rounded border border-amber-300 px-2 py-1 text-amber-700">Inspection</button>
@@ -838,6 +854,48 @@ export function MotorQuotationsWorkspace() {
             void refetch();
           }}
         />
+      )}
+
+      <QuotationManagementDialog
+        quotationId={managementQuoteId || ''}
+        isOpen={Boolean(managementQuoteId)}
+        onClose={() => setManagementQuoteId(null)}
+        onUpdated={() => { void refetch(); }}
+      />
+
+      {acceptanceQuoteId && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-xl border bg-background p-5 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between"><h3 className="font-bold">Record customer acceptance</h3><button type="button" onClick={() => setAcceptanceQuoteId(null)} className="rounded p-1 hover:bg-muted" aria-label="Close">×</button></div>
+            <p className="text-xs text-muted-foreground">Record the evidence source for the selected quotation. Internal approval alone is not customer acceptance.</p>
+            <label className="block space-y-1 text-xs font-semibold">Evidence method
+              <select value={acceptanceMethod} onChange={(event) => setAcceptanceMethod(event.target.value as any)} className="w-full rounded border bg-background px-3 py-2">
+                <option value="EMAIL">Email</option><option value="SMS">SMS</option><option value="WHATSAPP">WhatsApp</option><option value="PHYSICAL_SIGNATURE">Physical signature</option><option value="VERBAL_CALL_RECORDING">Verbal call recording</option><option value="PORTAL_CLICK">Customer portal click</option>
+              </select>
+            </label>
+            <label className="block space-y-1 text-xs font-semibold">Evidence reference
+              <input value={acceptanceReference} onChange={(event) => setAcceptanceReference(event.target.value)} className="w-full rounded border bg-background px-3 py-2" placeholder="Email ID, message ID, document reference…" />
+            </label>
+            <label className="block space-y-1 text-xs font-semibold">Comments
+              <textarea value={acceptanceComments} onChange={(event) => setAcceptanceComments(event.target.value)} className="w-full rounded border bg-background px-3 py-2" rows={2} placeholder="Optional acceptance notes" />
+            </label>
+            <div className="flex justify-end gap-2"><button type="button" onClick={() => setAcceptanceQuoteId(null)} className="rounded border px-3 py-2 text-xs">Cancel</button><button type="button" disabled={acceptanceSubmitting} onClick={async () => {
+              setAcceptanceSubmitting(true);
+              try {
+                await quotationsRepository.acceptQuotation(acceptanceQuoteId, { evidenceMethod: acceptanceMethod, evidenceReference: acceptanceReference.trim() || undefined, comments: acceptanceComments.trim() || undefined });
+                toast.success('Customer acceptance recorded');
+                setAcceptanceQuoteId(null);
+                setAcceptanceReference('');
+                setAcceptanceComments('');
+                await refetch();
+              } catch (error) {
+                showApiErrorToast(error, 'Could not record customer acceptance');
+              } finally {
+                setAcceptanceSubmitting(false);
+              }
+            }} className="rounded bg-primary px-3 py-2 text-xs font-bold text-primary-foreground disabled:opacity-50">{acceptanceSubmitting ? 'Saving…' : 'Record acceptance'}</button></div>
+          </div>
+        </div>
       )}
 
       {completionEditQuote && (

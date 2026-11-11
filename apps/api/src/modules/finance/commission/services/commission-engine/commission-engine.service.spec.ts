@@ -11,6 +11,10 @@ describe('CommissionEngineService', () => {
   beforeEach(async () => {
     const mockTx: any = {
       $executeRaw: jest.fn().mockResolvedValue(undefined),
+      policy: { findFirst: jest.fn().mockResolvedValue({ id: 'pol-1', companyId: 'comp-1', premiumAmount: '50000', quotation: null }) },
+      chartOfAccount: { findMany: jest.fn().mockResolvedValue([{ id: 'expense-1', type: 'EXPENSE' }, { id: 'payable-1', type: 'LIABILITY' }]) },
+      journalEntry: { findFirst: jest.fn().mockResolvedValue(null), create: jest.fn().mockResolvedValue({ id: 'je-1' }) },
+      $queryRaw: jest.fn().mockResolvedValue([{ nextval: 1n }]),
       commission: {
         findMany: jest
           .fn()
@@ -31,10 +35,11 @@ describe('CommissionEngineService', () => {
           provide: PrismaService,
           useValue: {
             commissionPlan: {
-              findUnique: jest.fn(),
+              findFirst: jest.fn(),
             },
+            policy: { findFirst: jest.fn().mockResolvedValue({ id: 'pol-1', companyId: 'comp-1', premiumAmount: '50000', quotation: null }) },
             user: {
-              findUnique: jest
+              findFirst: jest
                 .fn()
                 .mockResolvedValue({ id: 'u-1', status: 'ACTIVE' }),
             },
@@ -56,7 +61,7 @@ describe('CommissionEngineService', () => {
 
   describe('accrueCommissions', () => {
     it('should calculate agent commission and manager overrides correctly', async () => {
-      jest.spyOn(prisma.commissionPlan, 'findUnique').mockResolvedValue({
+      jest.spyOn(prisma.commissionPlan, 'findFirst').mockResolvedValue({
         id: 'plan-1',
         isActive: true,
         rules: JSON.stringify({
@@ -65,6 +70,7 @@ describe('CommissionEngineService', () => {
             { roleTier: 'BRANCH_MANAGER', percent: 2, userId: 'bm-1' },
             { roleTier: 'ZONAL_MANAGER', percent: 0.5, userId: 'zm-1' },
           ],
+          accounting: { expenseAccountId: 'expense-1', payableAccountId: 'payable-1' },
         }),
       } as any);
 
@@ -90,7 +96,7 @@ describe('CommissionEngineService', () => {
     });
 
     it('T-05: throws structured COMMISSION_CONFIG_PENDING when no active commission plan matches', async () => {
-      jest.spyOn(prisma.commissionPlan, 'findUnique').mockResolvedValue(null);
+      jest.spyOn(prisma.commissionPlan, 'findFirst').mockResolvedValue(null);
 
       let thrown: any = null;
       try {
@@ -109,16 +115,18 @@ describe('CommissionEngineService', () => {
   });
 
   describe('realizeCommissions', () => {
-    it('should update status from APPROVED to REALIZED', async () => {
-      jest
-        .spyOn(prisma.commission, 'updateMany')
-        .mockResolvedValue({ count: 2 });
+    it('should update only this tenant policy commissions from APPROVED to REALIZED', async () => {
+      const tx: any = {
+        policy: { findFirst: jest.fn().mockResolvedValue({ id: 'pol-1' }) },
+        commission: { updateMany: jest.fn().mockResolvedValue({ count: 2 }) },
+      };
+      jest.spyOn(prisma, '$transaction').mockImplementation(async (callback: any) => callback(tx));
 
-      const count = await service.realizeCommissions('pol-1');
+      const count = await service.realizeCommissions('pol-1', 'comp-1');
 
       expect(count).toBe(2);
-      expect(prisma.commission.updateMany).toHaveBeenCalledWith({
-        where: { policyId: 'pol-1', status: 'APPROVED' },
+      expect(tx.commission.updateMany).toHaveBeenCalledWith({
+        where: { policyId: 'pol-1', companyId: 'comp-1', status: 'APPROVED' },
         data: { status: 'REALIZED' },
       });
     });
@@ -144,6 +152,25 @@ describe('CommissionEngineService', () => {
       await expect(
         service.approveCommission('missing-id', actor as any),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    it('fails closed when commission tenant cannot be resolved', async () => {
+      const mockTx: any = {
+        commission: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'comm-legacy',
+            companyId: null,
+            status: 'ACCRUED',
+            user: { companyId: null },
+            policy: { companyId: null },
+          }),
+        },
+      };
+      jest.spyOn(prisma, '$transaction').mockImplementation(async (cb: any) => cb(mockTx));
+
+      await expect(
+        service.approveCommission('comm-legacy', actor as any),
+      ).rejects.toThrow(ForbiddenException);
     });
 
     it('rejects approval when commission belongs to another company', async () => {

@@ -46,8 +46,17 @@ export class BackOfficeController {
     @CurrentUser() user: RequestUser,
     @Query('search') search?: string,
     @Query('status') status?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('productType') productType?: 'MOTOR' | 'HEALTH',
   ) {
-    return this.backOfficeQueueService.getBackOfficeQueue(user, { search, status });
+    return this.backOfficeQueueService.getBackOfficeQueue(user, {
+      search,
+      status,
+      page: page ? Number(page) : undefined,
+      limit: limit ? Number(limit) : undefined,
+      productType,
+    });
   }
 
   @Post('issue/:quotationId')
