@@ -207,7 +207,9 @@ export class BackOfficeQueueService {
           });
         } catch (fallbackErr: any) {
           this.logger.error(`Fallback quotation query failed: ${fallbackErr?.message}`, fallbackErr?.stack);
-          quotations = [];
+          throw new InternalServerErrorException(
+            'Unable to query submitted quotations for the Back Office issuance queue.',
+          );
         }
       }
 
