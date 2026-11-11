@@ -64,7 +64,7 @@ export class ReportsController {
   ) {}
 
   private resolveCompanyId(user: RequestUser): string {
-    const companyId = this.resolveCompanyId(user);
+    const companyId = user.companyId ?? (user as any).organizationId;
     if (!companyId) {
       throw new ForbiddenException('Company context is required for report operations');
     }
@@ -79,7 +79,7 @@ export class ReportsController {
     @Body() dto: CreateReportDto,
     @CurrentUser() user: RequestUser,
   ) {
-    const companyId = user.companyId || (user as any).organizationId;
+    const companyId = this.resolveCompanyId(user);
     const command = new CreateReportCommand(dto, user.id, companyId);
     return this.commands.handleCreateReport(command);
   }
@@ -91,7 +91,7 @@ export class ReportsController {
     @Body() dto: UpdateReportDto,
     @CurrentUser() user: RequestUser,
   ) {
-    const companyId = user.companyId || (user as any).organizationId;
+    const companyId = this.resolveCompanyId(user);
     const report = await this.prisma.report.findFirst({
       where: { id, deletedAt: null },
     });
@@ -113,7 +113,7 @@ export class ReportsController {
     @Param('id') id: string,
     @CurrentUser() user: RequestUser,
   ) {
-    const companyId = user.companyId || (user as any).organizationId;
+    const companyId = this.resolveCompanyId(user);
     const report = await this.prisma.report.findFirst({
       where: { id, deletedAt: null },
     });
@@ -160,7 +160,7 @@ export class ReportsController {
   @Get('custom')
   @RequirePermissions('report:read')
   async getCustomReports(@CurrentUser() user: RequestUser) {
-    const companyId = user.companyId || (user as any).organizationId;
+    const companyId = this.resolveCompanyId(user);
     const query = new GetReportsQuery({ isSystem: false, companyId });
     return this.queries.handleGetReports(query);
   }
@@ -250,7 +250,7 @@ export class ReportsController {
   @Get('schedules')
   @RequirePermissions('report:create')
   async getAllSchedules(@CurrentUser() user: RequestUser) {
-    const companyId = user.companyId || (user as any).organizationId;
+    const companyId = this.resolveCompanyId(user);
     const schedules = await this.prisma.reportSchedule.findMany({
       where: companyId ? { companyId } : undefined,
       include: { report: true },
@@ -274,7 +274,7 @@ export class ReportsController {
     @Body() dto: CreateTopLevelScheduleDto,
     @CurrentUser() user: RequestUser,
   ) {
-    const companyId = user.companyId || (user as any).organizationId;
+    const companyId = this.resolveCompanyId(user);
     let report = await this.prisma.report.findFirst({
       where: {
         ...(companyId ? { OR: [{ companyId }, { companyId: null }] } : {}),
@@ -339,7 +339,7 @@ export class ReportsController {
   @Get('history')
   @RequirePermissions('report:read')
   async getAllHistory(@CurrentUser() user: RequestUser) {
-    const companyId = user.companyId || (user as any).organizationId;
+    const companyId = this.resolveCompanyId(user);
     const executions = await this.prisma.reportExecution.findMany({
       where: companyId ? { companyId } : undefined,
       include: { report: true },
@@ -366,7 +366,7 @@ export class ReportsController {
   ) {
     const query = new GetReportQuery(idOrCode);
     const report = await this.queries.handleGetReport(query);
-    const companyId = user.companyId || (user as any).organizationId;
+    const companyId = this.resolveCompanyId(user);
     if (companyId && report.companyId && report.companyId !== companyId) {
       throw new ForbiddenException(
         'Cross-organization report access is strictly prohibited',
@@ -386,7 +386,7 @@ export class ReportsController {
     @Query('dateRange') dateRange?: string,
   ) {
     const fmt = (format as 'pdf' | 'excel' | 'csv') || 'pdf';
-    const companyId = user.companyId || (user as any).organizationId;
+    const companyId = this.resolveCompanyId(user);
     const parameters: Record<string, any> = {};
     if (dateRange) parameters.dateRange = dateRange;
 
@@ -418,7 +418,7 @@ export class ReportsController {
     @Res() res: Response,
   ) {
     const format = dto.format || 'csv';
-    const companyId = user.companyId || (user as any).organizationId;
+    const companyId = this.resolveCompanyId(user);
 
     if (dto.stream && format === 'csv') {
       const report = await this.queries.handleGetReport(new GetReportQuery(id));
@@ -482,7 +482,7 @@ export class ReportsController {
     @Body() dto: ExecuteReportDto,
     @CurrentUser() user: RequestUser,
   ) {
-    const companyId = user.companyId || (user as any).organizationId;
+    const companyId = this.resolveCompanyId(user);
     const query = new PreviewReportQuery(
       id,
       dto.parameters || {},
@@ -506,7 +506,7 @@ export class ReportsController {
     dto: { field: string; value: any; parameters?: Record<string, any> },
     @CurrentUser() user: RequestUser,
   ) {
-    const companyId = user.companyId || (user as any).organizationId;
+    const companyId = this.resolveCompanyId(user);
     const report = await this.queries.handleGetReport(new GetReportQuery(id));
     const combinedParams = {
       ...(dto.parameters || {}),
@@ -527,7 +527,7 @@ export class ReportsController {
     @Param('id') id: string,
     @CurrentUser() user: RequestUser,
   ) {
-    const companyId = user.companyId || (user as any).organizationId;
+    const companyId = this.resolveCompanyId(user);
     const query = new GetExecutionHistoryQuery(id, companyId);
     return this.queries.handleGetExecutionHistory(query);
   }
@@ -541,7 +541,7 @@ export class ReportsController {
     @Body() dto: CreateScheduleDto,
     @CurrentUser() user: RequestUser,
   ) {
-    const companyId = user.companyId || (user as any).organizationId;
+    const companyId = this.resolveCompanyId(user);
     const command = new CreateScheduleCommand(id, dto, companyId);
     return this.commands.handleCreateSchedule(command);
   }
@@ -553,7 +553,7 @@ export class ReportsController {
     @Body() dto: UpdateScheduleDto,
     @CurrentUser() user: RequestUser,
   ) {
-    const companyId = user.companyId || (user as any).organizationId;
+    const companyId = this.resolveCompanyId(user);
     const schedule = await this.prisma.reportSchedule.findUnique({
       where: { id: scheduleId },
     });
@@ -575,7 +575,7 @@ export class ReportsController {
     @Param('scheduleId') scheduleId: string,
     @CurrentUser() user: RequestUser,
   ) {
-    const companyId = user.companyId || (user as any).organizationId;
+    const companyId = this.resolveCompanyId(user);
     const schedule = await this.prisma.reportSchedule.findUnique({
       where: { id: scheduleId },
     });
