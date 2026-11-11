@@ -46,7 +46,6 @@ export function MotorDashboardWidgets({ data }: MotorDashboardWidgetsProps) {
       toast.error(error?.response?.data?.message || 'Could not create task');
     } finally { setTaskSaving(false); }
   };
-  const hasAnalyticsData = Boolean(data && typeof data === 'object');
   const hasPipelineMetrics = Array.isArray(data?.pipelineSteps);
   const pipelineSteps: any[] = hasPipelineMetrics ? data.pipelineSteps : [];
 
