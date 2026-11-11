@@ -101,11 +101,12 @@ export class PosEligibilityService {
         candidate.insurer?.name?.trim().toLowerCase() === params.policyInsurerName.trim().toLowerCase() ||
         candidate.insurer?.code?.trim().toLowerCase() === params.policyInsurerName.trim().toLowerCase()),
     );
+
+    // A POS partner may be attributed without an insurer mapping. If a matching
+    // mapping exists, validate and snapshot it; otherwise retain the POS identity
+    // and leave insurer-side identifiers empty instead of blocking issuance.
     if (!mapping) {
-      throw new BadRequestException({
-        code: 'POS_INSURER_MAPPING_MISSING',
-        message: `POS Partner '${partner.name}' has no active mapping for the policy insurer`,
-      });
+      return { partner, mapping: null, insurer: null };
     }
 
     if (mapping.effectiveFrom && mapping.effectiveFrom > now) {
@@ -121,35 +122,14 @@ export class PosEligibilityService {
       });
     }
 
-    // The selected mapping already matches the policy insurer and is effective.
+    // A matching insurer mapping is optional. When present, it is validated
+    // against the selected quotation insurer before its identifiers are snapshotted.
     const mappedInsurer = mapping.insurer;
     if (!mappedInsurer || !mappedInsurer.isActive) {
       throw new BadRequestException({
         code: 'POS_INSURER_INACTIVE',
         message: 'The insurer mapped to this POS partner is inactive',
       });
-    }
-
-    if (params.policyInsurerId) {
-      const match =
-        mappedInsurer.id === params.policyInsurerId ||
-        mappedInsurer.code.toLowerCase() === params.policyInsurerId.toLowerCase();
-      if (!match) {
-        throw new BadRequestException({
-          code: 'POS_INSURER_MAPPING_MISMATCH',
-          message: `POS Partner '${partner.name}' is associated with insurer '${mappedInsurer.name}', not the policy insurer '${params.policyInsurerName || params.policyInsurerId}'`,
-        });
-      }
-    } else if (params.policyInsurerName) {
-      const match =
-        mappedInsurer.name.trim().toLowerCase() === params.policyInsurerName.trim().toLowerCase() ||
-        mappedInsurer.code.trim().toLowerCase() === params.policyInsurerName.trim().toLowerCase();
-      if (!match) {
-        throw new BadRequestException({
-          code: 'POS_INSURER_MAPPING_MISMATCH',
-          message: `POS Partner '${partner.name}' is associated with insurer '${mappedInsurer.name}', not the policy insurer '${params.policyInsurerName}'`,
-        });
-      }
     }
 
     return {
