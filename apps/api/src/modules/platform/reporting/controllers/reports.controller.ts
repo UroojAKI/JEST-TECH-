@@ -63,6 +63,14 @@ export class ReportsController {
     private readonly prisma: PrismaService,
   ) {}
 
+  private resolveCompanyId(user: RequestUser): string {
+    const companyId = this.resolveCompanyId(user);
+    if (!companyId) {
+      throw new ForbiddenException('Company context is required for report operations');
+    }
+    return companyId;
+  }
+
   // --- CRUD Operations ---
 
   @Post()
@@ -130,7 +138,8 @@ export class ReportsController {
     @Query('search') search?: string,
     @CurrentUser() user?: RequestUser,
   ) {
-    const companyId = user?.companyId || (user as any)?.organizationId;
+    const companyId = user ? this.resolveCompanyId(user) : undefined;
+    if (!companyId) throw new ForbiddenException('Company context is required for report operations');
     const query = new GetReportsQuery({
       category,
       module,
