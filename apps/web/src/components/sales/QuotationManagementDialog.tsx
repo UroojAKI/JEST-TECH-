@@ -37,6 +37,7 @@ export function QuotationManagementDialog({ quotationId, isOpen, onClose, onUpda
   const [quotation, setQuotation] = useState<any>(null);
   const [completion, setCompletion] = useState<any>(null);
   const [history, setHistory] = useState<any[]>([]);
+  const [versions, setVersions] = useState<any[]>([]);
   const [values, setValues] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -44,14 +45,16 @@ export function QuotationManagementDialog({ quotationId, isOpen, onClose, onUpda
   const load = async () => {
     setLoading(true);
     try {
-      const [detail, progress, events] = await Promise.all([
+      const [detail, progress, events, revisions] = await Promise.all([
         quotationsRepository.getQuotationById(quotationId),
         quotationsRepository.getQuotationCompletion(quotationId),
         quotationsRepository.getQuotationHistory(quotationId),
+        quotationsRepository.getQuotationVersions(quotationId),
       ]);
       setQuotation(detail);
       setCompletion(progress);
       setHistory(Array.isArray(events) ? events : []);
+      setVersions(Array.isArray(revisions) ? revisions : []);
       const next: Record<string, string> = {};
       for (const section of progress?.sections || []) {
         for (const field of section.missing || []) {
@@ -219,6 +222,11 @@ export function QuotationManagementDialog({ quotationId, isOpen, onClose, onUpda
               <section className="rounded-xl border bg-background p-4">
                 <h3 className="mb-3 font-semibold">Payment & reconciliation</h3>
                 {payments.length ? payments.map((payment: any, index: number) => <div key={payment.id || index} className="space-y-1 border-t py-2 text-sm first:border-0">{pairs(payment).map(([key, value]) => <div key={key} className="flex justify-between gap-3"><span className="capitalize text-muted-foreground">{key.replace(/[A-Z]/g, (letter) => ` ${letter}`)}</span><span className="max-w-[60%] break-all text-right">{displayValue(value)}</span></div>)}</div>) : <p className="text-sm text-muted-foreground">No payment record is attached to this quotation response. Open Proposal / Payment for the full collection and reconciliation workflow.</p>}
+              </section>
+
+              <section className="rounded-xl border bg-background p-4">
+                <h3 className="mb-3 font-semibold">Quotation versions</h3>
+                {versions.length ? versions.map((revision: any, index: number) => <div key={revision.id || index} className="border-t py-2 first:border-0"><div className="flex items-center justify-between gap-2 text-sm"><span className="font-medium">Version {revision.versionNumber || revision.version || index + 1}</span><span className="text-xs text-muted-foreground">{revision.createdAt ? new Date(revision.createdAt).toLocaleString() : '—'}</span></div><p className="mt-1 text-xs text-muted-foreground">{revision.changeReason || revision.comments || revision.status || 'Saved quotation revision'}</p></div>) : <p className="text-sm text-muted-foreground">No separate revision snapshots are recorded.</p>}
               </section>
 
               <section className="rounded-xl border bg-background p-4">
