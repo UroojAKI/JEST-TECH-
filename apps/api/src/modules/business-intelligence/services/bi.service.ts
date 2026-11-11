@@ -1109,7 +1109,7 @@ export class BiService {
       this.prisma.proposal.findMany({
         where: {
           quotation: { companyId: cleanCompanyId },
-          status: { in: ['SUBMITTED', 'UNDER_REVIEW', 'DOCUMENT_PENDING'] as any[] },
+          status: 'APPROVED',
         },
         select: {
           id: true,
@@ -1117,7 +1117,7 @@ export class BiService {
           status: true,
           createdAt: true,
           contact: { select: { firstName: true, lastName: true } },
-          quotation: { select: { totalPremium: true, insurerName: true } },
+          quotation: { select: { totalPremium: true, insurerName: true, motorPaymentRecord: { select: { status: true, amount: true } } } },
         },
         take: 50,
       }),
@@ -1192,7 +1192,7 @@ export class BiService {
     }
 
     const pendingPayments: ActionCentreItem[] = [];
-    for (const p of pendingProposals.filter((pr: any) => pr.status === 'PAYMENT_PENDING')) {
+    for (const p of pendingProposals.filter((pr: any) => pr.status === 'APPROVED' && pr.quotation?.motorPaymentRecord?.status !== 'PAID')) {
       const cust = p.contact ? `${p.contact.firstName} ${p.contact.lastName || ''}`.trim() : 'Customer';
       pendingPayments.push({
         id: p.id,
