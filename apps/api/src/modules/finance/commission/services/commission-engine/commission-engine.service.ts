@@ -292,8 +292,11 @@ export class CommissionEngineService {
           throw new BadRequestException('Commission plan ledger mappings must reference active EXPENSE and LIABILITY accounts');
         }
 
-        const totalCommission = commissionsData.reduce(
-          (sum, commission) => sum.add(new Decimal(commission.amount as any)),
+        const commissionAmounts = existing.length > 0
+          ? existing.map((commission: any) => commission.amount)
+          : commissionsData.map((commission) => commission.amount);
+        const totalCommission = commissionAmounts.reduce(
+          (sum: Decimal, amount: any) => sum.add(new Decimal(amount)),
           new Decimal(0),
         );
         if (totalCommission.gt(0)) {
