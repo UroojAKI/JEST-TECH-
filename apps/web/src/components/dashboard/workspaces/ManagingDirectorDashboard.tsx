@@ -344,6 +344,13 @@ export default function ManagingDirectorDashboard() {
                             <div className="text-sm font-bold font-mono">
                               {b.formattedGwp || `₹${Number(b.gwp).toLocaleString('en-IN')}`}
                             </div>
+                            <div className="text-[10px] text-muted-foreground">
+                              Target: {b.formattedTargetGwp || 'Not configured'}
+                              {b.targetAchievementPercent !== null && b.targetAchievementPercent !== undefined ? ` · ${b.targetAchievementPercent}% achieved` : ''}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground">
+                              Conversion: {b.conversionRate !== null && b.conversionRate !== undefined ? `${b.conversionRate}% (${b.convertedLeads}/${b.totalLeads})` : 'No lead data'}
+                            </div>
                           )}
                         </div>
                       </div>
