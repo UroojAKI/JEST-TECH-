@@ -915,14 +915,18 @@ export class CreateMotorQuotationCommand {
         // Customer acceptance locks the winning version for this case.
         // Once accepted, no further insurer alternatives may be added.
         if (activeCaseId) {
-          const acceptedQuote = await tx.quotation.findFirst({
+          const caseQuotes = await tx.quotation.findMany({
             where: {
               companyId,
               caseId: activeCaseId,
-              status: QuotationStatus.ACCEPTED,
+              productType: 'MOTOR',
               deletedAt: null,
             },
-            select: { id: true, quotationCode: true },
+            select: { id: true, quotationCode: true, motorMetadata: true },
+          });
+          const acceptedQuote = caseQuotes.find((candidate: any) => {
+            const evidence = (candidate.motorMetadata as any)?.customerAcceptance;
+            return Boolean(evidence?.evidenceMethod && evidence?.timestamp);
           });
           if (acceptedQuote) {
             throw new ConflictException(
