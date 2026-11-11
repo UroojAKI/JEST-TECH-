@@ -53,15 +53,17 @@ export class CustomersService {
     }
 
     const companyId =
-      (dto as any)?.companyId ||
       user?.companyId ||
-      (user as any)?.organizationId ||
-      (user as any)?.user?.companyId;
+      user?.organizationId ||
+      user?.user?.companyId;
+    if (!companyId) {
+      throw new ForbiddenException('Company context is required for duplicate customer checks');
+    }
 
     const matches = await this.prisma.customer.findMany({
       where: {
         deletedAt: null,
-        ...(companyId ? { companyId } : {}),
+        companyId,
         OR: conditions,
       },
       include: {
