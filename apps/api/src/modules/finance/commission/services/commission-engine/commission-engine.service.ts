@@ -27,7 +27,12 @@ export class CommissionEngineService {
     if (total > 20) {
       throw new BadRequestException('Combined commission percentage cannot exceed 20');
     }
-    return { agentPercent, overrides };
+    const expenseAccountId = rules?.accounting?.expenseAccountId;
+    const payableAccountId = rules?.accounting?.payableAccountId;
+    if (!expenseAccountId || !payableAccountId || expenseAccountId === payableAccountId) {
+      throw new BadRequestException('Commission plan requires distinct commission expense and commission payable ledger accounts');
+    }
+    return { agentPercent, overrides, accounting: { expenseAccountId, payableAccountId } };
   }
 
   private async assertPlanRecipients(companyId: string, rules: any, tx: any = this.prisma) {
@@ -263,14 +268,61 @@ export class CommissionEngineService {
         orderBy: { createdAt: 'asc' },
       });
 
-      if (existing.length > 0) {
-        this.logger.warn(
-          `Commission accrual skipped for policy ${policyId}: commissions already exist`,
-        );
-        return existing;
+      if (existing.length === 0) {
+        await tx.commission.createMany({ data: commissionsData });
       }
 
-      await tx.commission.createMany({ data: commissionsData });
+      const ledgerReference = await tx.journalEntry.findFirst({
+        where: {
+          companyId: policy.companyId,
+          referenceId: policyId,
+          referenceType: 'COMMISSION_ACCRUAL',
+        },
+        select: { id: true },
+      });
+      if (!ledgerReference) {
+        const accounts = await tx.chartOfAccount.findMany({
+          where: {
+            id: { in: [rules.accounting.expenseAccountId, rules.accounting.payableAccountId] },
+            isActive: true,
+          },
+          select: { id: true, type: true },
+        });
+        const expenseAccount = accounts.find((account: any) => account.id === rules.accounting.expenseAccountId);
+        const payableAccount = accounts.find((account: any) => account.id === rules.accounting.payableAccountId);
+        if (!expenseAccount || expenseAccount.type !== 'EXPENSE' || !payableAccount || payableAccount.type !== 'LIABILITY') {
+          throw new BadRequestException('Commission plan ledger mappings must reference active EXPENSE and LIABILITY accounts');
+        }
+
+        const totalCommission = commissionsData.reduce(
+          (sum, commission) => sum.add(new Decimal(commission.amount as any)),
+          new Decimal(0),
+        );
+        if (totalCommission.gt(0)) {
+          const sequenceRows = await tx.$queryRaw<Array<{ nextval: bigint }>>`
+            SELECT nextval('journal_entry_number_seq')
+          `;
+          const sequenceNumber = sequenceRows[0]?.nextval;
+          if (sequenceNumber === undefined) throw new BadRequestException('Unable to allocate commission journal number');
+          await tx.journalEntry.create({
+            data: {
+              entryNumber: `JE-${sequenceNumber.toString().padStart(8, '0')}`,
+              date: new Date(),
+              description: `Commission accrual for policy ${policyId}`,
+              referenceId: policyId,
+              referenceType: 'COMMISSION_ACCRUAL',
+              companyId: policy.companyId,
+              status: 'POSTED',
+              lines: {
+                create: [
+                  { accountId: expenseAccount.id, debit: totalCommission, credit: 0, description: 'Commission expense accrued' },
+                  { accountId: payableAccount.id, debit: 0, credit: totalCommission, description: 'Commission payable accrued' },
+                ],
+              },
+            },
+          });
+        }
+      }
 
       return tx.commission.findMany({
         where: { policyId, companyId: policy.companyId },
