@@ -84,7 +84,6 @@ export class PerformanceService {
     if (userId && !isManager) policyWhere.createdById = userId;
 
     const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const [todayRevenueAgg, totalRevenueAgg, targetAgg] = await Promise.all([
       this.prisma.policy.aggregate({
         _sum: { premiumAmount: true },
