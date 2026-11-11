@@ -218,6 +218,34 @@ describe('BackOfficeQueueService (G021 Multi-Gate Policy Issuance Queue)', () =>
     expect(item.nextAction).toContain('Payment');
   });
 
+  it('searches insurer and vehicle/customer fields before computing queue totals', async () => {
+    mockPrisma.quotation.findMany.mockResolvedValue([baseQuote]);
+    mockPrisma.document.findMany.mockResolvedValue([]);
+
+    const matched = await service.getBackOfficeQueue({ search: 'icici' });
+    expect(matched.data).toHaveLength(1);
+    expect(matched.summary.totalPending).toBe(1);
+
+    const unmatched = await service.getBackOfficeQueue({ search: 'no-such-insurer' });
+    expect(unmatched.data).toHaveLength(0);
+    expect(unmatched.summary.totalPending).toBe(0);
+    expect(unmatched.summary.readyCount).toBe(0);
+    expect(unmatched.summary.blockedCount).toBe(0);
+  });
+
+  it('passes the selected product type into the tenant-scoped quotation query', async () => {
+    mockPrisma.quotation.findMany.mockResolvedValue([baseQuote]);
+    mockPrisma.document.findMany.mockResolvedValue([]);
+
+    await service.getBackOfficeQueue({ productType: 'MOTOR', page: 1, limit: 10 });
+
+    expect(mockPrisma.quotation.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ productType: 'MOTOR' }),
+      }),
+    );
+  });
+
   it('returns newest-first server-side pages and counts from the filtered population', async () => {
     const older = { ...baseQuote, id: 'quote-older', quotationCode: 'QT-2026-000' , createdAt: new Date('2026-01-01') };
     const newer = { ...baseQuote, id: 'quote-newer', quotationCode: 'QT-2026-002', createdAt: new Date('2026-02-01') };
