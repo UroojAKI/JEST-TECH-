@@ -94,10 +94,7 @@ export class MotorPolicyIssuanceService {
       }
 
       // P0 INVARIANT: Policy issuance must be for the case-selected quotation.
-      if (
-        quote.case?.selectedQuoteId &&
-        quote.case.selectedQuoteId !== quotationId
-      ) {
+      if (quote.case && quote.case.selectedQuoteId !== quotationId) {
         throw new BadRequestException(
           `SELECTED_QUOTE_INVARIANT_VIOLATION: Policy issuance must be for the case-selected quotation (selectedQuoteId: ${quote.case.selectedQuoteId}). Cannot issue policy for an unselected quotation (${quotationId}).`,
         );
@@ -690,6 +687,10 @@ export class MotorPolicyIssuanceService {
             policyNumber,
             actualPolicyNumber: policyNumber,
             quotationId: quote.id,
+            // Preserve the insurer chosen on the saved quotation as an immutable
+            // issuance-time snapshot; the Policy model does not have a direct
+            // insurer relation, so this field is the canonical displayed insurer.
+            insurerNameSnapshot: quote.insurerName,
             renewedFromPolicyId: quote.renewalOfPolicyId || undefined,
             agentId: quote.agentId || null,
             agentExternalCodeId: quote.agentExternalCodeId || null,
