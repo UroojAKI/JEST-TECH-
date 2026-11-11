@@ -682,8 +682,8 @@ export function MotorQuotationsWorkspace() {
                                     caseId: (quote as any).caseId,
                                   })}
                                   className="rounded border px-2 py-1 hover:bg-muted"
-                                  disabled={Boolean((quote as any).backOfficeSubmittedAt)}
-                                  title="Create another insurer alternative from this case"
+                                  disabled={submitted || customerAccepted}
+                                  title={customerAccepted ? 'Customer acceptance has locked this quotation case' : 'Create another insurer alternative from this case'}
                                 >
                                   Add insurer quote
                                 </button>
