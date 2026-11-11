@@ -223,9 +223,25 @@ export class BackOfficeQueueService {
       let issuedCount = 0;
 
       for (const q of quotations) {
-        // Exclude already issued policies
+        // Exclude issued policies from pending work, but keep the issued
+        // metric aligned with the active search and product filter.
         if (q.policy) {
-          issuedCount++;
+          const query = String(params?.search || '').toLowerCase().trim();
+          const issuedSearchFields = [
+            q.quotationCode,
+            q.contact?.firstName,
+            q.contact?.lastName,
+            q.contact?.phone,
+            q.contact?.email,
+            q.createdBy?.firstName,
+            q.createdBy?.lastName,
+            q.insurerName,
+            q.registrationNumber,
+            q.vehicle?.registrationNumber,
+            (q.motorMetadata as any)?.registrationNumber,
+          ].filter(Boolean).map((value) => String(value).toLowerCase());
+          const matchesSearch = !query || issuedSearchFields.some((value) => value.includes(query));
+          if (matchesSearch && (!params?.status || params.status === 'ALL')) issuedCount++;
           continue;
         }
 
