@@ -410,7 +410,9 @@ export class PosPartnerService {
       { header: 'Agent POS Name', key: 'posName', width: 28 },
       { header: 'Agent POS Contact', key: 'posContact', width: 18 },
       { header: 'Agent POS Email', key: 'posEmail', width: 30 },
-      { header: 'Policy Number', key: 'policyNumber', width: 24 }
+      { header: 'Partner Code at Insurer', key: 'partnerCode', width: 24 },
+      { header: 'Insurer POS ID', key: 'insurerPospId', width: 22 },
+      { header: 'Policy Number', key: 'policyNumber', width: 24 },
       { header: 'Entity Type', key: 'entityType', width: 24 },
       { header: 'Action', key: 'action', width: 18 },
       { header: 'Module', key: 'module', width: 18 },
@@ -476,7 +478,9 @@ export class PosPartnerService {
       const partner = partnerById.get(event.entityId) || policy?.partner || mappingById.get(event.entityId);
       if (!partner) continue;
       activity.addRow({
-        posCode: partner.posCode, posName: partner.name, posContact: partner.mobile, posEmail: partner.email, policyNumber: policy?.policyNumber || '',
+        posCode: partner.posCode, posName: partner.name, posContact: partner.mobile, posEmail: partner.email,
+        partnerCode: policy?.insurerPartnerCodeSnapshot || '', insurerPospId: policy?.insurerPospIdSnapshot || '',
+        policyNumber: policy?.policyNumber || '',
         entityType: event.entityType || event.entity, action: event.action, module: event.module,
         actor: event.performedById || event.userId, createdAt: event.createdAt,
         details: JSON.stringify(event.metadata || {}),
