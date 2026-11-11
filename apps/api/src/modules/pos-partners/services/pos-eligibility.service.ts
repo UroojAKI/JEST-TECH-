@@ -121,21 +121,7 @@ export class PosEligibilityService {
       });
     }
 
-    // 5. Mapping Effective Dates
-    if (mapping.effectiveFrom && mapping.effectiveFrom > now) {
-      throw new BadRequestException({
-        code: 'POS_MAPPING_NOT_EFFECTIVE',
-        message: 'POS insurer association is not effective yet',
-      });
-    }
-    if (mapping.effectiveUntil && mapping.effectiveUntil < now) {
-      throw new BadRequestException({
-        code: 'POS_MAPPING_EXPIRED',
-        message: 'POS insurer association has expired',
-      });
-    }
-
-    // 6. Insurer Matching Invariant (DEC-03)
+    // The selected mapping already matches the policy insurer and is effective.
     const mappedInsurer = mapping.insurer;
     if (!mappedInsurer || !mappedInsurer.isActive) {
       throw new BadRequestException({

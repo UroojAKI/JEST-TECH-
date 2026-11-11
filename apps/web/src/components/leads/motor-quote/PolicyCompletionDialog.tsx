@@ -352,12 +352,9 @@ export function PolicyCompletionDialog({ isOpen, quote, onClose, onSuccess }: Pr
               <div className="flex items-center gap-2 text-xs font-bold text-foreground">
                 <Users className="h-4 w-4 text-emerald-600" />
                 <span>
-                  POS Partner Attribution <span className="text-emerald-600 font-bold">* (Mandatory DEC-02)</span>
+                  Agent POS Attribution <span className="text-muted-foreground font-medium">(Optional)</span>
                 </span>
               </div>
-              <span className="text-[9px] text-emerald-600 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                1:1 Insurer Association
-              </span>
             </div>
             <div>
               <label className="block text-[10px] font-bold uppercase text-muted-foreground mb-1">

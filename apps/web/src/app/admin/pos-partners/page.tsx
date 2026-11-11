@@ -599,7 +599,7 @@ export default function PosPartnerManagementPage() {
                 <div>
                   <h3 className="text-base font-bold text-foreground">Register New POS Partner</h3>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Individual or Corporate POS partner with 1:1 insurer association & structured address
+                    Register an Agent POS with optional insurer-specific partner code and POS ID. Multiple insurer registrations are supported.
                   </p>
                 </div>
                 <button
