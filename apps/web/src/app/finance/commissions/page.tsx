@@ -17,10 +17,7 @@ export default function CommissionsWorkspacePage() {
       return;
     }
     try {
-      const result = await bulkApproveCommissions(pendingCommissions.map((c: any) => c.id));
-      if (result.failedCount > 0 || result.stateMismatchCount > 0) {
-        toast.warning(`Bulk approval completed: ${result.successfulCount} approved, ${result.alreadyProcessedCount} already processed, ${result.failedCount + result.stateMismatchCount} failed or mismatched.`);
-      }
+      await bulkApproveCommissions(pendingCommissions.map((c: any) => c.id));
     } catch {
       // The mutation hook owns error feedback.
     }
