@@ -506,7 +506,7 @@ export class BackOfficeQueueService {
           customerEmail: q.contact?.email || undefined,
           salesAgentName,
           productType: isHealth ? 'HEALTH' : (q.productType || 'MOTOR'),
-          insurerName: q.insurerName || 'HDFC ERGO',
+          insurerName: q.insurerName?.trim() || 'Insurer not recorded',
           totalPremium: payableAmt,
           paymentAmount: paidAmt,
           paymentReference: payment?.referenceNumber || undefined,
