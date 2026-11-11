@@ -238,6 +238,25 @@ export class ReportsRepository {
     isSystem?: boolean;
     companyId?: string | null;
   }): Promise<ReportWithRelations[]> {
+    const and: Prisma.ReportWhereInput[] = [];
+    if (params.companyId) {
+      and.push({
+        OR: [
+          { companyId: params.companyId },
+          { isSystem: true, companyId: null },
+        ],
+      });
+    }
+    if (params.search?.trim()) {
+      and.push({
+        OR: [
+          { name: { contains: params.search.trim(), mode: 'insensitive' } },
+          { code: { contains: params.search.trim(), mode: 'insensitive' } },
+          { description: { contains: params.search.trim(), mode: 'insensitive' } },
+        ],
+      });
+    }
+
     return this.prisma.report.findMany({
       where: {
         deletedAt: null,
@@ -245,21 +264,7 @@ export class ReportsRepository {
         module: params.module,
         status: params.status,
         isSystem: params.isSystem,
-        ...(params.companyId
-          ? {
-              OR: [
-                { companyId: params.companyId },
-                { isSystem: true, companyId: null },
-              ],
-            }
-          : {}),
-        ...(params.search && {
-          OR: [
-            { name: { contains: params.search, mode: 'insensitive' } },
-            { code: { contains: params.search, mode: 'insensitive' } },
-            { description: { contains: params.search, mode: 'insensitive' } },
-          ],
-        }),
+        ...(and.length ? { AND: and } : {}),
       },
       include: {
         columns: { orderBy: { order: 'asc' } },
