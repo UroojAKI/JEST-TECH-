@@ -115,16 +115,18 @@ describe('CommissionEngineService', () => {
   });
 
   describe('realizeCommissions', () => {
-    it('should update status from APPROVED to REALIZED', async () => {
-      jest
-        .spyOn(prisma.commission, 'updateMany')
-        .mockResolvedValue({ count: 2 });
+    it('should update only this tenant policy commissions from APPROVED to REALIZED', async () => {
+      const tx: any = {
+        policy: { findFirst: jest.fn().mockResolvedValue({ id: 'pol-1' }) },
+        commission: { updateMany: jest.fn().mockResolvedValue({ count: 2 }) },
+      };
+      jest.spyOn(prisma, '$transaction').mockImplementation(async (callback: any) => callback(tx));
 
       const count = await service.realizeCommissions('pol-1', 'comp-1');
 
       expect(count).toBe(2);
-      expect(prisma.commission.updateMany).toHaveBeenCalledWith({
-        where: { policyId: 'pol-1', status: 'APPROVED' },
+      expect(tx.commission.updateMany).toHaveBeenCalledWith({
+        where: { policyId: 'pol-1', companyId: 'comp-1', status: 'APPROVED' },
         data: { status: 'REALIZED' },
       });
     });
