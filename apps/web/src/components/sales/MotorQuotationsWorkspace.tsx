@@ -286,8 +286,10 @@ export function MotorQuotationsWorkspace() {
         } as SavedMotorQuote));
         return { quotes, total };
       } catch (error: any) {
-        console.warn('Failed to load quotations:', error?.message);
-        return { quotes: [], total: 0 };
+        console.error('Failed to load quotations:', error);
+        // Let React Query expose the failure to the existing error/retry UI.
+        // Do not disguise an API outage as a genuinely empty quotation register.
+        throw error;
       }
     },
     refetchInterval: 10_000,
