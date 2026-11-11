@@ -256,7 +256,7 @@ export function MotorQuotationsWorkspace() {
           vehicleCategory: item.motorMetadata?.vehicleCategory || item.vehicleCategory || 'PRIVATE_CAR',
           policyType: item.motorMetadata?.policyType || item.policyType || 'PACKAGE',
           registrationNumber: item.motorMetadata?.registrationNumber || item.registrationNumber || '',
-          insurerName: item.insurerName || 'Partner Insurer',
+          insurerName: item.insurerName?.trim() || 'Insurer missing',
           totalPremium: Number(item.totalPremium || 0),
           idv: Number(item.sumInsured || 0),
           ncbPercentage: Number(item.ncbPercentage || 0),
@@ -379,16 +379,16 @@ export function MotorQuotationsWorkspace() {
 
   const groupedQuotes = useMemo(() => {
     return filteredQuotes.reduce((acc, q) => {
-      // 1. Group by registration number if available (unique vehicle)
-      // 2. If new vehicle, group by mobile number
-      // 3. Fallback to leadId or quote id
-      let key = q.registrationNumber ? String(q.registrationNumber).trim() : '';
-      
-      if (!key) {
-        key = q.proposerDetails?.mobileNumber ? String(q.proposerDetails.mobileNumber).trim() : (q.leadId || q.id);
-      }
-      
-      const keyStr = String(key || 'UNKNOWN_VEHICLE').toUpperCase();
+      // Alternatives must be grouped by their durable case, not merely by
+      // registration number: the same vehicle can have distinct policy/case
+      // lifecycles. Legacy quotes without a case use customer + vehicle context.
+      const caseId = (q as any).caseId;
+      const registration = String(q.registrationNumber || '').trim().toUpperCase();
+      const mobile = String(q.proposerDetails?.mobileNumber || '').replace(/\\D/g, '');
+      const fallbackIdentity = q.leadId || mobile || q.id;
+      const keyStr = caseId
+        ? `CASE:${caseId}`
+        : `LEGACY:${registration || 'NO-REG'}:${fallbackIdentity}`;
 
       (acc[keyStr] ||= []).push(q);
       return acc;
