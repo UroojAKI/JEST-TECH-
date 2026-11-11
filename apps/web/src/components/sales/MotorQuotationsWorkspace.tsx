@@ -12,6 +12,7 @@ import { MotorQuoteWizard } from '../leads/motor-quote/MotorQuoteWizard';
 import { InspectionDialog } from '../leads/motor-quote/InspectionDialog';
 import { MotorProposalWizard } from '../leads/motor-quote/MotorProposalWizard';
 import { PolicyCompletionDialog } from '../leads/motor-quote/PolicyCompletionDialog';
+import { QuotationManagementDialog } from './QuotationManagementDialog';
 import type { VehicleCategory, SavedMotorQuote } from '../leads/motor-quote/motorFormTypes';
 import { MotorProductCards } from '../workspaces/sales/MotorProductCards';
 import { useAuthStore } from '../../store/auth-store';
@@ -59,6 +60,11 @@ export function MotorQuotationsWorkspace() {
   const [inspectionQuoteId, setInspectionQuoteId] = useState<string | null>(null);
   const [proposalQuote, setProposalQuote] = useState<SavedMotorQuote | null>(null);
   const [completionQuote, setCompletionQuote] = useState<SavedMotorQuote | null>(null);
+  const [managementQuoteId, setManagementQuoteId] = useState<string | null>(null);
+  const [acceptanceQuoteId, setAcceptanceQuoteId] = useState<string | null>(null);
+  const [acceptanceMethod, setAcceptanceMethod] = useState<'EMAIL' | 'SMS' | 'WHATSAPP' | 'PHYSICAL_SIGNATURE' | 'VERBAL_CALL_RECORDING' | 'PORTAL_CLICK'>('EMAIL');
+  const [acceptanceReference, setAcceptanceReference] = useState('');
+  const [acceptanceSubmitting, setAcceptanceSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -624,6 +630,18 @@ export function MotorQuotationsWorkspace() {
                             <td className="px-3 py-3">
                               <div className="flex flex-wrap items-center gap-1.5">
                                 <button
+                                  onClick={() => setManagementQuoteId(quote.id)}
+                                  className="rounded border px-2 py-1 hover:bg-muted"
+                                  title="View full quotation, completion checklist, premium, documents, payment and history"
+                                >View / Complete</button>
+                                {quote.status !== 'ACCEPTED' && !submitted && (
+                                  <button
+                                    onClick={() => { setAcceptanceQuoteId(quote.id); setAcceptanceReference(''); }}
+                                    className="rounded border border-emerald-600/40 px-2 py-1 text-emerald-700 hover:bg-emerald-50"
+                                    title="Record customer acceptance with auditable evidence"
+                                  >Record Acceptance</button>
+                                )}
+                                <button
                                   onClick={() => handleOpenWizard(quote.vehicleCategory, {
                                     vehicleDetails: quote.vehicleDetails,
                                     proposerDetails: quote.proposerDetails,
@@ -769,6 +787,64 @@ export function MotorQuotationsWorkspace() {
             void refetch();
           }}
         />
+      )}
+
+      {managementQuoteId && (
+        <QuotationManagementDialog
+          isOpen
+          quotationId={managementQuoteId}
+          onClose={() => setManagementQuoteId(null)}
+          onUpdated={() => { void refetch(); }}
+        />
+      )}
+
+      {acceptanceQuoteId && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-label="Record customer acceptance">
+          <div className="w-full max-w-md space-y-4 rounded-xl border bg-background p-5 shadow-xl">
+            <div>
+              <h3 className="font-bold">Record customer acceptance</h3>
+              <p className="mt-1 text-xs text-muted-foreground">This records the customer's acceptance of this quotation version and may lock the selected version and supersede competing drafts. Do not record acceptance without customer confirmation.</p>
+            </div>
+            <label className="block text-xs font-semibold">Evidence method
+              <select value={acceptanceMethod} onChange={(event) => setAcceptanceMethod(event.target.value as any)} className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm">
+                <option value="EMAIL">Email</option>
+                <option value="SMS">SMS</option>
+                <option value="WHATSAPP">WhatsApp</option>
+                <option value="PHYSICAL_SIGNATURE">Physical signature</option>
+                <option value="VERBAL_CALL_RECORDING">Verbal call recording</option>
+                <option value="PORTAL_CLICK">Customer portal</option>
+              </select>
+            </label>
+            <label className="block text-xs font-semibold">Evidence reference
+              <input value={acceptanceReference} onChange={(event) => setAcceptanceReference(event.target.value)} className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm" placeholder="Email/message/document reference" />
+            </label>
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setAcceptanceQuoteId(null)} className="rounded-lg border px-3 py-2 text-sm">Cancel</button>
+              <button
+                type="button"
+                disabled={acceptanceSubmitting || !acceptanceReference.trim()}
+                onClick={async () => {
+                  setAcceptanceSubmitting(true);
+                  try {
+                    await quotationsRepository.acceptQuotation(acceptanceQuoteId, {
+                      evidenceMethod: acceptanceMethod,
+                      evidenceReference: acceptanceReference.trim(),
+                      comments: 'Customer acceptance recorded from Motor Quotations workspace.',
+                    });
+                    toast.success('Customer acceptance recorded with evidence.');
+                    setAcceptanceQuoteId(null);
+                    await refetch();
+                  } catch (error: any) {
+                    toast.error(error?.response?.data?.message || 'Could not record customer acceptance');
+                  } finally {
+                    setAcceptanceSubmitting(false);
+                  }
+                }}
+                className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+              >{acceptanceSubmitting ? 'Saving…' : 'Confirm acceptance'}</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
