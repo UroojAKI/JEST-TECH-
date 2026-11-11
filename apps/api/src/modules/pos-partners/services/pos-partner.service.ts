@@ -385,7 +385,7 @@ export class PosPartnerService {
       { header: 'Agent POS Name', key: 'posName', width: 28 },
       { header: 'Agent POS Contact', key: 'posContact', width: 18 },
       { header: 'Agent POS Email', key: 'posEmail', width: 30 },
-      { header: 'Partner Code at Insurer', key: 'partnerCode', width: 24 }
+      { header: 'Partner Code at Insurer', key: 'partnerCode', width: 24 },
       { header: 'Insurer POS ID', key: 'insurerPospId', width: 22 },
       { header: 'Insurer', key: 'insurer', width: 30 },
       { header: 'Insurer Code', key: 'insurerCode', width: 16 },
