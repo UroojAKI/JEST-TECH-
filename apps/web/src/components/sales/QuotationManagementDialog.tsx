@@ -197,7 +197,7 @@ export function QuotationManagementDialog({ quotationId, isOpen, onClose, onUpda
 
               <section className="rounded-xl border p-4">
                 <h3 className="mb-3 font-semibold">Documents</h3>
-                {documents.length ? documents.map((doc: any, index: number) => <div key={doc.id || index} className="flex items-center gap-2 border-t py-2 text-sm first:border-0"><FileText className="h-4 w-4 text-muted-foreground" /><span className="min-w-0 flex-1 truncate">{doc.name || doc.documentType || doc.fileName || 'Supporting document'}</span><span className="text-xs text-muted-foreground">{doc.status || doc.verificationStatus || 'Uploaded'}</span></div>) : <p className="text-sm text-muted-foreground">No document records returned for this quotation.</p>}
+                {documents.length ? documents.map((doc: any, index: number) => <div key={doc.id || index} className="flex items-center gap-2 border-t py-2 text-sm first:border-0"><FileText className="h-4 w-4 text-muted-foreground" /><span className="min-w-0 flex-1 truncate">{doc.document?.name || doc.document?.documentType || doc.name || doc.documentType || doc.fileName || 'Supporting document'}</span><span className="text-xs text-muted-foreground">{doc.status || doc.verificationStatus || 'Uploaded'}</span></div>) : <p className="text-sm text-muted-foreground">No document records returned for this quotation.</p>}
               </section>
             </div>
 
