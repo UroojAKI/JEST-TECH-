@@ -2,7 +2,7 @@ import { apiClient } from '../lib/api-client';
 
 export interface SearchResultItem {
   id: string;
-  type: 'CUSTOMER' | 'POLICY' | 'CLAIM' | 'LEAD' | 'DOCUMENT';
+  type: 'CUSTOMER' | 'POLICY' | 'CLAIM' | 'LEAD' | 'PROPOSAL';
   title: string;
   subtitle: string;
   link: string;
@@ -64,6 +64,19 @@ export const searchRepository = {
           title: c.claimNumber,
           subtitle: c.description || `Status: ${c.status || 'REPORTED'}`,
           link: `/portal/claims`,
+        });
+      });
+    }
+
+    if (Array.isArray(data.proposals)) {
+      data.proposals.forEach((proposal: any) => {
+        results.push({
+          id: proposal.id,
+          type: 'PROPOSAL',
+          title: proposal.proposalNumber || 'Proposal',
+          subtitle: `Status: ${proposal.status || 'PENDING'}`,
+          // Proposal records belong to quotations; route to the existing quotation workspace.
+          link: '/sales/quotations',
         });
       });
     }
