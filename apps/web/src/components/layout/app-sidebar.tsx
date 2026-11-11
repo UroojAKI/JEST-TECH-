@@ -104,7 +104,11 @@ export function AppSidebar() {
   const { canAccess } = usePermissions();
   const isSidebarOpen = useUIStore((s) => s.isSidebarOpen);
   const user = useAuthStore((s) => s.user);
-  const role = user?.roles?.[0] || user?.role || 'AGENT';
+  const assignedRoles = [...(user?.roles || []), user?.role]
+    .filter(Boolean)
+    .map((value) => String(value).toUpperCase());
+  const rolesForNavigation = assignedRoles.length ? assignedRoles : ['AGENT'];
+  const rolesKey = rolesForNavigation.join('|');
 
   const { data: healthData } = useQuery({
     queryKey: ['system-health'],
@@ -118,10 +122,29 @@ export function AppSidebar() {
     retry: false,
   });
 
-  // Authoritative Role Navigation Source
+  // Merge navigation for every assigned workspace. A multi-role user must
+  // be able to reach each authorized workspace; array order must not silently
+  // hide either Sales, Back Office or Admin navigation.
   const filteredNav = React.useMemo(() => {
-    return getRoleNavigation(role);
-  }, [role]);
+    const merged = new Map<string, NavigationItem>();
+    for (const assignedRole of rolesKey.split('|')) {
+      for (const item of getRoleNavigation(assignedRole)) {
+        const existing = merged.get(item.href);
+        if (!existing) {
+          merged.set(item.href, item);
+          continue;
+        }
+        if (item.children?.length) {
+          const children = new Map<string, NonNullable<NavigationItem['children']>[number]>();
+          for (const child of [...(existing.children || []), ...item.children]) {
+            children.set(child.href, child);
+          }
+          merged.set(item.href, { ...existing, children: [...children.values()] });
+        }
+      }
+    }
+    return [...merged.values()];
+  }, [rolesKey]);
 
   // Auto-expand the section that matches the current URL, collapse others by default
   const [openChildren, setOpenChildren] = useState<Record<string, boolean>>(() => {
