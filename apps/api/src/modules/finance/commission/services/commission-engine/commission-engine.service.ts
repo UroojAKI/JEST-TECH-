@@ -145,17 +145,15 @@ export class CommissionEngineService {
     }
 
     let rules: {
-      agentPercent?: number;
-      overrides?: Array<{
-        roleTier?: string;
-        percent?: number;
-        userId?: string;
-      }>;
+      agentPercent: number;
+      overrides: Array<{ roleTier: string; percent: number; userId: string }>;
+      accounting: { expenseAccountId: string; payableAccountId: string };
     };
 
     try {
-      rules = JSON.parse(plan.rules);
-    } catch {
+      rules = this.validatePlanRules(JSON.parse(plan.rules));
+    } catch (error) {
+      if (error instanceof BadRequestException) throw error;
       throw new BadRequestException('Invalid Commission Plan rules format');
     }
 
