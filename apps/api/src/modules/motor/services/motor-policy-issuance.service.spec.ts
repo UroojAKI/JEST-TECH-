@@ -254,6 +254,40 @@ describe('MotorPolicyIssuanceService (Iteration 8)', () => {
       }));
     });
 
+    it('allows multiple issued policies to reference the same Agent POS partner', async () => {
+      const opsActor = createActor(RoleType.BACK_OFFICE);
+      let policySequence = 0;
+      numberingService.generateNext.mockImplementation((entityType: string) => {
+        if (entityType === 'POLICY') return Promise.resolve(`POL-SHARED-POS-${++policySequence}`);
+        if (entityType === 'VEHICLE') return Promise.resolve(`VEH-SHARED-POS-${policySequence}`);
+        return Promise.resolve(`SEQ-SHARED-POS-${policySequence}`);
+      });
+      paymentService.canProceedToPolicy.mockResolvedValue({ allowed: true, blockers: [] });
+      prisma.quotation.findUnique
+        .mockResolvedValueOnce({ ...validQuote, id: 'q-shared-pos-1', vehicleId: 'veh-shared-1', insurerName: 'HDFC ERGO' })
+        .mockResolvedValueOnce({ ...validQuote, id: 'q-shared-pos-2', vehicleId: 'veh-shared-2', insurerName: 'HDFC ERGO' });
+      prisma.motorPaymentRecord.findUnique.mockResolvedValue({
+        status: 'PAID',
+        amount: 17638.88,
+      });
+      posEligibilityService.assertEligibleForIssuance.mockResolvedValue({
+        partner: { id: 'pos-shared', posCode: 'POS-SHARED', name: 'Shared Agent POS' },
+        mapping: { id: 'mapping-hdfc', insurerPartnerCode: 'HDFC-PARTNER-01', insurerPospId: 'HDFC-POSP-01' },
+        insurer: { id: 'ins-hdfc', code: 'HDFC_ERGO', name: 'HDFC ERGO' },
+      });
+      prisma.policy.create
+        .mockResolvedValueOnce({ id: 'policy-shared-1', policyNumber: 'POL-SHARED-POS-1', status: 'ACTIVE' })
+        .mockResolvedValueOnce({ id: 'policy-shared-2', policyNumber: 'POL-SHARED-POS-2', status: 'ACTIVE' });
+
+      await service.issuePolicy('q-shared-pos-1', { ...validDto, posPartnerId: 'pos-shared' } as any, opsActor);
+      await service.issuePolicy('q-shared-pos-2', { ...validDto, posPartnerId: 'pos-shared' } as any, opsActor);
+
+      const createdPolicyData = prisma.policy.create.mock.calls.map(([args]: any[]) => args.data);
+      expect(createdPolicyData).toHaveLength(2);
+      expect(createdPolicyData.map((data: any) => data.posPartnerId)).toEqual(['pos-shared', 'pos-shared']);
+      expect(createdPolicyData.map((data: any) => data.posInsurerMappingId)).toEqual(['mapping-hdfc', 'mapping-hdfc']);
+    });
+
     it('should reject policy issuance when attempted by unauthorized role', async () => {
       const viewerActor = createActor(RoleType.AGENT);
 
