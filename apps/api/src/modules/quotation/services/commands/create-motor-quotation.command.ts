@@ -912,6 +912,47 @@ export class CreateMotorQuotationCommand {
           });
         }
 
+        // Customer acceptance locks the winning version for this case.
+        // Once accepted, no further insurer alternatives may be added.
+        if (activeCaseId) {
+          const caseQuotes = await tx.quotation.findMany({
+            where: {
+              companyId,
+              caseId: activeCaseId,
+              productType: 'MOTOR',
+              deletedAt: null,
+            },
+            select: { id: true, quotationCode: true, motorMetadata: true },
+          });
+          const acceptedQuote = caseQuotes.find((candidate: any) => {
+            const evidence = (candidate.motorMetadata as any)?.customerAcceptance;
+            return Boolean(evidence?.evidenceMethod && evidence?.timestamp);
+          });
+          if (acceptedQuote) {
+            throw new ConflictException(
+              `This case already has customer-accepted quotation ${acceptedQuote.quotationCode || acceptedQuote.id}. Reopen it through the authorized case workflow before adding another alternative.`,
+            );
+          }
+
+          // A case represents one customer/vehicle comparison. Do not create the
+          // same insurer alternative twice; revisions belong under versioning.
+          const existingInsurerAlternative = await tx.quotation.findFirst({
+            where: {
+              companyId,
+              caseId: activeCaseId,
+              insurerId: insurer.id,
+              productType: 'MOTOR',
+              deletedAt: null,
+            },
+            select: { id: true, quotationCode: true },
+          });
+          if (existingInsurerAlternative) {
+            throw new ConflictException(
+              `An alternative for ${insurer.name} already exists in this case (${existingInsurerAlternative.quotationCode || existingInsurerAlternative.id}). Open that quotation to create an explicit revision instead of adding the same insurer again.`,
+            );
+          }
+        }
+
         const createdQuotation = await tx.quotation.create({
           data: {
             companyId,
