@@ -267,6 +267,7 @@ export function MotorQuotationsWorkspace() {
           policyType: item.motorMetadata?.policyType || item.policyType || 'PACKAGE',
           registrationNumber: item.motorMetadata?.registrationNumber || item.registrationNumber || '',
           insurerName: item.insurerName?.trim() && item.insurerName.trim().toLowerCase() !== 'partner insurer' ? item.insurerName.trim() : 'Insurer missing',
+          insurerId: item.insurerId || null,
           totalPremium: Number(item.totalPremium || 0),
           idv: Number(item.sumInsured || 0),
           ncbPercentage: Number(item.ncbPercentage || 0),
@@ -629,7 +630,7 @@ export function MotorQuotationsWorkspace() {
                       {quotes.map((quote) => {
                         const submitted = Boolean((quote as any).backOfficeSubmittedAt);
                         const customerAccepted = quote.status === 'ACCEPTED' || Boolean((quote as any).customerAcceptance);
-                        const validInsurer = Boolean(quote.insurerName && quote.insurerName.toLowerCase() !== 'insurer missing' && quote.insurerName.toLowerCase() !== 'partner insurer');
+                        const validInsurer = Boolean((quote as any).insurerId && quote.insurerName && quote.insurerName.toLowerCase() !== 'insurer missing' && quote.insurerName.toLowerCase() !== 'partner insurer');
                         // Proposal/payment remains reachable for saved drafts as well as
                         // later workflow states; do not hide the existing wizard just
                         // because the display status is still DRAFT.
