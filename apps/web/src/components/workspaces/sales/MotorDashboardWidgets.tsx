@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import {
   TrendingUp,
@@ -19,12 +19,33 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { apiClient } from '../../lib/api-client';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface MotorDashboardWidgetsProps {
   data?: any;
 }
 
 export function MotorDashboardWidgets({ data }: MotorDashboardWidgetsProps) {
+  const queryClient = useQueryClient();
+  const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  const [taskTitle, setTaskTitle] = useState('');
+  const [taskDueDate, setTaskDueDate] = useState('');
+  const [taskSaving, setTaskSaving] = useState(false);
+  const createTask = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!taskTitle.trim()) return;
+    setTaskSaving(true);
+    try {
+      await apiClient.post('/tasks', { title: taskTitle.trim(), type: 'FOLLOW_UP', priority: 'MEDIUM', ...(taskDueDate ? { dueDate: new Date(taskDueDate).toISOString() } : {}) });
+      await queryClient.invalidateQueries({ queryKey: ['sales-workspace-dashboard'] });
+      await queryClient.invalidateQueries({ queryKey: ['sales-workspace-analytics'] });
+      toast.success('Task created and assigned to you');
+      setTaskTitle(''); setTaskDueDate(''); setTaskDialogOpen(false);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Could not create task');
+    } finally { setTaskSaving(false); }
+  };
   const pipelineSteps: any[] = data?.pipelineSteps || [
     { label: 'Lead', count: 0, color: 'bg-blue-500' },
     { label: 'Need Analysis', count: 0, color: 'bg-cyan-500' },
@@ -51,6 +72,16 @@ export function MotorDashboardWidgets({ data }: MotorDashboardWidgetsProps) {
 
   return (
     <div className="space-y-6">
+      {taskDialogOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-3" role="dialog" aria-modal="true" aria-label="Create task">
+          <form onSubmit={createTask} className="w-full max-w-md space-y-4 rounded-xl border bg-card p-5 shadow-2xl">
+            <h3 className="font-bold">Add task</h3>
+            <label className="block text-xs font-semibold">Task title<input autoFocus required value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm" placeholder="Call customer about renewal" /></label>
+            <label className="block text-xs font-semibold">Due date<input type="datetime-local" value={taskDueDate} onChange={(e) => setTaskDueDate(e.target.value)} className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm" /></label>
+            <div className="flex justify-end gap-2"><button type="button" onClick={() => setTaskDialogOpen(false)} className="rounded-lg border px-3 py-2 text-sm">Cancel</button><button disabled={taskSaving || !taskTitle.trim()} className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">{taskSaving ? 'Creating…' : 'Create task'}</button></div>
+          </form>
+        </div>
+      )}
       {/* Row 1: Real-Time Sales Pipeline & Renewals Queue Widget */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Sales Pipeline */}
@@ -127,7 +158,7 @@ export function MotorDashboardWidgets({ data }: MotorDashboardWidgetsProps) {
               </h3>
             </div>
             <button
-              onClick={() => toast.info('New Task added to schedule')}
+              onClick={() => setTaskDialogOpen(true)}
               className="text-xs font-bold text-primary hover:underline"
             >
               + Add Task
