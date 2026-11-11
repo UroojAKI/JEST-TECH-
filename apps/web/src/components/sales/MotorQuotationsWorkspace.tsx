@@ -29,7 +29,7 @@ export function MotorQuotationsWorkspace() {
     ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMINISTRATOR', 'BACK_OFFICE', 'OPERATIONS', 'UNDERWRITER'].includes(r)
   );
   const canSubmitToBackOffice = userRoles.some((r) =>
-    ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMINISTRATOR', 'AGENT', 'SALES_AGENT', 'SALES_MANAGER'].includes(r)
+    ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMINISTRATOR', 'AGENT'].includes(r)
   );
 
   const searchParams = useSearchParams();
