@@ -481,6 +481,7 @@ model User {
   quotationHistoriesCreated QuotationHistory[] @relation("QuotationHistoryCreatedBy")
 
   policiesCreated Policy[] @relation("PolicyCreatedBy")
+  legacyPoliciesCreated LegacyPolicyRecord[] @relation("LegacyPolicyCreatedBy")
 
   policiesUpdated Policy[] @relation("PolicyUpdatedBy")
 
@@ -681,6 +682,7 @@ model Contact {
   healthQuotationCases HealthQuotationCase[]
 
   policies  Policy[]
+  legacyPolicies LegacyPolicyRecord[] @relation("ContactLegacyPolicies")
   claims    Claim[]
   proposals Proposal[]
 
@@ -1446,6 +1448,70 @@ model QuotationDocument {
 //////////////////////////////////////////////////////////
 // POLICIES
 //////////////////////////////////////////////////////////
+
+
+enum LegacyPolicyStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+enum LegacyRenewalReminderStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+model LegacyPolicyRecord {
+  id                    String   @id @default(uuid())
+  legacyPolicyNumber    String   @unique
+  insurerName           String
+  insurerPolicyNumber   String
+  productType           String
+  coverageDescription   String?
+  premiumAmount         Decimal
+  policyStartDate       DateTime
+  policyExpiryDate      DateTime
+  issueDate             DateTime?
+  status                LegacyPolicyStatus
+  customerId            String?
+  customer              Customer? @relation("CustomerLegacyPolicies", fields: [customerId], references: [id], onDelete: Restrict)
+  contactId             String?
+  contact               Contact? @relation("ContactLegacyPolicies", fields: [contactId], references: [id], onDelete: Restrict)
+  companyId             String
+  company               Company @relation("CompanyLegacyPolicies", fields: [companyId], references: [id], onDelete: Restrict)
+  evidenceDocumentId    String
+  agentDeclaration      Boolean
+  declarationText       String
+  createdById           String
+  createdBy             User @relation("LegacyPolicyCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  reminders             LegacyPolicyRenewalReminder[]
+
+  @@unique([companyId, insurerName, insurerPolicyNumber])
+  @@index([companyId, customerId])
+  @@index([companyId, contactId])
+  @@index([companyId, policyExpiryDate, status])
+  @@index([createdById])
+  @@map("legacy_policy_records")
+}
+
+model LegacyPolicyRenewalReminder {
+  id             String   @id @default(uuid())
+  legacyPolicyId String
+  legacyPolicy   LegacyPolicyRecord @relation(fields: [legacyPolicyId], references: [id], onDelete: Cascade)
+  dueDate        DateTime
+  offsetDays     Int
+  status         LegacyRenewalReminderStatus @default(PENDING)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([legacyPolicyId, offsetDays])
+  @@index([dueDate, status])
+  @@index([legacyPolicyId])
+  @@map("legacy_policy_renewal_reminders")
+}
 
 model Policy {
   id           String       @id @default(uuid())
@@ -3079,6 +3145,7 @@ model Company {
   quotations               Quotation[]                @relation("CompanyQuotations")
   motorQuotations          MotorQuotation[]           @relation("CompanyMotorQuotations")
   policies                 Policy[]                   @relation("CompanyPolicies")
+  legacyPolicies           LegacyPolicyRecord[]        @relation("CompanyLegacyPolicies")
   claims                   Claim[]                    @relation("CompanyClaims")
   customerAgentHistories   CustomerAgentHistory[]     @relation("CompanyAgentHistories")
   backOfficeTasks          BackOfficeTask[]           @relation("CompanyBackOfficeTasks")
@@ -4568,6 +4635,7 @@ model Customer {
   vehicles   Vehicle[]        @relation("CustomerVehicles")
   quotations MotorQuotation[] @relation("CustomerMotorQuotations")
   policies   Policy[]         @relation("CustomerPolicies")
+  legacyPolicies LegacyPolicyRecord[] @relation("CustomerLegacyPolicies")
   claims     Claim[]          @relation("CustomerClaims")
   tasks      Task[]           @relation("CustomerTasks")
   alerts     CustomerAlert[]  @relation("CustomerAlerts")
