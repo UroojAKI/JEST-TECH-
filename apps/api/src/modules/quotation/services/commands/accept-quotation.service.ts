@@ -51,10 +51,15 @@ export class AcceptQuotationService {
         );
       }
 
-      // If already accepted, return idempotently
+      // Underwriter approval and customer acceptance are distinct events.
+      // Only treat this request as idempotent when the auditable customer
+      // acceptance evidence is already present in the quotation snapshot.
+      const priorAcceptance = (quotation.motorMetadata as any)?.customerAcceptance;
       if (
         quotation.status === QuotationStatus.APPROVED &&
-        quotation.workflowState === MotorWorkflowState.READY_FOR_PROPOSAL
+        quotation.workflowState === MotorWorkflowState.READY_FOR_PROPOSAL &&
+        priorAcceptance?.evidenceMethod &&
+        priorAcceptance?.timestamp
       ) {
         const detail = await this.quotationRepository.findDetail(id);
         return QuotationMapper.toResponse(detail!);
