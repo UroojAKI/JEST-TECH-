@@ -148,6 +148,62 @@ describe('SettleClaimService (Claims Settlement & Payment Confirmation)', () => 
     expect(mockPrisma.settlement.create).not.toHaveBeenCalled();
   });
 
+  it('verifies a pending settlement exactly once', async () => {
+    mockPrisma.claim.findUnique.mockResolvedValue({
+      ...approvedClaim,
+      status: ClaimStatus.PAYMENT_PENDING,
+    });
+    mockPrisma.settlement.findUnique.mockResolvedValue({
+      id: 'set-1',
+      batchNumber: 'CLAIM-claim-2',
+      status: 'PENDING',
+    });
+    mockPrisma.settlement.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.claim.updateMany.mockResolvedValue({ count: 1 });
+
+    const result = await service.verifySettlement(
+      'claim-2',
+      'FINANCE-VERIFY-001',
+      'finance-verifier-1',
+    );
+
+    expect(result.status).toBe(ClaimStatus.SETTLED);
+    expect(mockPrisma.settlement.updateMany).toHaveBeenCalledWith({
+      where: { id: 'set-1', status: 'PENDING' },
+      data: { status: 'PROCESSED' },
+    });
+    expect(mockPrisma.claim.updateMany).toHaveBeenCalledWith({
+      where: { id: 'claim-2', status: ClaimStatus.PAYMENT_PENDING },
+      data: {
+        status: ClaimStatus.SETTLED,
+        updatedById: 'finance-verifier-1',
+      },
+    });
+  });
+
+  it('rejects settlement verification when another verifier already processed it', async () => {
+    mockPrisma.claim.findUnique.mockResolvedValue({
+      ...approvedClaim,
+      status: ClaimStatus.PAYMENT_PENDING,
+    });
+    mockPrisma.settlement.findUnique.mockResolvedValue({
+      id: 'set-1',
+      batchNumber: 'CLAIM-claim-2',
+      status: 'PENDING',
+    });
+    mockPrisma.settlement.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      service.verifySettlement(
+        'claim-2',
+        'FINANCE-VERIFY-002',
+        'finance-verifier-2',
+      ),
+    ).rejects.toThrow(ConflictException);
+
+    expect(mockPrisma.claim.updateMany).not.toHaveBeenCalled();
+  });
+
   it('rejects settlement if actor is the same user who reported the claim (SoD)', async () => {
     mockPrisma.claim.findUnique.mockResolvedValue({
       ...approvedClaim,
