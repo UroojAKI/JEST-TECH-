@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards, ForbiddenException } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Patch, UseGuards, ForbiddenException } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RoleType } from '@prisma/client';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
@@ -16,6 +16,40 @@ export class CommissionController {
   constructor(
     private readonly commissionEngineService: CommissionEngineService,
   ) {}
+
+  @Get('plans')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
+  @ApiOperation({ summary: 'List commission plans configured for the authenticated company' })
+  async listPlans(@CurrentUser() actor: RequestUser) {
+    const companyId = actor.companyId || (actor as any).organizationId;
+    if (!companyId) throw new ForbiddenException('Company context is required');
+    return this.commissionEngineService.listCommissionPlans(companyId);
+  }
+
+  @Post('plans')
+  @Roles(RoleType.ADMIN)
+  @ApiOperation({ summary: 'Create a tenant-owned commission plan' })
+  async createPlan(
+    @Body() dto: { name: string; description?: string; rules: { agentPercent: number; overrides?: Array<{ roleTier: string; percent: number; userId: string }> } },
+    @CurrentUser() actor: RequestUser,
+  ) {
+    const companyId = actor.companyId || (actor as any).organizationId;
+    if (!companyId) throw new ForbiddenException('Company context is required');
+    return this.commissionEngineService.createCommissionPlan(companyId, dto);
+  }
+
+  @Patch('plans/:id')
+  @Roles(RoleType.ADMIN)
+  @ApiOperation({ summary: 'Update or deactivate a tenant-owned commission plan' })
+  async updatePlan(
+    @Param('id') id: string,
+    @Body() dto: { name?: string; description?: string; rules?: { agentPercent: number; overrides?: Array<{ roleTier: string; percent: number; userId: string }> }; isActive?: boolean },
+    @CurrentUser() actor: RequestUser,
+  ) {
+    const companyId = actor.companyId || (actor as any).organizationId;
+    if (!companyId) throw new ForbiddenException('Company context is required');
+    return this.commissionEngineService.updateCommissionPlan(companyId, id, dto);
+  }
 
   @Post('accrue')
   @Roles(
