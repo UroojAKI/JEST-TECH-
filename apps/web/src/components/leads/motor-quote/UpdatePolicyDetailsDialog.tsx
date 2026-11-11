@@ -104,21 +104,28 @@ export function UpdatePolicyDetailsDialog({
           setActualPremium(String(totalPrem));
         }
 
-        const fetchedPan =
-          q.contact?.panNumber ||
+        const isMaskedValue = (v?: string | null) => {
+          const trimmed = String(v || '').trim();
+          return /^X{4,}|^\*{4,}/i.test(trimmed);
+        };
+
+        const rawPan =
           (q.motorMetadata as any)?.proposerDetails?.panNumber ||
           (q.healthMetadata as any)?.proposerPan ||
           q.proposerDetails?.panNumber ||
+          q.contact?.panNumber ||
           '';
+        const fetchedPan = isMaskedValue(rawPan) ? '' : rawPan;
         if (fetchedPan && !customerPan) {
           setCustomerPan(fetchedPan);
         }
 
-        const fetchedAadhaar =
-          q.contact?.aadhaarNumber ||
+        const rawAadhaar =
           (q.healthMetadata as any)?.proposerAadhaar ||
           q.proposerDetails?.aadhaarNumber ||
+          q.contact?.aadhaarNumber ||
           '';
+        const fetchedAadhaar = isMaskedValue(rawAadhaar) ? '' : rawAadhaar;
         if (fetchedAadhaar && !customerAadhaar) {
           setCustomerAadhaar(fetchedAadhaar);
         }
@@ -321,12 +328,19 @@ export function UpdatePolicyDetailsDialog({
         const nomFirstName = nomParts[0] || 'Nominee';
         const nomLastName = nomParts.slice(1).join(' ') || '';
 
+        const safePan = /^X{4,}|^\*{4,}/i.test(customerPan.trim())
+          ? undefined
+          : customerPan.trim() || undefined;
+        const safeAadhaar = /^X{4,}|^\*{4,}/i.test(customerAadhaar.trim())
+          ? undefined
+          : customerAadhaar.trim() || undefined;
+
         // Issue via standard Back Office issuance endpoint
         await apiClient.post(`/back-office/issue/${quotationId}`, {
           actualPolicyNumber: actualPolicyNumber.trim(),
           actualPremium: parseFloat(actualPremium),
-          customerPan: customerPan.trim() || undefined,
-          customerAadhaar: customerAadhaar.trim() || undefined,
+          customerPan: safePan,
+          customerAadhaar: safeAadhaar,
           paymentReference: paymentReference.trim() || undefined,
           confirmPaymentReceived,
           effectiveDate: startDate,
@@ -378,10 +392,14 @@ export function UpdatePolicyDetailsDialog({
           };
         }
 
+        const safeMotorPan = /^X{4,}|^\*{4,}/i.test(customerPan.trim())
+          ? undefined
+          : customerPan.trim() || undefined;
+
         await apiClient.post(`/motor/quotes/${quotationId}/issue`, {
           actualPolicyNumber: actualPolicyNumber.trim(),
           actualPremium: parseFloat(actualPremium),
-          customerPan: customerPan.trim() || undefined,
+          customerPan: safeMotorPan,
           paymentReference: paymentReference.trim() || undefined,
           confirmPaymentReceived,
           startDate,
@@ -469,25 +487,69 @@ export function UpdatePolicyDetailsDialog({
         <form onSubmit={handleSubmit} className="p-5 space-y-4 max-h-[82vh] overflow-y-auto">
           {/* Quotation Snapshot Card */}
           {quoteDetails && (
-            <div className="bg-muted/40 border rounded-xl p-3 flex items-center justify-between text-xs">
-              <div className="space-y-0.5">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-mono font-bold text-foreground">
-                    {quoteDetails.quotationCode}
-                  </span>
-                  <span className="text-muted-foreground">
-                    • {quoteDetails.contact?.firstName} {quoteDetails.contact?.lastName || ''}
-                  </span>
+            <div className="bg-muted/40 border rounded-xl p-3 space-y-2 text-xs">
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-0.5 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-mono font-bold text-foreground">
+                      {quoteDetails.quotationCode}
+                    </span>
+                    {quoteDetails.policyType && (
+                      <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-bold uppercase">
+                        {String(quoteDetails.policyType).replace(/_/g, ' ')}
+                      </span>
+                    )}
+                    <span className="text-muted-foreground">
+                      • {quoteDetails.contact?.firstName} {quoteDetails.contact?.lastName || ''}
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                    <span>
+                      Insurer: <strong className="text-foreground">{quoteDetails.insurerName || 'HDFC ERGO'}</strong>
+                    </span>
+                    {quoteDetails.contact?.phone && (
+                      <span>Phone: <strong className="text-foreground">{quoteDetails.contact.phone}</strong></span>
+                    )}
+                    {!isHealth && (quoteDetails.vehicle?.registrationNumber || quoteDetails.registrationNumber) && (
+                      <span>
+                        Vehicle: <strong className="font-mono text-foreground">{quoteDetails.vehicle?.registrationNumber || quoteDetails.registrationNumber}</strong>
+                        {quoteDetails.vehicle?.makeModel ? ` (${quoteDetails.vehicle.makeModel})` : ''}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="text-[11px] text-muted-foreground">
-                  Insurer: <strong className="text-foreground">{quoteDetails.insurerName || 'HDFC ERGO'}</strong>
+                <div className="text-right shrink-0">
+                  <div className="text-[10px] text-muted-foreground uppercase font-semibold">Total Payable</div>
+                  <div className="font-mono font-bold text-emerald-600 text-sm">
+                    ₹{Number(quoteDetails.totalPremium ?? actualPremium ?? 0).toLocaleString('en-IN')}
+                  </div>
                 </div>
               </div>
-              <div className="text-right">
-                <span className="text-muted-foreground mr-1 text-[11px]">Net Premium:</span>
-                <span className="font-mono font-bold text-emerald-600 text-sm">
-                  ₹{Number(netPayable || 0).toLocaleString('en-IN')}
-                </span>
+              <div className="grid grid-cols-3 gap-2 pt-1.5 border-t border-border/60 text-[11px]">
+                <div>
+                  <span className="text-muted-foreground">
+                    {isHealth ? 'Sum Insured: ' : 'IDV: '}
+                  </span>
+                  <span className="font-mono font-semibold text-foreground">
+                    {Number(quoteDetails.sumInsured || 0) > 0
+                      ? `₹${Number(quoteDetails.sumInsured).toLocaleString('en-IN')}`
+                      : String(quoteDetails.policyType || '').includes('TP')
+                        ? 'Liability Only'
+                        : '—'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Net + GST: </span>
+                  <span className="font-mono font-semibold text-foreground">
+                    ₹{Number(netPayable || 0).toLocaleString('en-IN')} + ₹{Number(quoteDetails.gstAmount || 0).toLocaleString('en-IN')}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-muted-foreground">Pay Status: </span>
+                  <span className="font-semibold text-foreground">
+                    {quoteDetails.motorPaymentRecord?.status || (quoteDetails as any).paymentRecord?.status || 'PENDING'}
+                  </span>
+                </div>
               </div>
             </div>
           )}

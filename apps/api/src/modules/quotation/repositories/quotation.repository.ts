@@ -13,7 +13,20 @@ import { checkOptimisticLock } from '../../../common/utils/optimistic-lock';
 export const quotationWithRelations =
   Prisma.validator<Prisma.QuotationDefaultArgs>()({
     include: {
-      contact: true,
+      contact: {
+        include: {
+          customer: {
+            select: {
+              id: true,
+              addressLine1: true,
+              addressLine2: true,
+              city: true,
+              state: true,
+              pincode: true,
+            },
+          },
+        },
+      },
       account: true,
       lead: true,
       vehicle: true,
@@ -53,8 +66,19 @@ export const quotationSummaryRelations =
           lastName: true,
           email: true,
           phone: true,
+          dateOfBirth: true,
           panNumber: true,
           aadhaarNumber: true,
+          customer: {
+            select: {
+              id: true,
+              addressLine1: true,
+              addressLine2: true,
+              city: true,
+              state: true,
+              pincode: true,
+            },
+          },
         },
       },
       account: { select: { id: true, name: true } },

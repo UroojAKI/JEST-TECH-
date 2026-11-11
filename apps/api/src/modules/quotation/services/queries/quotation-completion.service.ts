@@ -9,6 +9,7 @@ import { RequestUser } from '../../../auth/decorators/current-user.decorator';
 import {
   InspectionStatus,
   MotorWorkflowState,
+  Prisma,
   QuotationStatus,
 } from '@prisma/client';
 
@@ -66,7 +67,11 @@ export class QuotationCompletionService {
         ...(actor?.companyId ? { companyId: actor.companyId } : {}),
       },
       include: {
-        contact: true,
+        contact: {
+          include: {
+            customer: true,
+          },
+        },
         vehicle: true,
         motorPreviousPolicy: true,
         motorInspection: true,
@@ -139,8 +144,13 @@ export class QuotationCompletionService {
 
     // REQ-4: Mandatory Customer Address & PIN code validation
     const proposer = (quotation.motorMetadata as any)?.proposerDetails || {};
-    const customer = (quotation as any).customer || {};
-    const address = contact.address || proposer.address || proposer.communicationAddress || customer.addressLine1;
+    const customer =
+      (quotation.contact as any)?.customer || (quotation as any).customer || {};
+    const address =
+      proposer.address ||
+      proposer.communicationAddress ||
+      customer.addressLine1 ||
+      (contact as any).address;
     if (address && String(address).trim().length >= 5) customerCompleted++;
     else
       customerMissing.push({
@@ -149,7 +159,11 @@ export class QuotationCompletionService {
         requiredFor: 'POLICY_ISSUANCE',
       });
 
-    const pincode = contact.pincode || proposer.pincode || proposer.pinCode || customer.pincode;
+    const pincode =
+      proposer.pincode ||
+      proposer.pinCode ||
+      customer.pincode ||
+      (contact as any).pincode;
     if (pincode && /^[1-9][0-9]{5}$/.test(String(pincode).trim())) customerCompleted++;
     else
       customerMissing.push({
@@ -231,17 +245,23 @@ export class QuotationCompletionService {
 
     // ── SECTION 3: Coverage & Pricing ──────────────────────────────────
     const coverageMissing: MissingFieldItem[] = [];
-    const coverageApplicable = 3;
+    const normalizedPolicyType = String(quotation.policyType || '').toUpperCase();
+    const isThirdPartyOnly =
+      normalizedPolicyType === 'TP_ONLY' ||
+      normalizedPolicyType === 'THIRD_PARTY_ONLY';
+    const coverageApplicable = isThirdPartyOnly ? 2 : 3;
     let coverageCompleted = 0;
 
-    if (quotation.sumInsured && Number(quotation.sumInsured) > 0)
-      coverageCompleted++;
-    else
-      coverageMissing.push({
-        field: 'sumInsured',
-        label: 'Insured Declared Value (IDV)',
-        requiredFor: 'QUOTATION_CREATION',
-      });
+    if (!isThirdPartyOnly) {
+      if (quotation.sumInsured && Number(quotation.sumInsured) > 0)
+        coverageCompleted++;
+      else
+        coverageMissing.push({
+          field: 'sumInsured',
+          label: 'Insured Declared Value (IDV)',
+          requiredFor: 'QUOTATION_CREATION',
+        });
+    }
 
     if (quotation.policyType) coverageCompleted++;
     else
@@ -444,7 +464,11 @@ export class QuotationCompletionService {
     const quotation = await this.prisma.quotation.findUnique({
       where: { id: quotationId },
       include: {
-        contact: true,
+        contact: {
+          include: {
+            customer: true,
+          },
+        },
         vehicle: true,
         motorPreviousPolicy: true,
         motorInspection: true,
@@ -465,25 +489,44 @@ export class QuotationCompletionService {
       });
     }
 
-    // 1. Update Contact fields
-    const contactUpdates: any = {};
+    const workingMetadata: Record<string, any> = {
+      ...((quotation.motorMetadata as Record<string, any>) || {}),
+    };
+
+    // 1. Update Contact fields (strictly schema-valid Contact columns only)
+    const contactUpdates: Prisma.ContactUpdateInput = {};
     if (updates.email !== undefined) contactUpdates.email = updates.email;
-    if (updates.panNumber !== undefined)
+    if (
+      updates.panNumber !== undefined &&
+      !/^X{4,}/i.test(String(updates.panNumber).trim()) &&
+      !String(updates.panNumber).includes('*')
+    ) {
       contactUpdates.panNumber = updates.panNumber;
-    if (updates.aadhaarNumber !== undefined)
+    }
+    if (
+      updates.aadhaarNumber !== undefined &&
+      !/^X{4,}/i.test(String(updates.aadhaarNumber).trim()) &&
+      !String(updates.aadhaarNumber).includes('*')
+    ) {
       contactUpdates.aadhaarNumber = updates.aadhaarNumber;
-    if (updates.dateOfBirth !== undefined)
-      contactUpdates.dateOfBirth = new Date(updates.dateOfBirth);
+    }
+    if (
+      updates.dateOfBirth !== undefined &&
+      updates.dateOfBirth !== null &&
+      String(updates.dateOfBirth).trim() !== ''
+    ) {
+      const parsedDob = new Date(updates.dateOfBirth);
+      if (!Number.isNaN(parsedDob.getTime())) {
+        contactUpdates.dateOfBirth = parsedDob;
+      }
+    }
     if (updates.customerName !== undefined) {
-      const parts = updates.customerName.trim().split(' ');
-      contactUpdates.firstName = parts[0];
-      contactUpdates.lastName = parts.slice(1).join(' ') || parts[0];
-    }
-    if (updates.address !== undefined && String(updates.address).trim()) {
-      contactUpdates.address = String(updates.address).trim();
-    }
-    if (updates.pincode !== undefined && String(updates.pincode).trim()) {
-      contactUpdates.pincode = String(updates.pincode).trim();
+      const trimmedName = String(updates.customerName).trim();
+      if (trimmedName) {
+        const parts = trimmedName.split(/\s+/);
+        contactUpdates.firstName = parts[0];
+        contactUpdates.lastName = parts.slice(1).join(' ') || parts[0];
+      }
     }
     if (Object.keys(contactUpdates).length > 0 && quotation.contactId) {
       await this.prisma.contact.update({
@@ -492,33 +535,64 @@ export class QuotationCompletionService {
       });
     }
 
-    const targetCustomerId = (quotation as any).customerId || (quotation.contact as any)?.customerId;
-    if (targetCustomerId && (updates.address || updates.pincode || updates.city || updates.state)) {
-      const custUpdates: any = {};
-      if (updates.address && String(updates.address).trim()) custUpdates.addressLine1 = String(updates.address).trim();
-      if (updates.city && String(updates.city).trim()) custUpdates.city = String(updates.city).trim();
-      if (updates.state && String(updates.state).trim()) custUpdates.state = String(updates.state).trim();
-      if (updates.pincode && String(updates.pincode).trim()) custUpdates.pincode = String(updates.pincode).trim();
+    // Address and location fields live on Customer (linked via Contact.customer) and Quotation.motorMetadata.proposerDetails
+    const rawAddress = updates.address ?? updates.addressLine1;
+    const rawAddressLine2 = updates.addressLine2;
+    const trimmedAddress = rawAddress !== undefined ? String(rawAddress).trim() : '';
+    const trimmedAddressLine2 = rawAddressLine2 !== undefined ? String(rawAddressLine2).trim() : '';
+    const trimmedCity = updates.city !== undefined ? String(updates.city).trim() : '';
+    const trimmedState = updates.state !== undefined ? String(updates.state).trim() : '';
+    const trimmedPincode = updates.pincode !== undefined ? String(updates.pincode).trim() : '';
+
+    const hasAddressUpdates = Boolean(
+      trimmedAddress || trimmedAddressLine2 || trimmedCity || trimmedState || trimmedPincode,
+    );
+
+    const targetCustomerId =
+      (quotation.contact as any)?.customer?.id ||
+      (quotation as any).customer?.id ||
+      (quotation as any).customerId;
+    const customerDelegate = (this.prisma as any).customer;
+    if (hasAddressUpdates && customerDelegate) {
+      const custUpdates: Prisma.CustomerUpdateInput = {};
+      if (trimmedAddress) custUpdates.addressLine1 = trimmedAddress;
+      if (trimmedAddressLine2) custUpdates.addressLine2 = trimmedAddressLine2;
+      if (trimmedCity) custUpdates.city = trimmedCity;
+      if (trimmedState) custUpdates.state = trimmedState;
+      if (trimmedPincode) custUpdates.pincode = trimmedPincode;
       if (Object.keys(custUpdates).length > 0) {
-        await this.prisma.customer.update({
-          where: { id: targetCustomerId },
-          data: custUpdates,
-        }).catch(() => null);
+        if (targetCustomerId && customerDelegate.update) {
+          await customerDelegate
+            .update({
+              where: { id: targetCustomerId },
+              data: custUpdates,
+            })
+            .catch(() => null);
+        } else if (quotation.contactId && customerDelegate.updateMany) {
+          await customerDelegate
+            .updateMany({
+              where: { contactId: quotation.contactId },
+              data: custUpdates,
+            })
+            .catch(() => null);
+        }
       }
     }
 
-    if (updates.address || updates.pincode || updates.city || updates.state) {
-      const meta = (quotation.motorMetadata as any) || {};
-      meta.proposerDetails = {
-        ...(meta.proposerDetails || {}),
-        ...(updates.address ? { address: String(updates.address).trim(), communicationAddress: String(updates.address).trim() } : {}),
-        ...(updates.pincode ? { pincode: String(updates.pincode).trim() } : {}),
-        ...(updates.city ? { city: String(updates.city).trim() } : {}),
-        ...(updates.state ? { state: String(updates.state).trim() } : {}),
+    if (hasAddressUpdates) {
+      workingMetadata.proposerDetails = {
+        ...(workingMetadata.proposerDetails || {}),
+        ...(trimmedAddress
+          ? { address: trimmedAddress, communicationAddress: trimmedAddress }
+          : {}),
+        ...(trimmedAddressLine2 ? { addressLine2: trimmedAddressLine2 } : {}),
+        ...(trimmedPincode ? { pincode: trimmedPincode } : {}),
+        ...(trimmedCity ? { city: trimmedCity } : {}),
+        ...(trimmedState ? { state: trimmedState } : {}),
       };
       await this.prisma.quotation.update({
         where: { id: quotationId },
-        data: { motorMetadata: meta },
+        data: { motorMetadata: workingMetadata },
       });
     }
 
@@ -622,9 +696,8 @@ export class QuotationCompletionService {
           data: { vehicleId: newVehicle.id },
         });
       }
-      const meta = (quotation.motorMetadata as any) || {};
-      meta.vehicleDetails = {
-        ...(meta.vehicleDetails || {}),
+      workingMetadata.vehicleDetails = {
+        ...(workingMetadata.vehicleDetails || {}),
         ...vehicleUpdates,
       };
       await this.prisma.quotation.update({
@@ -632,7 +705,7 @@ export class QuotationCompletionService {
         data: {
           registrationNumber:
             updates.registrationNumber || quotation.registrationNumber,
-          motorMetadata: meta,
+          motorMetadata: workingMetadata,
         },
       });
     }
@@ -646,9 +719,8 @@ export class QuotationCompletionService {
       await this.prisma.motorPreviousPolicy.deleteMany({
         where: { quotationId },
       });
-      const meta = (quotation.motorMetadata as any) || {};
-      meta.previousPolicyDetails = {
-        ...(meta.previousPolicyDetails || {}),
+      workingMetadata.previousPolicyDetails = {
+        ...(workingMetadata.previousPolicyDetails || {}),
         previousPolicyType: 'NOT_AVAILABLE',
         previousInsurerName: null,
         previousPolicyNumber: null,
@@ -656,7 +728,7 @@ export class QuotationCompletionService {
       };
       await this.prisma.quotation.update({
         where: { id: quotationId },
-        data: { motorMetadata: meta },
+        data: { motorMetadata: workingMetadata },
       });
     } else if (
       updates.previousPolicyNumber !== undefined ||
@@ -684,20 +756,19 @@ export class QuotationCompletionService {
             : undefined,
         },
       });
-      const meta = (quotation.motorMetadata as any) || {};
-      meta.previousPolicyDetails = {
-        ...(meta.previousPolicyDetails || {}),
-        previousPolicyType: updates.previousPolicyType || meta.previousPolicyDetails?.previousPolicyType,
-        previousInsurerName: updates.previousInsurerName || meta.previousPolicyDetails?.previousInsurerName,
-        previousPolicyNumber: updates.previousPolicyNumber || meta.previousPolicyDetails?.previousPolicyNumber,
-        policyExpiryDate: updates.previousPolicyExpiryDate || meta.previousPolicyDetails?.policyExpiryDate,
+      workingMetadata.previousPolicyDetails = {
+        ...(workingMetadata.previousPolicyDetails || {}),
+        previousPolicyType: updates.previousPolicyType || workingMetadata.previousPolicyDetails?.previousPolicyType,
+        previousInsurerName: updates.previousInsurerName || workingMetadata.previousPolicyDetails?.previousInsurerName,
+        previousPolicyNumber: updates.previousPolicyNumber || workingMetadata.previousPolicyDetails?.previousPolicyNumber,
+        policyExpiryDate: updates.previousPolicyExpiryDate || workingMetadata.previousPolicyDetails?.policyExpiryDate,
       };
       await this.prisma.quotation.update({
         where: { id: quotationId },
-        data: { motorMetadata: meta },
+        data: { motorMetadata: workingMetadata },
       });
     }
 
-    return this.getCompletion(quotationId);
+    return this.getCompletion(quotationId, actor);
   }
 }

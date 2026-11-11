@@ -42,6 +42,7 @@ describe('AuthService', () => {
       findActiveRefreshTokens: jest.fn().mockResolvedValue([]),
       revokeRefreshToken: jest.fn().mockResolvedValue(undefined),
       revokeAllUserRefreshTokens: jest.fn().mockResolvedValue(undefined),
+      findUserRefreshTokens: jest.fn().mockResolvedValue([]),
       createAuditLog: jest.fn().mockResolvedValue(undefined),
     };
     tokenService = {
@@ -60,12 +61,25 @@ describe('AuthService', () => {
         {
           provide: PrismaService,
           useValue: {
-            $transaction: jest.fn(async (operation: any) => operation({
-              user: {
-                updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-                update: jest.fn().mockResolvedValue({ failedLoginAttempts: 1 }),
-              },
-            })),
+            $transaction: jest.fn(async (operation: any) => {
+              if (typeof operation !== 'function') {
+                throw new Error('Batch array $transaction is incompatible with PII middleware');
+              }
+              return operation({
+                user: {
+                  updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+                  update: jest.fn().mockResolvedValue({ failedLoginAttempts: 1 }),
+                },
+                refreshToken: {
+                  updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+                  update: jest.fn().mockResolvedValue({}),
+                  create: jest.fn().mockResolvedValue({}),
+                },
+                auditLog: {
+                  create: jest.fn().mockResolvedValue({}),
+                },
+              });
+            }),
             user: { update: jest.fn().mockResolvedValue({}) },
             refreshToken: { updateMany: jest.fn() },
             auditLog: { create: jest.fn().mockResolvedValue({}) },
@@ -149,6 +163,50 @@ describe('AuthService', () => {
         expect(e.message).not.toContain('email not found');
         expect(e.message).not.toContain('user not found');
       }
+    });
+  });
+
+  describe('refresh', () => {
+    const crypto = require('crypto');
+
+    it('uses interactive $transaction on replay detection (Case B) and revokes sessions', async () => {
+      const rawToken = 'replayed-refresh-token';
+      const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+
+      usersService.findByEmailForAuth.mockResolvedValue(mockUser);
+      usersService.findUserRefreshTokens.mockResolvedValue([
+        {
+          id: 'rt-1',
+          userId: mockUser.id,
+          tokenHash,
+          revokedAt: new Date('2026-11-10T00:00:00.000Z'),
+          expiresAt: new Date(Date.now() + 60_000),
+        },
+      ]);
+
+      await expect(service.refresh(rawToken)).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it('rotates refresh token cleanly inside interactive $transaction when token is valid', async () => {
+      const rawToken = 'valid-refresh-token';
+      const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+
+      usersService.findByEmailForAuth.mockResolvedValue(mockUser);
+      usersService.findUserRefreshTokens.mockResolvedValue([
+        {
+          id: 'rt-2',
+          userId: mockUser.id,
+          tokenHash,
+          revokedAt: null,
+          expiresAt: new Date(Date.now() + 60_000),
+        },
+      ]);
+
+      const result = await service.refresh(rawToken);
+      expect(result.accessToken).toBe('mock-access-token');
+      expect(result.refreshToken).toBe('mock-refresh-token');
     });
   });
 });

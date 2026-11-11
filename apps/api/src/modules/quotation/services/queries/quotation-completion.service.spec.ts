@@ -16,6 +16,10 @@ describe('QuotationCompletionService', () => {
     contact: {
       update: jest.fn(),
     },
+    customer: {
+      update: jest.fn(),
+      updateMany: jest.fn(),
+    },
     vehicle: {
       update: jest.fn(),
       create: jest.fn(),
@@ -280,6 +284,128 @@ describe('QuotationCompletionService', () => {
           model: 'Suzuki Swift VXI',
         }),
       });
+    });
+
+    it('updates Contact with email/DOB only, syncs address/pincode to Customer and proposerDetails, and never sends address/pincode to prisma.contact.update', async () => {
+      const quotation = {
+        id: 'quote-addr-1',
+        quotationCode: 'QT-2026-11-000044',
+        companyId: 'comp-1',
+        contactId: 'c20a5800-dbf5-4b83-a5e3-76ab0343d927',
+        vehicleId: null,
+        title: 'Motor Quote',
+        policyType: 'TP_ONLY',
+        sumInsured: 0,
+        totalPremium: 2094,
+        status: QuotationStatus.DRAFT,
+        workflowState: MotorWorkflowState.READY_FOR_PROPOSAL,
+        motorMetadata: {},
+        contact: {
+          id: 'c20a5800-dbf5-4b83-a5e3-76ab0343d927',
+          firstName: 'Vinit',
+          lastName: 'K',
+          phone: '9999999999',
+          customer: {
+            id: 'cust-1',
+            addressLine1: null,
+            pincode: null,
+          },
+        },
+        vehicle: {
+          make: 'Bajaj',
+          model: 'Pulsar',
+          registrationNumber: 'KA22AB1234',
+          engineNumber: 'ENG1',
+          chassisNumber: 'CHS1',
+          dateOfRegistration: new Date(),
+        },
+        motorPreviousPolicy: null,
+        motorInspection: null,
+        motorPaymentRecord: { status: 'PAID' },
+        documents: [],
+      };
+
+      mockPrisma.quotation.findUnique.mockResolvedValue(quotation);
+      mockPrisma.quotation.findFirst.mockResolvedValue({
+        ...quotation,
+        contact: {
+          ...quotation.contact,
+          email: 'test@gmail.com',
+          dateOfBirth: new Date('2001-01-01T00:00:00.000Z'),
+          customer: {
+            id: 'cust-1',
+            addressLine1: 'Belagavi',
+            pincode: '590001',
+            city: 'Belagavi',
+            state: 'Karnataka',
+          },
+        },
+        motorMetadata: {
+          proposerDetails: {
+            address: 'Belagavi',
+            communicationAddress: 'Belagavi',
+            pincode: '590001',
+            city: 'Belagavi',
+            state: 'Karnataka',
+          },
+        },
+      });
+      mockPrisma.contact.update.mockResolvedValue({});
+      mockPrisma.customer.update.mockResolvedValue({});
+      mockPrisma.quotation.update.mockResolvedValue({});
+
+      const completion = await service.updateDetails('quote-addr-1', {
+        email: 'test@gmail.com',
+        dateOfBirth: '2001-01-01',
+        address: 'Belagavi',
+        pincode: '590001',
+        city: 'Belagavi',
+        state: 'Karnataka',
+        panNumber: 'XXXXX1234F',
+      });
+
+      const contactUpdateCall = mockPrisma.contact.update.mock.calls[0][0];
+      expect(contactUpdateCall.where).toEqual({
+        id: 'c20a5800-dbf5-4b83-a5e3-76ab0343d927',
+      });
+      expect(contactUpdateCall.data).toEqual({
+        email: 'test@gmail.com',
+        dateOfBirth: new Date('2001-01-01T00:00:00.000Z'),
+      });
+      expect(contactUpdateCall.data).not.toHaveProperty('address');
+      expect(contactUpdateCall.data).not.toHaveProperty('pincode');
+      expect(contactUpdateCall.data).not.toHaveProperty('panNumber');
+
+      expect(mockPrisma.customer.update).toHaveBeenCalledWith({
+        where: { id: 'cust-1' },
+        data: {
+          addressLine1: 'Belagavi',
+          city: 'Belagavi',
+          state: 'Karnataka',
+          pincode: '590001',
+        },
+      });
+
+      expect(mockPrisma.quotation.update).toHaveBeenCalledWith({
+        where: { id: 'quote-addr-1' },
+        data: {
+          motorMetadata: expect.objectContaining({
+            proposerDetails: expect.objectContaining({
+              address: 'Belagavi',
+              communicationAddress: 'Belagavi',
+              pincode: '590001',
+              city: 'Belagavi',
+              state: 'Karnataka',
+            }),
+          }),
+        },
+      });
+
+      const coverageSection = completion.sections.find(
+        (s) => s.section === 'coverage',
+      );
+      expect(coverageSection!.complete).toBe(true);
+      expect(coverageSection!.missing).toHaveLength(0);
     });
   });
 });

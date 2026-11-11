@@ -163,16 +163,31 @@ export class QuotationMapper {
       }));
 
     if (q.contact) {
-      const c = q.contact;
+      const c = q.contact as any;
+      const proposer = (q.motorMetadata as any)?.proposerDetails || {};
+      const customer = c.customer || {};
+      const resolvedAddress =
+        proposer.address ||
+        proposer.communicationAddress ||
+        [customer.addressLine1, customer.addressLine2, customer.city, customer.state]
+          .filter(Boolean)
+          .join(', ') ||
+        c.address ||
+        undefined;
       dto.contact = {
         id: c.id,
         firstName: c.firstName,
         lastName: c.lastName,
         email: c.email,
         phone: c.phone,
+        dateOfBirth: c.dateOfBirth ?? null,
         panNumber: EncryptionUtil.maskPan(c.panNumber),
-        aadhaarNumber: EncryptionUtil.maskAadhaar((c as any).aadhaarNumber),
-        address: (c as any).address,
+        aadhaarNumber: EncryptionUtil.maskAadhaar(c.aadhaarNumber),
+        address: resolvedAddress,
+        addressLine1: customer.addressLine1 ?? proposer.address ?? undefined,
+        city: customer.city ?? proposer.city ?? undefined,
+        state: customer.state ?? proposer.state ?? undefined,
+        pincode: customer.pincode ?? proposer.pincode ?? proposer.pinCode ?? undefined,
       };
     }
 

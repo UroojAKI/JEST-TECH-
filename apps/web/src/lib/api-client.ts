@@ -13,8 +13,8 @@ const defaultApiUrl =
   typeof window !== 'undefined' ? '/api/v1' : 'http://localhost:4000/api/v1';
 const API_URL =
   typeof window !== 'undefined' &&
-  (process.env.NEXT_PUBLIC_API_URL === 'http://localhost:4000/api/v1' ||
-    !process.env.NEXT_PUBLIC_API_URL)
+    (process.env.NEXT_PUBLIC_API_URL === 'http://localhost:4000/api/v1' ||
+      !process.env.NEXT_PUBLIC_API_URL)
     ? '/api/v1'
     : process.env.NEXT_PUBLIC_API_URL || defaultApiUrl;
 
@@ -78,7 +78,7 @@ export function handleSessionExpiry() {
   try {
     localStorage.removeItem('jest-auth-storage');
     sessionStorage.clear();
-  } catch {}
+  } catch { }
 
   const currentPath = window.location.pathname + window.location.search;
   const safeDest = getSafeInternalDestination(currentPath);
@@ -191,13 +191,14 @@ apiClient.interceptors.response.use(
       _retry?: boolean;
     };
 
-    // Only attempt refresh for 401s on non-auth, non-retried requests.
+    // Only attempt refresh for 401s on non-auth, non-retried requests outside /login.
     if (
       error.response?.status !== 401 ||
       !originalRequest ||
       originalRequest._retry ||
       originalRequest.url?.includes('/auth/login') ||
-      originalRequest.url?.includes('/auth/refresh')
+      originalRequest.url?.includes('/auth/refresh') ||
+      (typeof window !== 'undefined' && window.location.pathname === '/login')
     ) {
       return Promise.reject(error);
     }

@@ -337,16 +337,16 @@ export class AuthService {
 
     // Case B: Token found but already revoked -> REPLAY ATTACK DETECTED
     if (matchedRecord.revokedAt) {
-      await this.prisma.$transaction([
-        this.prisma.refreshToken.updateMany({
+      await this.prisma.$transaction(async (tx) => {
+        await tx.refreshToken.updateMany({
           where: { userId: user.id, revokedAt: null },
           data: { revokedAt: new Date() },
-        }),
-        this.prisma.user.update({
+        });
+        await tx.user.update({
           where: { id: user.id },
           data: { authVersion: { increment: 1 } },
-        }),
-        this.prisma.auditLog.create({
+        });
+        await tx.auditLog.create({
           data: {
             userId: user.id,
             action: AuditAction.LOGIN,
@@ -357,8 +357,8 @@ export class AuthService {
               replayedTokenId: matchedRecord.id,
             },
           },
-        }),
-      ]);
+        });
+      });
       throw new UnauthorizedException(
         'Security alert: Refresh token replay detected. All sessions terminated.',
       );
@@ -392,15 +392,15 @@ export class AuthService {
       .update(newRefreshToken)
       .digest('hex');
 
-    await this.prisma.$transaction([
-      this.prisma.refreshToken.update({
+    await this.prisma.$transaction(async (tx) => {
+      await tx.refreshToken.update({
         where: { id: matchedRecord.id },
         data: { revokedAt: new Date() },
-      }),
-      this.prisma.refreshToken.create({
+      });
+      await tx.refreshToken.create({
         data: { userId: user.id, tokenHash, expiresAt },
-      }),
-    ]);
+      });
+    });
     return this.responsePayload(
       user,
       newAccessToken,

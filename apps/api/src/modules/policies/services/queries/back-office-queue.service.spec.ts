@@ -296,4 +296,129 @@ describe('BackOfficeQueueService (G021 Multi-Gate Policy Issuance Queue)', () =>
     expect(result.allowed).toBe(true);
     expect(result.quotationCode).toBe(baseQuote.quotationCode);
   });
+
+  it('enriches queue items with complete motor policy, pricing, vehicle, KYC-masked customer and address details', async () => {
+    const richMotorQuote = {
+      ...baseQuote,
+      policyType: 'PACKAGE',
+      vehicleCategory: 'PRIVATE_CAR',
+      policyTenure: 1,
+      sumInsured: new Prisma.Decimal(625000),
+      basePremium: new Prisma.Decimal(21186),
+      gstAmount: new Prisma.Decimal(3814),
+      totalPremium: new Prisma.Decimal(25000),
+      discountAmount: new Prisma.Decimal(1500),
+      ncbPercentage: 25,
+      calculationSnapshot: {
+        outputs: {
+          od: { net: 15000, addons: 2186 },
+          tp: { net: 4000 },
+        },
+      },
+      case: { id: 'case-1', caseCode: 'MC-2026-001', status: 'QUOTED' },
+      contact: {
+        ...baseQuote.contact,
+        panNumber: 'ABCDE1234F',
+        customer: {
+          addressLine1: '12 MG Road',
+          city: 'Belagavi',
+          state: 'Karnataka',
+          pincode: '590001',
+        },
+      },
+      vehicle: {
+        registrationNumber: 'KA22AB1234',
+        makeModel: 'Hyundai Creta SX',
+        fuelType: 'Petrol',
+        engineNumber: 'ENG9988',
+        chassisNumber: 'CHS776655',
+      },
+      motorPreviousPolicy: {
+        previousPolicyType: 'COMPREHENSIVE',
+        previousInsurerName: 'ICICI Lombard',
+        previousPolicyNumber: 'PREV-001',
+        ruleEvaluation: { inspectionRequired: false },
+      },
+    };
+
+    mockPrisma.quotation.findMany.mockResolvedValue([richMotorQuote]);
+    mockPrisma.document.findMany.mockResolvedValue([
+      {
+        id: 'doc-1',
+        documentType: 'RC_COPY',
+        verificationStatus: DocumentVerificationStatus.VERIFIED,
+        fileName: 'rc.pdf',
+      },
+    ]);
+
+    const result = await service.getBackOfficeQueue();
+    const item = result.data[0];
+
+    expect(item.policyType).toBe('PACKAGE');
+    expect(item.sumInsured).toBe(625000);
+    expect(item.basePremium).toBe(21186);
+    expect(item.gstAmount).toBe(3814);
+    expect(item.odPremium).toBe(15000);
+    expect(item.tpPremium).toBe(4000);
+    expect(item.ncbPercentage).toBe(25);
+    expect(item.calculationValid).toBe(true);
+    expect(item.caseId).toBe('case-1');
+    expect(item.caseCode).toBe('MC-2026-001');
+    expect(item.panMasked).toBe('XXXXX1234F');
+    expect(item.panMasked).not.toBe('ABCDE1234F');
+    expect(item.customerAddress).toContain('Belagavi');
+    expect(item.customerPincode).toBe('590001');
+    expect(item.vehicleDetails?.makeModel).toBe('Hyundai Creta SX');
+    expect(item.vehicleDetails?.engineNumber).toBe('ENG9988');
+    expect(item.previousPolicy?.previousInsurerName).toBe('ICICI Lombard');
+    expect(item.documents).toHaveLength(1);
+  });
+
+  it('extracts dynamic health plan and member details and supports status=ISSUED without changing default queue counts', async () => {
+    const issuedHealthQuote = {
+      ...baseQuote,
+      id: 'quote-issued-1',
+      quotationCode: 'QT-HLT-001',
+      productType: 'HEALTH',
+      healthCaseId: 'hcase-1',
+      title: 'Optima Secure Plan',
+      sumInsured: new Prisma.Decimal(1000000),
+      healthCase: {
+        caseCode: 'HC-2026-001',
+        planCategory: 'FAMILY_FLOATER',
+        policyForm: 'NEW_POLICY',
+        nomineeName: 'Anita Sharma',
+        nomineeRelation: 'SPOUSE',
+        members: [
+          { firstName: 'Ramesh', relation: 'SELF', gender: 'MALE' },
+          { firstName: 'Anita', relation: 'SPOUSE', gender: 'FEMALE' },
+        ],
+        documents: [],
+      },
+      policy: {
+        id: 'pol-1',
+        policyNumber: 'POL-INT-1',
+        actualPolicyNumber: 'HDFC-HLT-999',
+        status: 'ACTIVE',
+        premiumAmount: new Prisma.Decimal(25000),
+        effectiveDate: new Date('2026-11-01'),
+        expiryDate: new Date('2027-10-31'),
+        policyTenure: 1,
+      },
+    };
+
+    mockPrisma.quotation.findMany.mockResolvedValue([issuedHealthQuote]);
+    mockPrisma.document.findMany.mockResolvedValue([]);
+
+    const defaultRes = await service.getBackOfficeQueue();
+    expect(defaultRes.data).toHaveLength(0);
+    expect(defaultRes.summary.issuedCount).toBe(1);
+
+    const issuedRes = await service.getBackOfficeQueue({ status: 'ISSUED' });
+    expect(issuedRes.data).toHaveLength(1);
+    expect(issuedRes.data[0].healthDetails?.planCategory).toBe('FAMILY_FLOATER');
+    expect(issuedRes.data[0].healthDetails?.memberCount).toBe(2);
+    expect(issuedRes.data[0].healthDetails?.nomineeName).toBe('Anita Sharma');
+    expect(issuedRes.data[0].issuedPolicy?.policyNumber).toBe('HDFC-HLT-999');
+  });
 });

@@ -109,6 +109,17 @@ export function proxy(request: NextRequest) {
 
   // If user visits /login: only redirect to /workspace if token is genuinely valid and unexpired
   if (pathname === '/login') {
+    const reason = request.nextUrl.searchParams.get('reason');
+    if (reason === 'session_expired') {
+      // Never auto-bounce back to returnUrl when redirected due to session expiry;
+      // clear potentially revoked/mismatched session cookies instead.
+      const response = NextResponse.next();
+      response.cookies.delete('access_token');
+      response.cookies.delete('refresh_token');
+      response.cookies.delete('csrf_token');
+      return response;
+    }
+
     if (token) {
       let isExpired = false;
       try {
