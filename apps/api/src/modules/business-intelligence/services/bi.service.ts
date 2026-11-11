@@ -1072,10 +1072,25 @@ export class BiService {
     const [tasks, backOfficeTasks, pendingProposals, inspectionQuotes] = await Promise.all([
       this.prisma.task.findMany({
         where: {
-          OR: [
-            { assignedTo: { companyId: cleanCompanyId } },
-            { customer: { companyId: cleanCompanyId } },
-            { lead: { companyId: cleanCompanyId } },
+          AND: [
+            { OR: [{ leadId: null }, { lead: { companyId: cleanCompanyId } }] },
+            { OR: [{ customerId: null }, { customer: { companyId: cleanCompanyId } }] },
+            { OR: [{ policyId: null }, { policy: { companyId: cleanCompanyId } }] },
+            { OR: [{ claimId: null }, { claim: { companyId: cleanCompanyId } }] },
+            { OR: [{ vehicleId: null }, { vehicle: { OR: [{ companyId: cleanCompanyId }, { customer: { companyId: cleanCompanyId } }] } }] },
+            { OR: [{ assignedToId: null }, { assignedTo: { companyId: cleanCompanyId } }] },
+            { OR: [{ createdById: null }, { createdBy: { companyId: cleanCompanyId } }] },
+            {
+              OR: [
+                { lead: { companyId: cleanCompanyId } },
+                { customer: { companyId: cleanCompanyId } },
+                { policy: { companyId: cleanCompanyId } },
+                { claim: { companyId: cleanCompanyId } },
+                { vehicle: { companyId: cleanCompanyId } },
+                { vehicle: { customer: { companyId: cleanCompanyId } } },
+                { assignedTo: { companyId: cleanCompanyId } },
+              ],
+            },
           ],
           status: { in: ['PENDING', 'IN_PROGRESS'] as any[] },
           deletedAt: null,
