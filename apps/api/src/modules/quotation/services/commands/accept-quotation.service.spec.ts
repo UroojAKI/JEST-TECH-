@@ -214,14 +214,19 @@ describe('AcceptQuotationService (R5 Multi-Version & Single Accepted Rule)', () 
       quotationCode: 'QTN-0001-V1',
       status: QuotationStatus.APPROVED,
       leadId: 'lead-123',
+      motorMetadata: {
+        customerAcceptance: {
+          evidenceMethod: CustomerAcceptanceMethod.EMAIL,
+          timestamp: new Date().toISOString(),
+        },
+      },
     };
 
-    mockTx.quotation.findFirst
-      .mockResolvedValueOnce(targetQuote)
-      .mockResolvedValueOnce(competingAccepted); // Already accepted quote exists!
+    mockTx.quotation.findFirst.mockResolvedValueOnce(targetQuote);
+    mockTx.quotation.findMany.mockResolvedValueOnce([competingAccepted]);
 
     await expect(service.execute('q-v2', 'user-1')).rejects.toThrow(
-      BadRequestException,
+      /customer-accepted quotation/i,
     );
   });
 
