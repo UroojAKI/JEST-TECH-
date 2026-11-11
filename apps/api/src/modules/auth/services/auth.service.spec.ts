@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UnauthorizedException } from '@nestjs/common';
 import * as argon2 from 'argon2';
+import * as crypto from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { UsersService } from '../../users/services/users.service';
@@ -16,6 +17,7 @@ describe('AuthService', () => {
   let service: AuthService;
   let usersService: Record<string, jest.Mock>;
   let tokenService: Record<string, jest.Mock>;
+  let prismaMock: any;
 
   const mockUser = {
     id: 'user-id-1',
@@ -40,6 +42,7 @@ describe('AuthService', () => {
       updateLastLogin: jest.fn().mockResolvedValue(undefined),
       storeRefreshToken: jest.fn().mockResolvedValue(undefined),
       findActiveRefreshTokens: jest.fn().mockResolvedValue([]),
+      findUserRefreshTokens: jest.fn().mockResolvedValue([]),
       revokeRefreshToken: jest.fn().mockResolvedValue(undefined),
       revokeAllUserRefreshTokens: jest.fn().mockResolvedValue(undefined),
       createAuditLog: jest.fn().mockResolvedValue(undefined),
@@ -59,17 +62,27 @@ describe('AuthService', () => {
         { provide: TokenService, useValue: tokenService },
         {
           provide: PrismaService,
-          useValue: {
+          useValue: (prismaMock = {
             $transaction: jest.fn(async (operation: any) => operation({
               user: {
                 updateMany: jest.fn().mockResolvedValue({ count: 1 }),
                 update: jest.fn().mockResolvedValue({ failedLoginAttempts: 1 }),
               },
+              refreshToken: {
+                updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+                update: jest.fn().mockResolvedValue({}),
+                create: jest.fn().mockResolvedValue({ id: 'new-refresh-id' }),
+              },
+              auditLog: { create: jest.fn().mockResolvedValue({}) },
             })),
             user: { update: jest.fn().mockResolvedValue({}) },
-            refreshToken: { updateMany: jest.fn() },
+            refreshToken: {
+              updateMany: jest.fn(),
+              update: jest.fn(),
+              create: jest.fn(),
+            },
             auditLog: { create: jest.fn().mockResolvedValue({}) },
-          },
+          }),
         },
         {
           provide: ConfigService,
@@ -87,6 +100,43 @@ describe('AuthService', () => {
     }).compile();
 
     service = module.get<AuthService>(AuthService);
+  });
+
+  describe('refresh', () => {
+    it('rotates a valid refresh token using an interactive transaction', async () => {
+      usersService.findByEmailForAuth.mockResolvedValue(mockUser);
+      const tokenHash = crypto.createHash('sha256').update('mock-refresh-token').digest('hex');
+      usersService.findUserRefreshTokens.mockResolvedValue([{
+        id: 'refresh-record-1',
+        tokenHash,
+        revokedAt: null,
+        expiresAt: new Date(Date.now() + 60_000),
+      }]);
+
+      const result = await service.refresh('mock-refresh-token');
+
+      expect(result.accessToken).toBe('mock-access-token');
+      expect(prismaMock.$transaction).toHaveBeenCalledWith(expect.any(Function));
+    });
+
+    it('rejects a refresh token if another request already rotated it', async () => {
+      usersService.findByEmailForAuth.mockResolvedValue(mockUser);
+      const tokenHash = crypto.createHash('sha256').update('mock-refresh-token').digest('hex');
+      usersService.findUserRefreshTokens.mockResolvedValue([{
+        id: 'refresh-record-1',
+        tokenHash,
+        revokedAt: null,
+        expiresAt: new Date(Date.now() + 60_000),
+      }]);
+      prismaMock.$transaction.mockImplementation(async (operation: any) => operation({
+        refreshToken: {
+          updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+          create: jest.fn(),
+        },
+      }));
+
+      await expect(service.refresh('mock-refresh-token')).rejects.toThrow(UnauthorizedException);
+    });
   });
 
   describe('login', () => {
