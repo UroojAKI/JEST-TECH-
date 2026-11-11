@@ -58,7 +58,7 @@ export class PerformanceService {
       where: { ...whereClause, currentWorkflowStep: 'PROPOSAL' },
     });
 
-    const policiesSold = await this.prisma.lead.count({
+    const convertedLeadCount = await this.prisma.lead.count({
       where: {
         ...whereClause,
         currentWorkflowStep: { in: ['ISSUED', 'REFERRAL', 'CRM_UPDATED'] },
@@ -73,7 +73,7 @@ export class PerformanceService {
     });
 
     const conversionPercentage =
-      totalLeads > 0 ? ((policiesSold / totalLeads) * 100).toFixed(1) : '0.0';
+      totalLeads > 0 ? ((convertedLeadCount / totalLeads) * 100).toFixed(1) : '0.0';
 
     // Policy aggregations scoped to companyId
     const policyWhere: any = {
@@ -84,7 +84,7 @@ export class PerformanceService {
     if (userId && !isManager) policyWhere.createdById = userId;
 
     const now = new Date();
-    const [todayRevenueAgg, totalRevenueAgg, monthlyRevenueAgg, targetAgg] = await Promise.all([
+    const [todayRevenueAgg, totalRevenueAgg, monthlyRevenueAgg, totalPoliciesCount, monthlyPoliciesCount, targetAgg] = await Promise.all([
       this.prisma.policy.aggregate({
         _sum: { premiumAmount: true },
         where: {
@@ -123,7 +123,7 @@ export class PerformanceService {
       ? ((monthlyAchievedGwp / monthlyTargetGwp) * 100).toFixed(1)
       : null;
     const avgPolicyValue =
-      policiesSold > 0 ? Math.round(achievedGwp / policiesSold) : 0;
+      monthlyPoliciesCount > 0 ? Math.round(monthlyAchievedGwp / monthlyPoliciesCount) : 0;
 
     return {
       topRow: {
@@ -133,7 +133,7 @@ export class PerformanceService {
         todayMeetings,
         quotePending,
         proposalPending,
-        policiesSold,
+        policiesSold: monthlyPoliciesCount,
         todayRevenue,
       },
       bottomRow: {
