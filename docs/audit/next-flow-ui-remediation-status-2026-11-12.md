@@ -28,7 +28,9 @@
 7. **Analytics truthfulness**
    - Sales analytics errors are no longer caught and converted to `null`.
    - Pipeline/renewal cards no longer manufacture zero-valued fallback rows when metrics are absent.
-8. **Read-only numbering screen**
+8. **Unmapped Quick Action Controls**
+   - Actions without an explicit `href` or route mapping are now disabled instead of showing a false “Workflow initiated” toast.
+9. **Read-only numbering screen**
    - Clarified that the screen is read-only in this release; no fake save action is exposed in the current file.
 
 ## Verified UI/API gaps still outstanding
@@ -36,7 +38,7 @@
 | Area | Finding | Current classification | Required follow-up |
 |---|---|---|---|
 | Global search | Frontend result mapping currently surfaces contacts/customers, leads, policies and claims. The UI placeholder mentions documents, but returned document/proposal entity coverage is not demonstrated by this repository mapping. | Capability gap | Verify backend indexed entity types, then add typed mapping and deep links for supported proposals/documents. |
-| Customer notes | `CustomerTabsContainer` stores notes/dismissal state in browser `localStorage` (key prefix `customer_notes_`). It is not shared across agents/devices or backed up as CRM data. | Confirmed data-persistence defect | Persist with tenant-scoped API/model, author, timestamps and audit trail. |
+| Customer notes | Notes themselves are submitted through `customerRepository.addCustomerNote(...)` and reloaded from the customer workspace. An **unsaved note draft** is kept in browser `localStorage` under `customer_note_draft_<customerId>`. | Not a server-persistence defect for saved notes; unsaved drafts are browser-local | Keep this as a documented UX limitation; optionally warn before clearing browser storage or provide explicit draft sync if cross-device drafts are required. |
 | Voucher PDF | `VoucherPreviewModal` disables Download PDF and explicitly says PDF export is not available. | Missing capability, honest disabled control | Implement an authorized server-generated voucher PDF, or keep unavailable state until then. |
 | Finance receipt issuance | Prior audit reports a hard-coded receipt toast. The current `/finance` page is a wrapper around `FinanceOperationsHub`; the prior literal was not found in the current page source inspected. | Historical finding requires current path verification | Search current FinanceOperationsHub receipt controls and confirm whether any route still exposes a false receipt-success action. |
 | Numbering configuration | Current page is read-only and inputs are read-only. This branch clarifies its release status; configuration write API is not implemented here. | Read-only limitation | Add authenticated update API + validation/audit if editable configuration is required. |
@@ -76,6 +78,8 @@
 - PR #27 CI Quality Gates failed during migration setup: test DB did not contain base `companies` table when migration added FK to it. Migration application failed and API typecheck/tests were skipped. Fix base migration setup/order, then rerun all gates.
 
 ## Workflow and review status at time of this report
+
+PR #28 was retargeted to `main` so the repository's `pull_request` CI trigger can validate the complete stack. Its diff therefore includes the quotation remediation commits from PR #25 as well as the UI changes; review it as a combined stack, not as an isolated UI-only diff.
 
 - **PR #25:** open, unmerged, non-draft; GitHub reports `mergeable=false`. It remains the base of this stacked UI branch.
 - **PR #26:** open, draft, unmerged; current head `6aab2b12d3e35d6d5e5ad0df9de0861d2d6aaee0`; Production Remediation CI, PR Checks, CodeQL and CI Quality Gates succeeded.
