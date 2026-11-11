@@ -384,7 +384,7 @@ export class QuotationController {
     @Body() dto: CustomerAcceptanceDto,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.acceptQuotationService.execute(id, user.id, dto);
+    return this.acceptQuotationService.execute(id, user.id, dto, user);
   }
 
   @Post(':id/versions')
