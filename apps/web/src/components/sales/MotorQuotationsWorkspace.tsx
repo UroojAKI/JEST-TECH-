@@ -664,7 +664,7 @@ export function MotorQuotationsWorkspace() {
                                   className="rounded border px-2 py-1 hover:bg-muted"
                                   title="View full quotation, completion checklist, premium, documents, payment and history"
                                 >View / Complete</button>
-                                {quote.status !== 'ACCEPTED' && !submitted && (
+                                {!['ACCEPTED', 'ISSUED', 'REJECTED', 'EXPIRED'].includes(String(quote.status)) && !submitted && (
                                   <button
                                     onClick={() => { setAcceptanceQuoteId(quote.id); setAcceptanceReference(''); }}
                                     className="rounded border border-emerald-600/40 px-2 py-1 text-emerald-700 hover:bg-emerald-50"
