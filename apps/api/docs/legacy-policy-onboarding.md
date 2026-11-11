@@ -15,7 +15,8 @@ Create body:
 
 ```json
 {
-  "customerId": "customer UUID OR contactId": "contact UUID",
+  "customerId": "customer UUID",
+  "contactId": null,
   "insurerName": "INSURER NAME",
   "insurerPolicyNumber": "INSURER POLICY NUMBER",
   "productType": "MOTOR",
