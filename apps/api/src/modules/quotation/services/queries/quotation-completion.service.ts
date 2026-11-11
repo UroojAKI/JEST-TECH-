@@ -467,6 +467,7 @@ export class QuotationCompletionService {
 
     // 1. Update Contact fields
     const contactUpdates: any = {};
+    if (updates.phone !== undefined) contactUpdates.phone = String(updates.phone).trim();
     if (updates.email !== undefined) contactUpdates.email = updates.email;
     if (updates.panNumber !== undefined)
       contactUpdates.panNumber = updates.panNumber;
