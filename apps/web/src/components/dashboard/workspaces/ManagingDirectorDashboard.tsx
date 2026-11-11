@@ -620,7 +620,7 @@ export default function ManagingDirectorDashboard() {
                             <td className="p-3 font-semibold text-foreground">
                               <div>{item.title}</div>
                               {item.entityType === 'Proposal' && <a className="text-primary text-[11px] hover:underline" href={`/sales/proposals/${item.entityId}`}>Open proposal</a>}
-                              {item.entityType === 'MotorQuotation' && <a className="text-primary text-[11px] hover:underline" href={`/workspace/operations/inspections/${item.entityId}`}>Open inspection</a>}
+                              {item.entityType === 'MotorInspection' && <a className="text-primary text-[11px] hover:underline" href={`/workspace/operations/inspections/${item.entityId}`}>Open inspection</a>}
                               {item.entityType === 'BackOfficeTask' && <a className="text-primary text-[11px] hover:underline" href="/workspace/operations/issuance">Open issuance queue</a>}
                             </td>
                             <td className="p-3 font-mono font-bold text-primary">{item.referenceCode || '-'}</td>
