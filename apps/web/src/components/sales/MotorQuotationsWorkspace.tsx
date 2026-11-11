@@ -592,17 +592,26 @@ export function MotorQuotationsWorkspace() {
                       onCompleteProposal={setProposalQuote}
                       onIssuePolicy={isBackOfficeOrAdmin ? setCompletionQuote : undefined}
                       onSubmitToBackOffice={async (quotationId) => {
-                        const selected = allQuotes.find((item) => item.id === quotationId);
-                        if (!selected?.caseId) {
-                          throw new Error('This quotation is not linked to a quotation case and cannot be selected for handoff.');
+                        try {
+                          const selected = allQuotes.find((item) => item.id === quotationId);
+                          if (!selected?.caseId) {
+                            throw new Error('This quotation is not linked to a quotation case and cannot be selected for handoff.');
+                          }
+                          // Select the winning alternative through the case state machine first.
+                          await apiClient.post(`/motor/quotation-cases/${selected.caseId}/select`, {
+                            quotationId,
+                          });
+                          await quotationsRepository.submitToBackOffice(quotationId);
+                          toast.success('Selected quotation sent to back office');
+                          await refetch();
+                        } catch (err: any) {
+                          const message =
+                            err?.response?.data?.message ||
+                            err?.message ||
+                            'Failed to send quotation to back office';
+                          toast.error(Array.isArray(message) ? message.join(', ') : message);
+                          throw err;
                         }
-                        // Select the winning alternative through the case state machine first.
-                        await apiClient.post(`/motor/quotation-cases/${selected.caseId}/select`, {
-                          quotationId,
-                        });
-                        await quotationsRepository.submitToBackOffice(quotationId);
-                        toast.success('Selected quotation sent to back office');
-                        await refetch();
                       }}
                       onAddComparisonQuote={(q) => handleOpenWizard(q.vehicleCategory, {
                         vehicleDetails: q.vehicleDetails,

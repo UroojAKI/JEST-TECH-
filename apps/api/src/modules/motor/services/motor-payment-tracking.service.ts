@@ -494,10 +494,17 @@ export class MotorPaymentTrackingService {
       }
 
       if (dto.status === 'PAID' && quotation.caseId) {
+        const linkedCase = await (tx.motorQuotationCase as any)?.findUnique?.({
+          where: { id: quotation.caseId },
+          select: { selectedQuoteId: true },
+        });
         await tx.motorQuotationCase.update({
           where: { id: quotation.caseId },
           data: {
             status: 'PAYMENT_VERIFIED',
+            ...(linkedCase && !linkedCase.selectedQuoteId
+              ? { selectedQuoteId: dto.quotationId }
+              : {}),
           },
         });
       }

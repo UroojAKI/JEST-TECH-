@@ -285,15 +285,23 @@ export class MotorQuotationCaseService {
       throw new NotFoundException(`MotorQuotationCase '${caseId}' not found or access denied`);
     }
 
-    const inspectionGateStatuses: MotorCaseStatus[] = [
+    // Preserve post-selection workflow statuses (inspection, back-office review, payment verified)
+    // when binding selectedQuoteId so already-paid or reviewed cases do not regress or fail 400.
+    const preservesWorkflowStatuses: MotorCaseStatus[] = [
       MotorCaseStatus.INSPECTION_REQUIRED,
       MotorCaseStatus.INSPECTION_SUBMITTED,
       MotorCaseStatus.INSPECTION_APPROVED,
       MotorCaseStatus.INSPECTION_WAIVED,
       MotorCaseStatus.REWORK_REQUIRED,
+      MotorCaseStatus.SUBMITTED_FOR_REVIEW,
+      MotorCaseStatus.BACK_OFFICE_REVIEW,
+      MotorCaseStatus.RESUBMITTED,
+      MotorCaseStatus.PAYMENT_VERIFIED,
+      MotorCaseStatus.DOCUMENTS_VERIFIED,
+      MotorCaseStatus.READY_FOR_ISSUANCE,
     ];
-    const keepsInspectionGate = inspectionGateStatuses.includes(motorCase.status);
-    if (!keepsInspectionGate) {
+    const keepsWorkflowStatus = preservesWorkflowStatuses.includes(motorCase.status);
+    if (!keepsWorkflowStatus) {
       this.validateCaseTransition(motorCase.status, MotorCaseStatus.SELECTED);
     }
 
@@ -333,7 +341,7 @@ export class MotorQuotationCaseService {
         where: { id: caseId },
         data: {
           selectedQuoteId: quotationId,
-          status: keepsInspectionGate
+          status: keepsWorkflowStatus
             ? motorCase.status
             : MotorCaseStatus.SELECTED,
         },
@@ -342,12 +350,18 @@ export class MotorQuotationCaseService {
         },
       });
 
+      const isInitialWorkflowState =
+        !quotation.workflowState ||
+        quotation.workflowState === 'DRAFT' ||
+        quotation.workflowState === 'READY_FOR_PROPOSAL';
+
       await tx.quotation.update({
         where: { id: quotationId },
         data: {
-          workflowState: keepsInspectionGate
-            ? quotation.workflowState
-            : 'READY_FOR_PROPOSAL',
+          workflowState:
+            keepsWorkflowStatus || !isInitialWorkflowState
+              ? quotation.workflowState
+              : 'READY_FOR_PROPOSAL',
           motorMetadata: {
             ...((quotation.motorMetadata as any) || {}),
             caseSelection: 'SELECTED',

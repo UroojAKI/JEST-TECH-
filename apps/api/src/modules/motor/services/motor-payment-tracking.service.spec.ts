@@ -483,6 +483,35 @@ describe('MotorPaymentTrackingService & Reconciliation (Iteration 7)', () => {
         data: { status: 'PAYMENT_VERIFIED' },
       });
     });
+
+    it('PAY-003: should bind selectedQuoteId when linked case has no selectedQuoteId yet on PAID payment', async () => {
+      prisma.quotation.findUnique.mockResolvedValue({
+        ...mockQuote,
+        caseId: 'case-motor-unselected',
+      });
+      prisma.motorPaymentRecord.findUnique.mockResolvedValue(null);
+      prisma.motorPaymentRecord.upsert.mockResolvedValue({
+        id: 'pay-case-2',
+        quotationId: 'q-10',
+        status: 'PAID',
+        amount: 17638.88,
+      });
+      prisma.motorQuotationCase.findUnique = jest
+        .fn()
+        .mockResolvedValue({ selectedQuoteId: null });
+
+      await service.recordPayment({
+        quotationId: 'q-10',
+        status: 'PAID',
+        amount: 17638.88,
+        referenceNumber: 'REF-CASE-002',
+      });
+
+      expect(prisma.motorQuotationCase.update).toHaveBeenCalledWith({
+        where: { id: 'case-motor-unselected' },
+        data: { status: 'PAYMENT_VERIFIED', selectedQuoteId: 'q-10' },
+      });
+    });
   });
 
   describe('canProceedToPolicy', () => {

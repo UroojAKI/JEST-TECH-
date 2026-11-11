@@ -59,6 +59,17 @@ export function QuoteCard({ quote, onUploadQuote, onConductInspection, onComplet
     ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMINISTRATOR', 'BACK_OFFICE', 'OPERATIONS', 'UNDERWRITER'].includes(r)
   );
   const isAgent = !isBackOfficeOrAdmin;
+  const isAdmin = userRoles.some((r) =>
+    ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMINISTRATOR'].includes(r)
+  );
+  const canSubmitToBackOffice = isAgent || isAdmin;
+  const isSubmittedToBackOffice =
+    submittedToBackOffice || Boolean((quote as any).backOfficeSubmittedAt);
+  const isTerminalQuoteStatus =
+    ['ISSUED', 'CONVERTED_TO_POLICY', 'REJECTED', 'EXPIRED'].includes(
+      String(quote.status || '').toUpperCase(),
+    ) ||
+    String((quote as any).issuanceStatus || '').toUpperCase() === 'ISSUED';
 
   const { data: projection } = useQuery({
     queryKey: ['quote-workflow-projection', quote.id],
@@ -325,9 +336,9 @@ export function QuoteCard({ quote, onUploadQuote, onConductInspection, onComplet
             </div>
           ))}
 
-        {isAgent && onSubmitToBackOffice && (
+        {canSubmitToBackOffice && onSubmitToBackOffice && !isTerminalQuoteStatus && (
           <button
-            disabled={submittedToBackOffice || isSubmittingToBackOffice}
+            disabled={isSubmittedToBackOffice || isSubmittingToBackOffice}
             onClick={async () => {
               setIsSubmittingToBackOffice(true);
               try {
@@ -339,7 +350,7 @@ export function QuoteCard({ quote, onUploadQuote, onConductInspection, onComplet
             }}
             className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold disabled:opacity-50"
           >
-            {isSubmittingToBackOffice ? 'Submitting…' : submittedToBackOffice ? 'Sent to Back Office' : 'Select & Send to Back Office'}
+            {isSubmittingToBackOffice ? 'Submitting…' : isSubmittedToBackOffice ? 'Sent to Back Office' : 'Select & Send to Back Office'}
           </button>
         )}
 
