@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { MotorPolicyIssuanceService } from './motor-policy-issuance.service';
+import { PosEligibilityService } from '../../pos-partners/services/pos-eligibility.service';
 import { MotorPaymentTrackingService } from './motor-payment-tracking.service';
 import { ResourceAuthorizationService } from '../../../common/services/resource-authorization.service';
 import { NumberingEngineService } from '../../administration/services/numbering-engine/numbering-engine.service';
@@ -18,6 +19,7 @@ describe('MotorPolicyIssuanceService (Iteration 8)', () => {
   let paymentService: any;
   let authzService: ResourceAuthorizationService;
   let numberingService: any;
+  let posEligibilityService: any;
 
   beforeEach(async () => {
     authzService = new ResourceAuthorizationService();
@@ -30,6 +32,9 @@ describe('MotorPolicyIssuanceService (Iteration 8)', () => {
         if (entityType === 'VEHICLE') return Promise.resolve('VEH-2026-000001');
         return Promise.resolve('SEQ-000001');
       }),
+    };
+    posEligibilityService = {
+      assertEligibleForIssuance: jest.fn(),
     };
     prisma = {
       quotation: {
@@ -95,6 +100,7 @@ describe('MotorPolicyIssuanceService (Iteration 8)', () => {
         { provide: MotorPaymentTrackingService, useValue: paymentService },
         { provide: ResourceAuthorizationService, useValue: authzService },
         { provide: NumberingEngineService, useValue: numberingService },
+        { provide: PosEligibilityService, useValue: posEligibilityService },
       ],
     }).compile();
 
@@ -188,7 +194,12 @@ describe('MotorPolicyIssuanceService (Iteration 8)', () => {
       const policy = await service.issuePolicy('q-100', validDto, opsActor);
 
       expect(policy).toBeDefined();
-      expect(prisma.policy.create).toHaveBeenCalled();
+      expect(prisma.policy.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ distributionChannel: 'DIRECT' }),
+        }),
+      );
+      expect(posEligibilityService.assertEligibleForIssuance).not.toHaveBeenCalled();
       expect(prisma.quotation.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
@@ -199,6 +210,48 @@ describe('MotorPolicyIssuanceService (Iteration 8)', () => {
       );
       // Verify durable renewal scheduled across 5 offsets (45, 30, 15, 7, 0)
       expect(prisma.renewalJob.upsert).toHaveBeenCalledTimes(5);
+    });
+
+    it('should issue with an active unmapped Agent POS and keep insurer identifiers null', async () => {
+      const opsActor = createActor(RoleType.BACK_OFFICE);
+      paymentService.canProceedToPolicy.mockResolvedValue({ allowed: true, blockers: [] });
+      prisma.quotation.findUnique.mockResolvedValue({
+        ...validQuote,
+        insurerName: 'HDFC ERGO General Insurance',
+      });
+      prisma.motorPaymentRecord.findUnique.mockResolvedValue({
+        quotationId: 'q-100',
+        status: 'PAID',
+        amount: 17638.88,
+      });
+      posEligibilityService.assertEligibleForIssuance.mockResolvedValue({
+        partner: { id: 'pos-unmapped-1', posCode: 'POS-UNMAPPED-1', name: 'Unmapped POS' },
+        mapping: null,
+        insurer: null,
+      });
+      prisma.policy.create.mockResolvedValue({
+        id: 'pol-pos-unmapped',
+        policyNumber: 'POL-POS-UNMAPPED',
+        status: 'ACTIVE',
+      });
+
+      await service.issuePolicy('q-100', { ...validDto, posPartnerId: 'pos-unmapped-1' } as any, opsActor);
+
+      expect(posEligibilityService.assertEligibleForIssuance).toHaveBeenCalledWith(expect.objectContaining({
+        posPartnerId: 'pos-unmapped-1',
+        companyId: 'org-1',
+        policyInsurerName: 'HDFC ERGO General Insurance',
+      }));
+      expect(prisma.policy.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({
+          posPartnerId: 'pos-unmapped-1',
+          posInsurerMappingId: null,
+          distributionChannel: 'POS',
+          insurerNameSnapshot: 'HDFC ERGO General Insurance',
+          insurerPartnerCodeSnapshot: null,
+          insurerPospIdSnapshot: null,
+        }),
+      }));
     });
 
     it('should reject policy issuance when attempted by unauthorized role', async () => {
