@@ -526,7 +526,7 @@ export function UpdatePolicyDetailsDialog({
                 <UserCheck className="h-3 w-3 text-muted-foreground" />
                 {isHealth ? (
                   <>
-                    <span>Agent POS Attribution</span>Proposer PAN</span>
+                    <span>Proposer PAN</span>
                     <span className="text-rose-500">*</span>
                   </>
                 ) : (
@@ -577,13 +577,13 @@ export function UpdatePolicyDetailsDialog({
             </div>
           </div>
 
-          {/* POS Partner Selection (DEC-02 & DEC-03: Mandatory) */}
+          {/* Optional Agent POS attribution */}
           <div className="p-3.5 rounded-xl border bg-card space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold flex items-center gap-1.5">
                 <Users className="h-3.5 w-3.5 text-emerald-600" />
                 <span>
-                  Attributed POS Partner <span className="text-emerald-600 font-bold">* (Mandatory DEC-02)</span>
+                  Agent POS Attribution <span className="text-muted-foreground font-medium">(Optional)</span>
                 </span>
               </label>
               <span className="text-[9px] font-bold bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded">
