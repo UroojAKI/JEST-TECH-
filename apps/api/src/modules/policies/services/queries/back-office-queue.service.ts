@@ -163,59 +163,32 @@ export class BackOfficeQueueService {
             }),
       };
 
-      let quotations: any[] = [];
-      try {
-        quotations = await this.prisma.quotation.findMany({
-          where,
-
-          include: {
-            contact: true,
-            account: true,
-            vehicle: true,
-            createdBy: {
-              select: { id: true, firstName: true, lastName: true, email: true },
-            },
-            policy: true,
-            motorInspection: true,
-            motorPaymentRecord: true,
-            motorDocuments: true,
-            healthDocuments: true,
-            healthCase: { include: { documents: true } },
-            motorPreviousPolicy: {
-              include: {
-                ruleEvaluation: true,
-              },
+      // Do not fall back to a broader, branch-unscoped query when the primary
+      // query fails. A degraded response must never expose records outside the
+      // actor's exact tenant/branch filter or silently omit gate relations.
+      const quotations: any[] = await this.prisma.quotation.findMany({
+        where,
+        include: {
+          contact: true,
+          account: true,
+          vehicle: true,
+          createdBy: {
+            select: { id: true, firstName: true, lastName: true, email: true },
+          },
+          policy: true,
+          motorInspection: true,
+          motorPaymentRecord: true,
+          motorDocuments: true,
+          healthDocuments: true,
+          healthCase: { include: { documents: true } },
+          motorPreviousPolicy: {
+            include: {
+              ruleEvaluation: true,
             },
           },
-          orderBy: { createdAt: 'desc' },
-        });
-      } catch (prismaErr: any) {
-        this.logger.warn(`Primary quotation query failed: ${prismaErr?.message}. Falling back to baseline query.`);
-        try {
-          quotations = await this.prisma.quotation.findMany({
-            where: {
-              ...(actor?.companyId ? { companyId: actor.companyId } : {}),
-              backOfficeSubmittedAt: { not: null },
-            },
-            include: {
-              contact: true,
-              account: true,
-              vehicle: true,
-              createdBy: {
-                select: { id: true, firstName: true, lastName: true, email: true },
-              },
-              policy: true,
-              healthCase: { include: { documents: true } },
-            },
-            orderBy: { createdAt: 'desc' },
-          });
-        } catch (fallbackErr: any) {
-          this.logger.error(`Fallback quotation query failed: ${fallbackErr?.message}`, fallbackErr?.stack);
-          throw new InternalServerErrorException(
-            'Unable to query submitted quotations for the Back Office issuance queue.',
-          );
-        }
-      }
+        },
+        orderBy: { createdAt: 'desc' },
+      });
 
       // Optimize: batch-fetch all related documents in a single roundtrip rather than N+1 queries
       const quotationIds = quotations.map((q) => q.id);
