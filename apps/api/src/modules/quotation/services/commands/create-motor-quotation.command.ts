@@ -912,6 +912,27 @@ export class CreateMotorQuotationCommand {
           });
         }
 
+        // A case represents one customer/vehicle comparison. Do not create the
+        // same insurer alternative twice: revisions belong under the explicit
+        // quotation-version workflow, not as duplicate insurer rows.
+        if (activeCaseId) {
+          const existingInsurerAlternative = await tx.quotation.findFirst({
+            where: {
+              companyId,
+              caseId: activeCaseId,
+              insurerId: insurer.id,
+              productType: 'MOTOR',
+              deletedAt: null,
+            },
+            select: { id: true, quotationCode: true },
+          });
+          if (existingInsurerAlternative) {
+            throw new ConflictException(
+              `An alternative for ${insurer.name} already exists in this case (${existingInsurerAlternative.quotationCode || existingInsurerAlternative.id}). Open that quotation to create an explicit revision instead of adding the same insurer again.`,
+            );
+          }
+        }
+
         const createdQuotation = await tx.quotation.create({
           data: {
             companyId,
