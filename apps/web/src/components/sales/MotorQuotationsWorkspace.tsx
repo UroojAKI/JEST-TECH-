@@ -12,6 +12,7 @@ import { MotorQuoteWizard } from '../leads/motor-quote/MotorQuoteWizard';
 import { InspectionDialog } from '../leads/motor-quote/InspectionDialog';
 import { MotorProposalWizard } from '../leads/motor-quote/MotorProposalWizard';
 import { PolicyCompletionDialog } from '../leads/motor-quote/PolicyCompletionDialog';
+import { QuotationManagementDialog } from './QuotationManagementDialog';
 import type { VehicleCategory, SavedMotorQuote } from '../leads/motor-quote/motorFormTypes';
 import { MotorProductCards } from '../workspaces/sales/MotorProductCards';
 import { useAuthStore } from '../../store/auth-store';
@@ -26,6 +27,9 @@ export function MotorQuotationsWorkspace() {
   ].filter(Boolean).map((r) => String(r).toUpperCase());
   const isBackOfficeOrAdmin = userRoles.some((r) =>
     ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMINISTRATOR', 'BACK_OFFICE', 'OPERATIONS', 'UNDERWRITER'].includes(r)
+  );
+  const canSubmitToBackOffice = userRoles.some((r) =>
+    ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMINISTRATOR', 'AGENT'].includes(r)
   );
 
   const searchParams = useSearchParams();
@@ -59,6 +63,12 @@ export function MotorQuotationsWorkspace() {
   const [inspectionQuoteId, setInspectionQuoteId] = useState<string | null>(null);
   const [proposalQuote, setProposalQuote] = useState<SavedMotorQuote | null>(null);
   const [completionQuote, setCompletionQuote] = useState<SavedMotorQuote | null>(null);
+  const [managementQuoteId, setManagementQuoteId] = useState<string | null>(null);
+  const [acceptanceQuoteId, setAcceptanceQuoteId] = useState<string | null>(null);
+  const [acceptanceMethod, setAcceptanceMethod] = useState<'EMAIL' | 'SMS' | 'WHATSAPP' | 'PHYSICAL_SIGNATURE' | 'VERBAL_CALL_RECORDING' | 'PORTAL_CLICK'>('EMAIL');
+  const [acceptanceReference, setAcceptanceReference] = useState('');
+  const [acceptanceSubmitting, setAcceptanceSubmitting] = useState(false);
+  const [comparisonQuotes, setComparisonQuotes] = useState<SavedMotorQuote[] | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -253,14 +263,17 @@ export function MotorQuotationsWorkspace() {
         const quotes = (Array.isArray(list) ? list : []).map((item: any) => ({
           id: item.id,
           quotationCode: item.quotationCode,
+          version: item.version || item.latestVersion?.versionNumber || null,
           vehicleCategory: item.motorMetadata?.vehicleCategory || item.vehicleCategory || 'PRIVATE_CAR',
           policyType: item.motorMetadata?.policyType || item.policyType || 'PACKAGE',
           registrationNumber: item.motorMetadata?.registrationNumber || item.registrationNumber || '',
-          insurerName: item.insurerName?.trim() || 'Insurer missing',
+          insurerName: item.insurerName?.trim() && item.insurerName.trim().toLowerCase() !== 'partner insurer' ? item.insurerName.trim() : 'Insurer missing',
+          insurerId: item.insurerId || null,
           totalPremium: Number(item.totalPremium || 0),
           idv: Number(item.sumInsured || 0),
           ncbPercentage: Number(item.ncbPercentage || 0),
           status:
+            item.motorMetadata?.customerAcceptance ? 'ACCEPTED' :
             item.status === 'APPROVED' ? 'APPROVED' :
             item.status === 'ACCEPTED' ? 'ACCEPTED' :
             item.status === 'CONVERTED_TO_POLICY' ? 'ISSUED' :
@@ -283,6 +296,7 @@ export function MotorQuotationsWorkspace() {
           renewalOfPolicyId: item.renewalOfPolicyId,
           backOfficeSubmittedAt: item.backOfficeSubmittedAt,
           previousPolicyDetails: item.motorMetadata?.previousPolicyDetails,
+          customerAcceptance: item.motorMetadata?.customerAcceptance,
         } as SavedMotorQuote));
         return { quotes, total };
       } catch (error: any) {
@@ -573,16 +587,31 @@ export function MotorQuotationsWorkspace() {
             const customerName = first?.proposerDetails?.customerName || 'Customer';
             const mobile = first?.proposerDetails?.mobileNumber || '';
             const vehicle = first?.registrationNumber || 'New Vehicle';
+            const insurerCounts = quotes.reduce((counts, quote) => {
+              const insurer = String(quote.insurerName || '').trim().toLowerCase();
+              if (insurer && insurer !== 'insurer missing') counts[insurer] = (counts[insurer] || 0) + 1;
+              return counts;
+            }, {} as Record<string, number>);
+            const duplicateInsurers = Object.entries(insurerCounts).filter(([, count]) => count > 1).map(([insurer]) => insurer);
             return (
               <div key={groupId} className="rounded-xl border bg-card p-5 space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-3 border-b gap-3">
-                  <div><div className="text-sm font-bold">{customerName} <span className="text-muted-foreground">|</span> {vehicle}</div><div className="text-xs text-muted-foreground">{mobile} · {quotes.length} version{quotes.length === 1 ? '' : 's'}</div></div>
-                  <button onClick={() => handleOpenWizard(first?.vehicleCategory, {
-                    vehicleDetails: first?.vehicleDetails,
-                    proposerDetails: first?.proposerDetails,
-                    previousPolicyDetails: (first as any)?.previousPolicyDetails,
-                    caseId: (first as any)?.caseId,
-                  })} className="px-3 py-1.5 rounded-md border bg-background hover:bg-muted text-xs font-semibold">{activeTab === 'RENEWALS' ? 'Generate Renewal Quote' : 'New Quote Version'}</button>
+                  <div>
+                    <div className="text-sm font-bold">{customerName} <span className="text-muted-foreground">|</span> {vehicle}</div>
+                    <div className="text-xs text-muted-foreground">{mobile} · {quotes.length} saved alternative{quotes.length === 1 ? '' : 's'}</div>
+                    {duplicateInsurers.length > 0 && <div className="mt-1 text-[11px] font-medium text-amber-700">Duplicate insurer records detected: {duplicateInsurers.join(', ')}. Review history and snapshots before selecting a winner.</div>}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {quotes.length > 1 && (
+                      <button type="button" onClick={() => setComparisonQuotes(quotes)} className="px-3 py-1.5 rounded-md border bg-background hover:bg-muted text-xs font-semibold">Compare saved alternatives</button>
+                    )}
+                    <button onClick={() => handleOpenWizard(first?.vehicleCategory, {
+                      vehicleDetails: first?.vehicleDetails,
+                      proposerDetails: first?.proposerDetails,
+                      previousPolicyDetails: (first as any)?.previousPolicyDetails,
+                      caseId: (first as any)?.caseId,
+                    })} className="px-3 py-1.5 rounded-md border bg-background hover:bg-muted text-xs font-semibold">{activeTab === 'RENEWALS' ? 'Generate Renewal Quote' : 'New Quote Version'}</button>
+                  </div>
                 </div>
                 <div className="overflow-x-auto rounded-lg border">
                   <table className="w-full min-w-[980px] text-xs">
@@ -601,13 +630,23 @@ export function MotorQuotationsWorkspace() {
                     <tbody className="divide-y">
                       {quotes.map((quote) => {
                         const submitted = Boolean((quote as any).backOfficeSubmittedAt);
-                        const proposalReady = ['READY_FOR_PROPOSAL', 'APPROVED', 'PAYMENT_UNDER_PROCESS', 'PAYMENT_PENDING'].includes(String(quote.status));
-                        const issuanceReady = ['PAYMENT_DONE', 'PENDING_ISSUANCE'].includes(String(quote.status)) || (quote as any).issuanceStatus === 'ISSUANCE_PENDING';
+                        const customerAccepted = quote.status === 'ACCEPTED' || Boolean((quote as any).customerAcceptance);
+                        const validInsurer = Boolean((quote as any).insurerId && quote.insurerName && quote.insurerName.toLowerCase() !== 'insurer missing' && quote.insurerName.toLowerCase() !== 'partner insurer');
+                        // Proposal/payment remains reachable for saved drafts as well as
+                        // later workflow states; do not hide the existing wizard just
+                        // because the display status is still DRAFT.
+                        const proposalReady =
+                          !['ISSUED', 'CONVERTED_TO_POLICY', 'REJECTED', 'EXPIRED'].includes(String(quote.status)) &&
+                          (quote as any).issuanceStatus !== 'ISSUED';
+                        const issuanceReady = ['PAYMENT_DONE', 'PENDING_ISSUANCE'].includes(String(quote.status)) ||
+                          ['PAYMENT_DONE', 'PROPOSAL_APPROVED'].includes(String((quote as any).workflowState)) ||
+                          (quote as any).issuanceStatus === 'ISSUANCE_PENDING';
                         return (
                           <tr key={quote.id} className="hover:bg-muted/30">
                             <td className="px-3 py-3">
                               <div className="font-semibold text-foreground">{quote.insurerName || 'Insurer not recorded'}</div>
                               <div className="font-mono text-[10px] text-muted-foreground">{quote.quotationCode}</div>
+                              <div className="text-[10px] text-muted-foreground">Version {(quote as any).version ? `V${(quote as any).version}` : '—'}</div>
                             </td>
                             <td className="px-3 py-3">
                               <div className="font-medium">{(quote as any).policyType || '—'}</div>
@@ -624,6 +663,18 @@ export function MotorQuotationsWorkspace() {
                             <td className="px-3 py-3">
                               <div className="flex flex-wrap items-center gap-1.5">
                                 <button
+                                  onClick={() => setManagementQuoteId(quote.id)}
+                                  className="rounded border px-2 py-1 hover:bg-muted"
+                                  title="View full quotation, completion checklist, premium, documents, payment and history"
+                                >View / Complete</button>
+                                {!['ACCEPTED', 'ISSUED', 'REJECTED', 'EXPIRED'].includes(String(quote.status)) && !submitted && (
+                                  <button
+                                    onClick={() => { setAcceptanceQuoteId(quote.id); setAcceptanceReference(''); }}
+                                    className="rounded border border-emerald-600/40 px-2 py-1 text-emerald-700 hover:bg-emerald-50"
+                                    title="Record customer acceptance with auditable evidence"
+                                  >Record Acceptance</button>
+                                )}
+                                <button
                                   onClick={() => handleOpenWizard(quote.vehicleCategory, {
                                     vehicleDetails: quote.vehicleDetails,
                                     proposerDetails: quote.proposerDetails,
@@ -636,7 +687,7 @@ export function MotorQuotationsWorkspace() {
                                 >
                                   Add insurer quote
                                 </button>
-                                {!isBackOfficeOrAdmin && !submitted && (quote as any).caseId && (
+                                {canSubmitToBackOffice && !submitted && (quote as any).caseId && customerAccepted && validInsurer && (
                                   <button onClick={async () => {
                                     const selected = allQuotes.find((item) => item.id === quote.id);
                                     if (!selected?.caseId) {
@@ -652,6 +703,12 @@ export function MotorQuotationsWorkspace() {
                                       toast.error(error?.response?.data?.message || 'Could not submit quotation to Back Office');
                                     }
                                   }} className="rounded bg-primary px-2 py-1 text-primary-foreground">Select & Send</button>
+                                )}
+                                {canSubmitToBackOffice && !submitted && (quote as any).caseId && !customerAccepted && (
+                                  <span className="rounded bg-amber-500/10 px-2 py-1 text-amber-700">Accept before handoff</span>
+                                )}
+                                {!validInsurer && (
+                                  <span className="rounded bg-rose-500/10 px-2 py-1 text-rose-700" title="Correct this quotation against Insurer Master before Back Office submission">Insurer data issue</span>
                                 )}
                                 {quote.status === 'PENDING_INSPECTION' && (
                                   <button onClick={() => setInspectionQuoteId(quote.id)} className="rounded border border-amber-300 px-2 py-1 text-amber-700">Inspection</button>
@@ -769,6 +826,96 @@ export function MotorQuotationsWorkspace() {
             void refetch();
           }}
         />
+      )}
+
+      {managementQuoteId && (
+        <QuotationManagementDialog
+          isOpen
+          quotationId={managementQuoteId}
+          onClose={() => setManagementQuoteId(null)}
+          onUpdated={() => { void refetch(); }}
+        />
+      )}
+
+      {comparisonQuotes && (
+        <div className="fixed inset-0 z-[105] flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-label="Compare saved insurer alternatives">
+          <div className="max-h-[85vh] w-full max-w-5xl overflow-auto rounded-xl border bg-background p-5 shadow-xl">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div><h3 className="font-bold">Saved insurer alternatives</h3><p className="text-xs text-muted-foreground">Read-only comparison of existing quotation snapshots. No quotation records are created.</p></div>
+              <button type="button" onClick={() => setComparisonQuotes(null)} className="rounded-lg border px-3 py-1.5 text-xs">Close</button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[700px] text-sm">
+                <thead className="bg-muted/60"><tr><th className="p-2 text-left">Comparison field</th>{comparisonQuotes.map((quote) => <th key={quote.id} className="p-2 text-left">{quote.insurerName}<div className="font-mono text-[10px] font-normal text-muted-foreground">{quote.quotationCode}</div></th>)}</tr></thead>
+                <tbody className="divide-y">
+                  {[
+                    ['Premium', (quote: SavedMotorQuote) => `₹${Number(quote.totalPremium || 0).toLocaleString('en-IN')}`],
+                    ['IDV', (quote: SavedMotorQuote) => `₹${Number((quote as any).idv || (quote as any).sumInsured || 0).toLocaleString('en-IN')}`],
+                    ['NCB', (quote: SavedMotorQuote) => `${quote.ncbPercentage ?? 0}%`],
+                    ['Policy type', (quote: SavedMotorQuote) => String((quote as any).policyType || '—')],
+                    ['Vehicle category', (quote: SavedMotorQuote) => String((quote as any).vehicleCategory || '—')],
+                    ['Registration', (quote: SavedMotorQuote) => String(quote.registrationNumber || '—')],
+                    ['Version', (quote: SavedMotorQuote) => String((quote as any).version ? `V${(quote as any).version}` : '—')],
+                    ['Status', (quote: SavedMotorQuote) => String(quote.status || '—').replaceAll('_', ' ')],
+                    ['Created', (quote: SavedMotorQuote) => quote.createdAt ? new Date(quote.createdAt).toLocaleDateString('en-IN') : '—'],
+                  ].map(([label, getter]: any) => (
+                    <tr key={label}><th className="p-2 text-left font-medium text-muted-foreground">{label}</th>{comparisonQuotes.map((quote) => <td key={quote.id} className="p-2">{getter(quote)}</td>)}</tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">Open View / Complete on any alternative to inspect its full saved premium calculation, documents, payment record and history before selecting a winner.</p>
+          </div>
+        </div>
+      )}
+
+      {acceptanceQuoteId && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-label="Record customer acceptance">
+          <div className="w-full max-w-md space-y-4 rounded-xl border bg-background p-5 shadow-xl">
+            <div>
+              <h3 className="font-bold">Record customer acceptance</h3>
+              <p className="mt-1 text-xs text-muted-foreground">This records the customer's acceptance of this quotation version and may lock the selected version and supersede competing drafts. Do not record acceptance without customer confirmation.</p>
+            </div>
+            <label className="block text-xs font-semibold">Evidence method
+              <select value={acceptanceMethod} onChange={(event) => setAcceptanceMethod(event.target.value as any)} className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm">
+                <option value="EMAIL">Email</option>
+                <option value="SMS">SMS</option>
+                <option value="WHATSAPP">WhatsApp</option>
+                <option value="PHYSICAL_SIGNATURE">Physical signature</option>
+                <option value="VERBAL_CALL_RECORDING">Verbal call recording</option>
+                <option value="PORTAL_CLICK">Customer portal</option>
+              </select>
+            </label>
+            <label className="block text-xs font-semibold">Evidence reference
+              <input value={acceptanceReference} onChange={(event) => setAcceptanceReference(event.target.value)} className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm" placeholder="Email/message/document reference" />
+            </label>
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setAcceptanceQuoteId(null)} className="rounded-lg border px-3 py-2 text-sm">Cancel</button>
+              <button
+                type="button"
+                disabled={acceptanceSubmitting || !acceptanceReference.trim()}
+                onClick={async () => {
+                  setAcceptanceSubmitting(true);
+                  try {
+                    await quotationsRepository.acceptQuotation(acceptanceQuoteId, {
+                      evidenceMethod: acceptanceMethod,
+                      evidenceReference: acceptanceReference.trim(),
+                      comments: 'Customer acceptance recorded from Motor Quotations workspace.',
+                    });
+                    toast.success('Customer acceptance recorded with evidence.');
+                    setAcceptanceQuoteId(null);
+                    await refetch();
+                  } catch (error: any) {
+                    toast.error(error?.response?.data?.message || 'Could not record customer acceptance');
+                  } finally {
+                    setAcceptanceSubmitting(false);
+                  }
+                }}
+                className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+              >{acceptanceSubmitting ? 'Saving…' : 'Confirm acceptance'}</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
