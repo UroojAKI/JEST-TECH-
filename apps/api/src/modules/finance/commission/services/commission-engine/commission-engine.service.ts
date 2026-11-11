@@ -47,6 +47,21 @@ export class CommissionEngineService {
     }
   }
 
+  private async assertPlanAccountingAccounts(rules: any) {
+    const accounts = await this.prisma.chartOfAccount.findMany({
+      where: {
+        id: { in: [rules.accounting.expenseAccountId, rules.accounting.payableAccountId] },
+        isActive: true,
+      },
+      select: { id: true, type: true },
+    });
+    const expense = accounts.find((account) => account.id === rules.accounting.expenseAccountId);
+    const payable = accounts.find((account) => account.id === rules.accounting.payableAccountId);
+    if (!expense || expense.type !== 'EXPENSE' || !payable || payable.type !== 'LIABILITY') {
+      throw new BadRequestException('Select an active EXPENSE account and an active LIABILITY account for commission accrual posting');
+    }
+  }
+
   async listCommissionPlans(companyId: string) {
     if (!companyId) throw new ForbiddenException('Company context is required');
     const plans = await this.prisma.commissionPlan.findMany({
@@ -61,6 +76,7 @@ export class CommissionEngineService {
     if (!input.name?.trim()) throw new BadRequestException('Commission plan name is required');
     const rules = this.validatePlanRules(input.rules);
     await this.assertPlanRecipients(companyId, rules);
+    await this.assertPlanAccountingAccounts(rules);
     return this.prisma.commissionPlan.create({
       data: {
         companyId,
@@ -80,6 +96,7 @@ export class CommissionEngineService {
     if (input.rules !== undefined) {
       const rules = this.validatePlanRules(input.rules);
       await this.assertPlanRecipients(companyId, rules);
+      await this.assertPlanAccountingAccounts(rules);
       serializedRules = JSON.stringify(rules);
     }
     return this.prisma.commissionPlan.update({
