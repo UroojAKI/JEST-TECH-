@@ -128,7 +128,7 @@ export interface AgentPerformanceAnalytics {
 
 export interface ActionCentreItem {
   id: string;
-  category: 'OVERDUE_TASK' | 'PENDING_INSPECTION' | 'PAYMENT_VERIFICATION' | 'COMPLIANCE_BLOCK';
+  category: 'OVERDUE_TASK' | 'BACK_OFFICE_TASK' | 'PENDING_INSPECTION' | 'PAYMENT_VERIFICATION' | 'COMPLIANCE_BLOCK';
   title: string;
   referenceCode?: string;
   severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
@@ -147,6 +147,7 @@ export interface OperationalActionCentre {
     pendingInspectionsCount: number;
     pendingPaymentsCount: number;
     complianceBlocksCount: number;
+    backOfficeTasksCount: number;
   };
   criticalItems: ActionCentreItem[];
   itemsByCategory: {
@@ -154,6 +155,7 @@ export interface OperationalActionCentre {
     pendingInspections: ActionCentreItem[];
     pendingPayments: ActionCentreItem[];
     complianceBlocks: ActionCentreItem[];
+    backOfficeTasks: ActionCentreItem[];
   };
 }
 
@@ -405,8 +407,7 @@ export class BiService {
                 select: { productType: true },
               },
             },
-          }).catch(() => [])
-        : Promise.resolve([]),
+          }),
     ]);
 
     // Also include motor insurance revenue from MotorPaymentRecord (PAID status)
@@ -1165,6 +1166,18 @@ export class BiService {
       }
     }
 
+    const backOfficeQueue: ActionCentreItem[] = backOfficeTasks.map((task) => ({
+      id: task.id,
+      category: 'BACK_OFFICE_TASK',
+      title: `${task.taskType.replace(/_/g, ' ')} verification task`,
+      referenceCode: task.taskCode,
+      severity: task.priority === 'CRITICAL' || task.priority === 'HIGH' ? 'CRITICAL' : 'HIGH',
+      assignedTo: task.assignedTo ? `${task.assignedTo.firstName} ${task.assignedTo.lastName || ''}`.trim() : undefined,
+      entityType: 'BackOfficeTask',
+      entityId: task.id,
+      createdAt: task.createdAt.toISOString(),
+    }));
+
     const pendingInspections: ActionCentreItem[] = [];
     for (const q of inspectionQuotes) {
       const cust = q.customer ? `${q.customer.firstName} ${q.customer.lastName || ''}`.trim() : 'Customer';
@@ -1210,7 +1223,7 @@ export class BiService {
       });
     }
 
-    const allItems = [...overdueTasks, ...pendingInspections, ...pendingPayments, ...complianceBlocks];
+    const allItems = [...overdueTasks, ...backOfficeQueue, ...pendingInspections, ...pendingPayments, ...complianceBlocks];
     const criticalItems = allItems.filter((i) => i.severity === 'CRITICAL');
 
     return {
@@ -1220,6 +1233,7 @@ export class BiService {
         pendingInspectionsCount: pendingInspections.length,
         pendingPaymentsCount: pendingPayments.length,
         complianceBlocksCount: complianceBlocks.length,
+        backOfficeTasksCount: backOfficeQueue.length,
       },
       criticalItems,
       itemsByCategory: {
@@ -1227,6 +1241,7 @@ export class BiService {
         pendingInspections,
         pendingPayments,
         complianceBlocks,
+        backOfficeTasks: backOfficeQueue,
       },
     };
   }
