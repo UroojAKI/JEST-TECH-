@@ -951,6 +951,7 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
         vehicleCategory: 'PRIVATE_CAR',
         policyType: 'PACKAGE',
         registrationNumber: 'KA23TD0529',
+        insurerName: 'HDFC ERGO',
         leadId: 'lead-1',
         contactId: 'c-1',
       };
