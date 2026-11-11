@@ -495,11 +495,12 @@ describe('POS Partner & Mandatory Policy Address Specifications', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('should throw BadRequestException if partner is mapped to a different insurer (DEC-03 mismatch)', async () => {
+    it('should allow POS attribution when no mapping exists for the policy insurer', async () => {
       mockPrisma.posPartner.findUnique.mockResolvedValue({
         id: 'pos-icici',
         companyId,
         name: 'ICICI Dedicated Partner',
+        posCode: 'POS-IND-ICICI',
         status: PosPartnerStatus.ACTIVE,
         effectiveFrom: new Date('2020-01-01'),
         effectiveUntil: null,
@@ -517,14 +518,39 @@ describe('POS Partner & Mandatory Policy Address Specifications', () => {
         }],
       });
 
-      await expect(
-        posEligibilityService.assertEligibleForIssuance({
-          posPartnerId: 'pos-icici',
-          companyId,
-          policyInsurerName: 'HDFC ERGO', // Mismatch!
-          productType: 'MOTOR',
-        })
-      ).rejects.toThrow(BadRequestException);
+      const result = await posEligibilityService.assertEligibleForIssuance({
+        posPartnerId: 'pos-icici',
+        companyId,
+        policyInsurerName: 'HDFC ERGO',
+        productType: 'MOTOR',
+      });
+
+      expect(result.partner.id).toBe('pos-icici');
+      expect(result.mapping).toBeNull();
+      expect(result.insurer).toBeNull();
+    });
+
+    it('should allow an active POS partner with no insurer mappings', async () => {
+      mockPrisma.posPartner.findUnique.mockResolvedValue({
+        id: 'pos-unmapped',
+        companyId,
+        name: 'Unmapped POS',
+        posCode: 'POS-UNMAPPED',
+        status: PosPartnerStatus.ACTIVE,
+        effectiveFrom: new Date('2020-01-01'),
+        effectiveUntil: null,
+        insurerMappings: [],
+      });
+
+      const result = await posEligibilityService.assertEligibleForIssuance({
+        posPartnerId: 'pos-unmapped',
+        companyId,
+        policyInsurerName: 'HDFC ERGO',
+        productType: 'MOTOR',
+      });
+
+      expect(result.partner.id).toBe('pos-unmapped');
+      expect(result.mapping).toBeNull();
     });
 
     it('should succeed and return snapshots when partner is ACTIVE and insurer matches', async () => {
