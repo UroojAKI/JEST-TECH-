@@ -135,15 +135,22 @@ export class BackOfficeQueueService {
         actor?.isPlatformAdmin;
       const isBackOffice = actor?.role === RoleType.BACK_OFFICE;
 
+      // Fail closed when an authenticated non-platform actor has no tenant.
+      if (actor && !isPlatformOrCompanyAdmin && !actor.companyId) {
+        throw new BadRequestException('Company context is required to access the Back Office queue');
+      }
+
       const tenantFilter: Prisma.QuotationWhereInput = {
         ...(actor?.companyId ? { companyId: actor.companyId } : {}),
-        // Only restrict to branch if user is an agent and has branchId assigned
+        // Keep branch scope in AND so the queue's status OR cannot overwrite it.
         ...(!isPlatformOrCompanyAdmin && !isBackOffice && actor?.branchId
           ? {
-              OR: [
-                { createdBy: { branchId: actor.branchId } },
-                { contact: { branchId: actor.branchId } },
-              ],
+              AND: [{
+                OR: [
+                  { createdBy: { branchId: actor.branchId } },
+                  { contact: { branchId: actor.branchId } },
+                ],
+              }],
             }
           : {}),
       };
