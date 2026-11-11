@@ -383,7 +383,9 @@ export class PosPartnerService {
     policiesSheet.columns = [
       { header: 'Agent POS Code', key: 'posCode', width: 20 },
       { header: 'Agent POS Name', key: 'posName', width: 28 },
-      { header: 'Partner Code at Insurer', key: 'partnerCode', width: 24 },
+      { header: 'Agent POS Contact', key: 'posContact', width: 18 },
+      { header: 'Agent POS Email', key: 'posEmail', width: 30 },
+      { header: 'Partner Code at Insurer', key: 'partnerCode', width: 24 }
       { header: 'Insurer POS ID', key: 'insurerPospId', width: 22 },
       { header: 'Insurer', key: 'insurer', width: 30 },
       { header: 'Insurer Code', key: 'insurerCode', width: 16 },
@@ -406,7 +408,9 @@ export class PosPartnerService {
     activity.columns = [
       { header: 'Agent POS Code', key: 'posCode', width: 20 },
       { header: 'Agent POS Name', key: 'posName', width: 28 },
-      { header: 'Policy Number', key: 'policyNumber', width: 24 },
+      { header: 'Agent POS Contact', key: 'posContact', width: 18 },
+      { header: 'Agent POS Email', key: 'posEmail', width: 30 },
+      { header: 'Policy Number', key: 'policyNumber', width: 24 }
       { header: 'Entity Type', key: 'entityType', width: 24 },
       { header: 'Action', key: 'action', width: 18 },
       { header: 'Module', key: 'module', width: 18 },
@@ -447,6 +451,7 @@ export class PosPartnerService {
       for (const policy of partner.policies) {
         policiesSheet.addRow({
           posCode: partner.posCode, posName: partner.name,
+          posContact: partner.mobile, posEmail: partner.email,
           partnerCode: policy.insurerPartnerCodeSnapshot, insurerPospId: policy.insurerPospIdSnapshot,
           insurer: policy.insurerNameSnapshot, insurerCode: policy.insurerCodeSnapshot,
           policyId: policy.id, policyNumber: policy.policyNumber,
@@ -471,7 +476,7 @@ export class PosPartnerService {
       const partner = partnerById.get(event.entityId) || policy?.partner || mappingById.get(event.entityId);
       if (!partner) continue;
       activity.addRow({
-        posCode: partner.posCode, posName: partner.name, policyNumber: policy?.policyNumber || '',
+        posCode: partner.posCode, posName: partner.name, posContact: partner.mobile, posEmail: partner.email, policyNumber: policy?.policyNumber || '',
         entityType: event.entityType || event.entity, action: event.action, module: event.module,
         actor: event.performedById || event.userId, createdAt: event.createdAt,
         details: JSON.stringify(event.metadata || {}),
