@@ -64,7 +64,10 @@ export class CreateMotorQuotationCommand {
     const insurer = matchingInsurers[0];
 
     // ── 0. Vehicle Duplicate Policy & Quotation Prevention ──
-    if (dto.registrationNumber) {
+    // Existing cases may contain alternative insurer quotes for the same vehicle.
+    // A renewal is already anchored to and validated against its predecessor policy below.
+    // Do not let the generic duplicate check block either legitimate workflow.
+    if (dto.registrationNumber && !dto.caseId && !dto.renewalOfPolicyId) {
       const vehicleCheck = await this.vehicleDataService.checkVehicleRunningPolicy(
         dto.registrationNumber,
         companyId,
