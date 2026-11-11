@@ -263,7 +263,7 @@ export function MotorQuotationsWorkspace() {
           vehicleCategory: item.motorMetadata?.vehicleCategory || item.vehicleCategory || 'PRIVATE_CAR',
           policyType: item.motorMetadata?.policyType || item.policyType || 'PACKAGE',
           registrationNumber: item.motorMetadata?.registrationNumber || item.registrationNumber || '',
-          insurerName: item.insurerName?.trim() || 'Insurer missing',
+          insurerName: item.insurerName?.trim() && item.insurerName.trim().toLowerCase() !== 'partner insurer' ? item.insurerName.trim() : 'Insurer missing',
           totalPremium: Number(item.totalPremium || 0),
           idv: Number(item.sumInsured || 0),
           ncbPercentage: Number(item.ncbPercentage || 0),
@@ -615,6 +615,8 @@ export function MotorQuotationsWorkspace() {
                     <tbody className="divide-y">
                       {quotes.map((quote) => {
                         const submitted = Boolean((quote as any).backOfficeSubmittedAt);
+                        const customerAccepted = quote.status === 'ACCEPTED' || Boolean((quote as any).customerAcceptance);
+                        const validInsurer = Boolean(quote.insurerName && quote.insurerName.toLowerCase() !== 'insurer missing' && quote.insurerName.toLowerCase() !== 'partner insurer');
                         // Proposal/payment remains reachable for saved drafts as well as
                         // later workflow states; do not hide the existing wizard just
                         // because the display status is still DRAFT.
@@ -669,7 +671,7 @@ export function MotorQuotationsWorkspace() {
                                 >
                                   Add insurer quote
                                 </button>
-                                {!isBackOfficeOrAdmin && !submitted && (quote as any).caseId && (
+                                {!isBackOfficeOrAdmin && !submitted && (quote as any).caseId && customerAccepted && validInsurer && (
                                   <button onClick={async () => {
                                     const selected = allQuotes.find((item) => item.id === quote.id);
                                     if (!selected?.caseId) {
@@ -685,6 +687,12 @@ export function MotorQuotationsWorkspace() {
                                       toast.error(error?.response?.data?.message || 'Could not submit quotation to Back Office');
                                     }
                                   }} className="rounded bg-primary px-2 py-1 text-primary-foreground">Select & Send</button>
+                                )}
+                                {!isBackOfficeOrAdmin && !submitted && (quote as any).caseId && !customerAccepted && (
+                                  <span className="rounded bg-amber-500/10 px-2 py-1 text-amber-700">Accept before handoff</span>
+                                )}
+                                {!validInsurer && (
+                                  <span className="rounded bg-rose-500/10 px-2 py-1 text-rose-700" title="Correct this quotation against Insurer Master before Back Office submission">Insurer data issue</span>
                                 )}
                                 {quote.status === 'PENDING_INSPECTION' && (
                                   <button onClick={() => setInspectionQuoteId(quote.id)} className="rounded border border-amber-300 px-2 py-1 text-amber-700">Inspection</button>
