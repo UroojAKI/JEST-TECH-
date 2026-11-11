@@ -161,39 +161,39 @@ export class PosPartnerRepository {
           ],
         },
       ],
-      insurerMappings: {
+    };
+
+    // Policy issuance attribution is optional. Return every active POS partner
+    // when no insurer filter is supplied, including partners without mappings.
+    // When a caller explicitly filters by insurer, retain insurer-specific filtering.
+    if (params.insurerId || params.insurerName) {
+      where.insurerMappings = {
         some: {
-        isActive: true,
-        AND: [
-          { effectiveFrom: { lte: now } },
-          {
-            OR: [
-              { effectiveUntil: null },
-              { effectiveUntil: { gte: now } },
-            ],
-          },
-          ...(params.insurerId
-            ? [
-                {
+          isActive: true,
+          AND: [
+            { effectiveFrom: { lte: now } },
+            {
+              OR: [
+                { effectiveUntil: null },
+                { effectiveUntil: { gte: now } },
+              ],
+            },
+            ...(params.insurerId
+              ? [{
                   OR: [
                     { insurerId: params.insurerId },
                     { insurer: { code: params.insurerId } },
                   ],
-                },
-              ]
-            : params.insurerName
-            ? [
-                {
+                }]
+              : [{
                   insurer: {
                     name: { equals: params.insurerName, mode: 'insensitive' as const },
                   },
-                },
-              ]
-            : []),
-        ],
+                }]),
+          ],
         },
-      },
-    };
+      };
+    }
 
     return this.prisma.posPartner.findMany({
       where,
