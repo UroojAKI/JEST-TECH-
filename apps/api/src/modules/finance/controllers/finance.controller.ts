@@ -557,7 +557,8 @@ const planIds = [
       where: {
         OR: [
           { companyId },
-          { user: { companyId } },
+          // Legacy rows without a denormalized companyId are scoped via their recipient.
+          { companyId: null, user: { companyId } },
         ],
       },
       orderBy: { createdAt: 'desc' },
