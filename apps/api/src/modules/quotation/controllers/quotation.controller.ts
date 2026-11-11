@@ -262,8 +262,27 @@ export class QuotationController {
 
     const completion = await this.quotationCompletionService.getCompletion(id, user);
     if (!completion.canApprove) {
+      const coverageSection = completion.sections?.find((s) => s.section === 'coverage');
+      const customerSection = completion.sections?.find((s) => s.section === 'customer');
+      const reasons: string[] = [];
+      if (coverageSection?.missing?.length) {
+        reasons.push(
+          `Missing coverage details: ${coverageSection.missing.map((m) => m.label).join(', ')}`,
+        );
+      }
+      if ((customerSection?.completedCount ?? 0) < 2) {
+        const missingLabels = (customerSection?.missing || []).map((m) => m.label);
+        reasons.push(
+          `Provide at least 2 customer details (currently ${customerSection?.completedCount ?? 0}/2${missingLabels.length ? `; missing: ${missingLabels.join(', ')}` : ''})`,
+        );
+      }
+      const message =
+        reasons.length > 0
+          ? `Quotation is incomplete and cannot be submitted to back office. ${reasons.join('. ')}.`
+          : 'Quotation is incomplete and cannot be submitted to back office.';
       throw new BadRequestException({
-        message: 'Quotation is incomplete and cannot be submitted to back office',
+        message,
+        errorCode: 'QUOTATION_INCOMPLETE_FOR_SUBMISSION',
         completion,
       });
     }

@@ -683,7 +683,11 @@ export function HealthCaseWorkspace({ caseId }: { caseId: string }) {
                   type="button"
                   disabled={handoffMutation.isPending || Boolean(selectedQuote.backOfficeSubmittedAt)}
                   onClick={() => handoffMutation.mutate(selectedQuote.id)}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold disabled:opacity-50"
+                  className={`flex cursor-pointer items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold shadow-xs transition-all active:scale-[0.98] disabled:cursor-not-allowed ${
+                    selectedQuote.backOfficeSubmittedAt
+                      ? 'bg-emerald-600/15 text-emerald-700 border-emerald-500/30 opacity-90'
+                      : 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:opacity-60'
+                  }`}
                 >
                   {handoffMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
                   {selectedQuote.backOfficeSubmittedAt ? 'Sent to Back Office' : 'Send Selected Quote to Back Office'}

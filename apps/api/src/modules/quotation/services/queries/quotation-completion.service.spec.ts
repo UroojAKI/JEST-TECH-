@@ -407,5 +407,79 @@ describe('QuotationCompletionService', () => {
       expect(coverageSection!.complete).toBe(true);
       expect(coverageSection!.missing).toHaveLength(0);
     });
+
+    it('updates Contact phone, Customer mobile, and proposerDetails.mobileNumber in updateDetails', async () => {
+      const quotation = {
+        id: 'quote-phone-1',
+        quotationCode: 'QT-2026-11-000049',
+        companyId: 'comp-1',
+        contactId: 'contact-phone-1',
+        vehicleId: null,
+        title: 'Motor Quote',
+        policyType: 'PACKAGE',
+        sumInsured: 50000,
+        totalPremium: 2174.74,
+        status: QuotationStatus.DRAFT,
+        workflowState: MotorWorkflowState.READY_FOR_PROPOSAL,
+        motorMetadata: {
+          proposerDetails: {
+            customerName: 'test test',
+            mobileNumber: '',
+          },
+        },
+        contact: {
+          id: 'contact-phone-1',
+          firstName: 'test',
+          lastName: 'test',
+          phone: null,
+          email: null,
+          customer: {
+            id: 'cust-phone-1',
+            mobile: '',
+          },
+        },
+        vehicle: null,
+        motorPreviousPolicy: null,
+        motorInspection: null,
+        motorPaymentRecord: null,
+        documents: [],
+      };
+
+      mockPrisma.quotation.findUnique.mockResolvedValue(quotation);
+      mockPrisma.quotation.findFirst.mockResolvedValue({
+        ...quotation,
+        contact: {
+          ...quotation.contact,
+          phone: '9876543210',
+        },
+      });
+      mockPrisma.contact.update.mockResolvedValue({});
+      mockPrisma.customer.update.mockResolvedValue({});
+      mockPrisma.quotation.update.mockResolvedValue({});
+
+      const completion = await service.updateDetails('quote-phone-1', {
+        phone: '9876543210',
+      });
+
+      expect(mockPrisma.contact.update).toHaveBeenCalledWith({
+        where: { id: 'contact-phone-1' },
+        data: { phone: '9876543210' },
+      });
+      expect(mockPrisma.customer.update).toHaveBeenCalledWith({
+        where: { id: 'cust-phone-1' },
+        data: { mobile: '9876543210' },
+      });
+      expect(mockPrisma.quotation.update).toHaveBeenCalledWith({
+        where: { id: 'quote-phone-1' },
+        data: {
+          motorMetadata: expect.objectContaining({
+            proposerDetails: expect.objectContaining({
+              mobileNumber: '9876543210',
+            }),
+          }),
+        },
+      });
+      expect(completion.canApprove).toBe(true);
+    });
   });
 });

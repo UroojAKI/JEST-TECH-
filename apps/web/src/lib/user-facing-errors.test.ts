@@ -185,6 +185,48 @@ describe('formatUserFacingError (REQ-8 Plain Language Error Handling)', () => {
     expect(formatted.title).toBe('Service Temporarily Unavailable');
     expect(formatted.dataPreserved).toBe(true);
   });
+
+  it('translates 400 QUOTATION_INCOMPLETE_FOR_SUBMISSION nested under error into actionable missing fields guidance', () => {
+    const error: any = {
+      isAxiosError: true,
+      response: {
+        status: 400,
+        data: {
+          error: {
+            statusCode: 400,
+            errorCode: 'QUOTATION_INCOMPLETE_FOR_SUBMISSION',
+            message: 'Quotation is incomplete and cannot be submitted to back office.',
+            completion: {
+              canApprove: false,
+              sections: [
+                {
+                  section: 'customer',
+                  completedCount: 1,
+                  missing: [
+                    { field: 'phone', label: 'Mobile Number' },
+                    { field: 'email', label: 'Email Address' },
+                  ],
+                },
+                {
+                  section: 'coverage',
+                  completedCount: 3,
+                  missing: [],
+                },
+              ],
+            },
+          },
+        },
+      },
+    };
+
+    const formatted = formatUserFacingError(error);
+
+    expect(formatted.title).toBe('Quotation Details Incomplete');
+    expect(formatted.message).toContain('currently 1/2');
+    expect(formatted.message).toContain('Mobile Number, Email Address');
+    expect(formatted.actionHint).toContain('Complete Details');
+    expect(formatted.statusCode).toBe(400);
+  });
 });
 
 describe('getAuthErrorMessage (Login & Connection Error Diagnostics)', () => {

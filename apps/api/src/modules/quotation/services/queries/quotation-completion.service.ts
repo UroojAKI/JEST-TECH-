@@ -495,7 +495,17 @@ export class QuotationCompletionService {
 
     // 1. Update Contact fields (strictly schema-valid Contact columns only)
     const contactUpdates: Prisma.ContactUpdateInput = {};
+    const trimmedEmail =
+      updates.email !== undefined && updates.email !== null
+        ? String(updates.email).trim()
+        : '';
     if (updates.email !== undefined) contactUpdates.email = updates.email;
+    const rawPhone = updates.phone ?? updates.mobileNumber;
+    const trimmedPhone =
+      rawPhone !== undefined && rawPhone !== null ? String(rawPhone).trim() : '';
+    if (trimmedPhone) {
+      contactUpdates.phone = trimmedPhone;
+    }
     if (
       updates.panNumber !== undefined &&
       !/^X{4,}/i.test(String(updates.panNumber).trim()) &&
@@ -520,13 +530,14 @@ export class QuotationCompletionService {
         contactUpdates.dateOfBirth = parsedDob;
       }
     }
-    if (updates.customerName !== undefined) {
-      const trimmedName = String(updates.customerName).trim();
-      if (trimmedName) {
-        const parts = trimmedName.split(/\s+/);
-        contactUpdates.firstName = parts[0];
-        contactUpdates.lastName = parts.slice(1).join(' ') || parts[0];
-      }
+    const trimmedName =
+      updates.customerName !== undefined && updates.customerName !== null
+        ? String(updates.customerName).trim()
+        : '';
+    if (trimmedName) {
+      const parts = trimmedName.split(/\s+/);
+      contactUpdates.firstName = parts[0];
+      contactUpdates.lastName = parts.slice(1).join(' ') || parts[0];
     }
     if (Object.keys(contactUpdates).length > 0 && quotation.contactId) {
       await this.prisma.contact.update({
@@ -553,8 +564,9 @@ export class QuotationCompletionService {
       (quotation as any).customer?.id ||
       (quotation as any).customerId;
     const customerDelegate = (this.prisma as any).customer;
-    if (hasAddressUpdates && customerDelegate) {
+    if ((hasAddressUpdates || trimmedPhone) && customerDelegate) {
       const custUpdates: Prisma.CustomerUpdateInput = {};
+      if (trimmedPhone) custUpdates.mobile = trimmedPhone;
       if (trimmedAddress) custUpdates.addressLine1 = trimmedAddress;
       if (trimmedAddressLine2) custUpdates.addressLine2 = trimmedAddressLine2;
       if (trimmedCity) custUpdates.city = trimmedCity;
@@ -579,9 +591,12 @@ export class QuotationCompletionService {
       }
     }
 
-    if (hasAddressUpdates) {
+    if (hasAddressUpdates || trimmedPhone || trimmedEmail || trimmedName) {
       workingMetadata.proposerDetails = {
         ...(workingMetadata.proposerDetails || {}),
+        ...(trimmedName ? { customerName: trimmedName } : {}),
+        ...(trimmedPhone ? { mobileNumber: trimmedPhone } : {}),
+        ...(trimmedEmail ? { emailId: trimmedEmail } : {}),
         ...(trimmedAddress
           ? { address: trimmedAddress, communicationAddress: trimmedAddress }
           : {}),

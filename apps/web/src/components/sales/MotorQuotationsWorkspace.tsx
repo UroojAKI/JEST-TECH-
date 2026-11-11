@@ -4,14 +4,15 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '../../lib/api-client';
+import { apiClient, showApiErrorToast } from '../../lib/api-client';
 import { toast } from 'sonner';
-import { Car, Plus, Search, RefreshCw, FileSpreadsheet, Award, AlertTriangle, History, ArrowLeft, CheckCircle2, HeartPulse } from 'lucide-react';
+import { Car, Plus, Search, RefreshCw, FileSpreadsheet, Award, AlertTriangle, History, ArrowLeft, CheckCircle2, HeartPulse, Loader2, Send } from 'lucide-react';
 
 import { MotorQuoteWizard } from '../leads/motor-quote/MotorQuoteWizard';
 import { InspectionDialog } from '../leads/motor-quote/InspectionDialog';
 import { MotorProposalWizard } from '../leads/motor-quote/MotorProposalWizard';
 import { PolicyCompletionDialog } from '../leads/motor-quote/PolicyCompletionDialog';
+import { QuotationCompletionView } from '../leads/motor-quote/QuotationCompletionView';
 import type { VehicleCategory, SavedMotorQuote } from '../leads/motor-quote/motorFormTypes';
 import { MotorProductCards } from '../workspaces/sales/MotorProductCards';
 import { useAuthStore } from '../../store/auth-store';
@@ -20,6 +21,14 @@ import {
   canUserSubmitToBackOffice,
   quotationsRepository,
 } from '../../repositories/quotations.repository';
+
+function isTerminalQuoteStatusValue(quote: SavedMotorQuote): boolean {
+  return (
+    ['ISSUED', 'CONVERTED_TO_POLICY', 'REJECTED', 'EXPIRED'].includes(
+      String(quote.status || '').toUpperCase(),
+    ) || String((quote as any).issuanceStatus || '').toUpperCase() === 'ISSUED'
+  );
+}
 
 export function MotorQuotationsWorkspace() {
   const authUser = useAuthStore((s) => s.user);
@@ -63,6 +72,8 @@ export function MotorQuotationsWorkspace() {
   const [inspectionQuoteId, setInspectionQuoteId] = useState<string | null>(null);
   const [proposalQuote, setProposalQuote] = useState<SavedMotorQuote | null>(null);
   const [completionQuote, setCompletionQuote] = useState<SavedMotorQuote | null>(null);
+  const [completionEditQuote, setCompletionEditQuote] = useState<{ id: string; quotationCode?: string } | null>(null);
+  const [submittingQuoteId, setSubmittingQuoteId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -577,16 +588,40 @@ export function MotorQuotationsWorkspace() {
             const customerName = first?.proposerDetails?.customerName || 'Customer';
             const mobile = first?.proposerDetails?.mobileNumber || '';
             const vehicle = first?.registrationNumber || 'New Vehicle';
+            const editableQuote = quotes.find((q) => !isTerminalQuoteStatusValue(q));
             return (
               <div key={groupId} className="rounded-xl border bg-card p-5 space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-3 border-b gap-3">
                   <div><div className="text-sm font-bold">{customerName} <span className="text-muted-foreground">|</span> {vehicle}</div><div className="text-xs text-muted-foreground">{mobile} · {quotes.length} version{quotes.length === 1 ? '' : 's'}</div></div>
-                  <button onClick={() => handleOpenWizard(first?.vehicleCategory, {
-                    vehicleDetails: first?.vehicleDetails,
-                    proposerDetails: first?.proposerDetails,
-                    previousPolicyDetails: (first as any)?.previousPolicyDetails,
-                    caseId: (first as any)?.caseId,
-                  })} className="px-3 py-1.5 rounded-md border bg-background hover:bg-muted text-xs font-semibold">{activeTab === 'RENEWALS' ? 'Generate Renewal Quote' : 'New Quote Version'}</button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {editableQuote && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCompletionEditQuote({
+                            id: editableQuote.id,
+                            quotationCode: editableQuote.quotationCode,
+                          })
+                        }
+                        className="cursor-pointer px-3 py-1.5 rounded-md border bg-background hover:bg-muted active:scale-[0.98] transition-all text-xs font-semibold"
+                        title="Complete missing customer or KYC details for this customer group"
+                      >
+                        Complete Details
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleOpenWizard(first?.vehicleCategory, {
+                        vehicleDetails: first?.vehicleDetails,
+                        proposerDetails: first?.proposerDetails,
+                        previousPolicyDetails: (first as any)?.previousPolicyDetails,
+                        caseId: (first as any)?.caseId,
+                      })}
+                      className="cursor-pointer px-3 py-1.5 rounded-md border bg-background hover:bg-muted active:scale-[0.98] transition-all text-xs font-semibold"
+                    >
+                      {activeTab === 'RENEWALS' ? 'Generate Renewal Quote' : 'New Quote Version'}
+                    </button>
+                  </div>
                 </div>
                 <div className="overflow-x-auto rounded-lg border">
                   <table className="w-full min-w-[980px] text-xs">
@@ -605,11 +640,7 @@ export function MotorQuotationsWorkspace() {
                     <tbody className="divide-y">
                       {quotes.map((quote) => {
                         const submitted = Boolean((quote as any).backOfficeSubmittedAt);
-                        const isTerminalQuoteStatus =
-                          ['ISSUED', 'CONVERTED_TO_POLICY', 'REJECTED', 'EXPIRED'].includes(
-                            String(quote.status || '').toUpperCase(),
-                          ) ||
-                          String((quote as any).issuanceStatus || '').toUpperCase() === 'ISSUED';
+                        const isTerminalQuoteStatus = isTerminalQuoteStatusValue(quote);
                         const proposalReady = ['READY_FOR_PROPOSAL', 'APPROVED', 'PAYMENT_UNDER_PROCESS', 'PAYMENT_PENDING'].includes(String(quote.status));
                         const issuanceReady = ['PAYMENT_DONE', 'PENDING_ISSUANCE'].includes(String(quote.status)) || (quote as any).issuanceStatus === 'ISSUANCE_PENDING';
                         return (
@@ -633,6 +664,7 @@ export function MotorQuotationsWorkspace() {
                             <td className="px-3 py-3">
                               <div className="flex flex-wrap items-center gap-1.5">
                                 <button
+                                  type="button"
                                   onClick={() => handleOpenWizard(quote.vehicleCategory, {
                                     vehicleDetails: quote.vehicleDetails,
                                     proposerDetails: quote.proposerDetails,
@@ -640,30 +672,55 @@ export function MotorQuotationsWorkspace() {
                                     caseId: (quote as any).caseId,
                                     renewalOfPolicyId: (quote as any).renewalOfPolicyId,
                                   })}
-                                  className="rounded border px-2 py-1 hover:bg-muted disabled:opacity-50"
-                                  disabled={submitted || isTerminalQuoteStatus}
+                                  className="cursor-pointer rounded border px-2 py-1 transition-all hover:bg-muted active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
+                                  disabled={submitted || isTerminalQuoteStatus || submittingQuoteId === quote.id}
                                   title="Create another insurer alternative from this case"
                                 >
                                   Add insurer quote
                                 </button>
                                 {canSubmitToBackOffice && !submitted && !isTerminalQuoteStatus && (
-                                  <button onClick={async () => {
-                                    const selected = allQuotes.find((item) => item.id === quote.id);
-                                    try {
-                                      await quotationsRepository.selectAndSubmitMotorQuotation(
-                                        quote.id,
-                                        selected?.caseId,
-                                      );
-                                      toast.success('Selected quotation sent to Back Office');
-                                      await refetch();
-                                    } catch (error: any) {
-                                      const message =
-                                        error?.response?.data?.message ||
-                                        error?.message ||
-                                        'Could not submit quotation to Back Office';
-                                      toast.error(Array.isArray(message) ? message.join(', ') : message);
-                                    }
-                                  }} className="rounded bg-primary px-2 py-1 text-primary-foreground">Select & Send</button>
+                                  <button
+                                    type="button"
+                                    disabled={submittingQuoteId === quote.id}
+                                    onClick={async () => {
+                                      const selected = allQuotes.find((item) => item.id === quote.id);
+                                      setSubmittingQuoteId(quote.id);
+                                      try {
+                                        await quotationsRepository.selectAndSubmitMotorQuotation(
+                                          quote.id,
+                                          selected?.caseId,
+                                        );
+                                        toast.success('Selected quotation sent to Back Office');
+                                        await refetch();
+                                      } catch (error: any) {
+                                        showApiErrorToast(error, 'Could not submit quotation to Back Office');
+                                        const completionPayload =
+                                          error?.response?.data?.error?.completion ||
+                                          error?.response?.data?.completion;
+                                        if (completionPayload) {
+                                          setCompletionEditQuote({
+                                            id: quote.id,
+                                            quotationCode: quote.quotationCode,
+                                          });
+                                        }
+                                      } finally {
+                                        setSubmittingQuoteId((prev) => (prev === quote.id ? null : prev));
+                                      }
+                                    }}
+                                    className="inline-flex cursor-pointer items-center gap-1.5 rounded-md bg-blue-600 px-2.5 py-1 text-xs font-semibold text-white shadow-xs transition-all hover:bg-blue-700 active:scale-[0.97] active:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 disabled:cursor-not-allowed disabled:opacity-60"
+                                  >
+                                    {submittingQuoteId === quote.id ? (
+                                      <>
+                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                        <span>Sending…</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Send className="h-3 w-3" />
+                                        <span>Select &amp; Send</span>
+                                      </>
+                                    )}
+                                  </button>
                                 )}
                                 {quote.status === 'PENDING_INSPECTION' && (
                                   <button onClick={() => setInspectionQuoteId(quote.id)} className="rounded border border-amber-300 px-2 py-1 text-amber-700">Inspection</button>
@@ -778,6 +835,21 @@ export function MotorQuotationsWorkspace() {
           onClose={() => setCompletionQuote(null)}
           onSuccess={() => {
             setCompletionQuote(null);
+            void refetch();
+          }}
+        />
+      )}
+
+      {completionEditQuote && (
+        <QuotationCompletionView
+          quotationId={completionEditQuote.id}
+          quotationCode={completionEditQuote.quotationCode}
+          open={true}
+          hideTrigger={true}
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen) setCompletionEditQuote(null);
+          }}
+          onSaved={() => {
             void refetch();
           }}
         />

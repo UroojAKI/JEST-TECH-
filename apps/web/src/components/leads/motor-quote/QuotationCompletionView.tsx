@@ -25,6 +25,10 @@ interface Props {
   quotationId: string;
   quotationCode?: string;
   compact?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  hideTrigger?: boolean;
+  onSaved?: () => void;
   onProceedToProposal?: () => void;
   onConductInspection?: () => void;
 }
@@ -62,10 +66,20 @@ export function QuotationCompletionView({
   quotationId,
   quotationCode,
   compact = false,
+  open,
+  onOpenChange,
+  hideTrigger = false,
+  onSaved,
   onProceedToProposal,
   onConductInspection,
 }: Props) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = open !== undefined;
+  const isOpen = isControlled ? open : internalOpen;
+  const setIsOpen = (next: boolean) => {
+    if (!isControlled) setInternalOpen(next);
+    onOpenChange?.(next);
+  };
   const [editValues, setEditValues] = useState<Record<string, string>>({});
   const queryClient = useQueryClient();
 
@@ -82,13 +96,15 @@ export function QuotationCompletionView({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['quotation-completion', quotationId] });
       queryClient.invalidateQueries({ queryKey: ['motor-quotations-all'] });
+      queryClient.invalidateQueries({ queryKey: ['workspace-quotations'] });
       queryClient.invalidateQueries({ queryKey: ['motor-quotation', quotationId] });
       queryClient.invalidateQueries({ queryKey: ['quotations'] });
       toast.success('Quotation details saved and completion recalculated!');
       setEditValues({});
+      onSaved?.();
     },
     onError: (err: any) => {
-      toast.error(err?.response?.data?.message || err?.message || 'Failed to save quotation details');
+      toast.error(err?.response?.data?.error?.message || err?.response?.data?.message || err?.message || 'Failed to save quotation details');
     },
   });
 
@@ -110,7 +126,21 @@ export function QuotationCompletionView({
     updateMutation.mutate(cleaned);
   };
 
+  if (hideTrigger && !isOpen) {
+    return null;
+  }
+
   if (isLoading) {
+    if (hideTrigger) {
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+          <div className="bg-card text-card-foreground border rounded-2xl p-6 flex items-center gap-3 shadow-2xl">
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            <span className="text-sm font-medium">Loading completion checklist...</span>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="flex items-center gap-2 text-xs text-muted-foreground animate-pulse p-2 border rounded">
         <div className="h-2 w-16 bg-muted rounded-full" />
@@ -134,6 +164,22 @@ export function QuotationCompletionView({
   }
 
   if (error || !completion) {
+    if (hideTrigger && isOpen) {
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+          <div className="bg-card text-card-foreground border rounded-2xl p-5 max-w-sm w-full space-y-3 shadow-2xl">
+            <div className="text-sm font-bold text-destructive">Unable to load completion checklist</div>
+            <button
+              type="button"
+              onClick={() => setIsOpen(false)}
+              className="px-3 py-1.5 rounded-lg border text-xs font-semibold hover:bg-muted"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      );
+    }
     return null;
   }
 
@@ -160,40 +206,42 @@ export function QuotationCompletionView({
   return (
     <>
       {/* TRIGGER BADGE / BAR */}
-      <div
-        onClick={() => setIsOpen(true)}
-        className={`cursor-pointer transition-all hover:opacity-90 ${
-          compact ? 'inline-flex items-center gap-2' : 'space-y-1 w-full'
-        }`}
-        title="Click to view Progressive Quotation Completion Checklist (§24, AUD-033)"
-      >
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5">
-            {isComplete ? (
-              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-            ) : (
-              <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-            )}
-            <span
-              className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md border ${badgeColor}`}
-            >
-              {percent}% Complete
+      {!hideTrigger && (
+        <div
+          onClick={() => setIsOpen(true)}
+          className={`cursor-pointer transition-all hover:opacity-90 ${
+            compact ? 'inline-flex items-center gap-2' : 'space-y-1 w-full'
+          }`}
+          title="Click to view Progressive Quotation Completion Checklist (§24, AUD-033)"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5">
+              {isComplete ? (
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+              ) : (
+                <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+              )}
+              <span
+                className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md border ${badgeColor}`}
+              >
+                {percent}% Complete
+              </span>
+            </div>
+            <span className="text-[10px] text-primary hover:underline font-bold flex items-center">
+              {isComplete ? 'View Audit' : 'Missing Details'}
+              <ChevronRight className="h-3 w-3 ml-0.5" />
             </span>
           </div>
-          <span className="text-[10px] text-primary hover:underline font-bold flex items-center">
-            {isComplete ? 'View Audit' : 'Missing Details'}
-            <ChevronRight className="h-3 w-3 ml-0.5" />
-          </span>
-        </div>
 
-        {/* PROGRESS TRACK */}
-        <div className="w-full bg-muted/60 h-1.5 rounded-full overflow-hidden">
-          <div
-            className={`h-full ${progressColor} transition-all duration-500 ease-out`}
-            style={{ width: `${percent}%` }}
-          />
+          {/* PROGRESS TRACK */}
+          <div className="w-full bg-muted/60 h-1.5 rounded-full overflow-hidden">
+            <div
+              className={`h-full ${progressColor} transition-all duration-500 ease-out`}
+              style={{ width: `${percent}%` }}
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* DYNAMIC CHECKLIST MODAL */}
       {isOpen && (

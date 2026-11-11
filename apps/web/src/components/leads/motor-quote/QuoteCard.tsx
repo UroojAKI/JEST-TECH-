@@ -3,7 +3,7 @@
 import React from 'react';
 import { CATEGORY_LABEL, POLICY_TYPE_LABEL } from './motorFormConfig';
 import type { SavedMotorQuote } from './motorFormTypes';
-import { Car, Upload, Clock, CheckCircle2, XCircle, AlertCircle, Shield, Wrench, ShieldCheck, FileText, Copy, Download, RefreshCw, Loader2 } from 'lucide-react';
+import { Car, Upload, Clock, CheckCircle2, XCircle, AlertCircle, Shield, Wrench, ShieldCheck, FileText, Copy, Download, RefreshCw, Loader2, Send } from 'lucide-react';
 import { QuotationCompletionView } from './QuotationCompletionView';
 import { useAuthStore } from '../../../store/auth-store';
 import { useQuery } from '@tanstack/react-query';
@@ -336,19 +336,41 @@ export function QuoteCard({ quote, onUploadQuote, onConductInspection, onComplet
 
         {canSubmitToBackOffice && onSubmitToBackOffice && !isTerminalQuoteStatus && (
           <button
+            type="button"
             disabled={isSubmittedToBackOffice || isSubmittingToBackOffice}
             onClick={async () => {
               setIsSubmittingToBackOffice(true);
               try {
                 await onSubmitToBackOffice(quote.id);
                 setSubmittedToBackOffice(true);
+              } catch {
+                // Parent handler displays error toast via showApiErrorToast
               } finally {
                 setIsSubmittingToBackOffice(false);
               }
             }}
-            className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold disabled:opacity-50"
+            className={`w-full flex cursor-pointer items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-bold shadow-xs transition-all active:scale-[0.98] disabled:cursor-not-allowed ${
+              isSubmittedToBackOffice
+                ? 'bg-emerald-600/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 opacity-90'
+                : 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 disabled:opacity-60'
+            }`}
           >
-            {isSubmittingToBackOffice ? 'Submitting…' : isSubmittedToBackOffice ? 'Sent to Back Office' : 'Select & Send to Back Office'}
+            {isSubmittingToBackOffice ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <span>Submitting…</span>
+              </>
+            ) : isSubmittedToBackOffice ? (
+              <>
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                <span>Sent to Back Office</span>
+              </>
+            ) : (
+              <>
+                <Send className="h-3.5 w-3.5" />
+                <span>Select &amp; Send to Back Office</span>
+              </>
+            )}
           </button>
         )}
 

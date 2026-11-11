@@ -265,6 +265,45 @@ export function formatUserFacingError(
       };
     }
 
+    // Incomplete quotation handoff validation (submit-to-back-office)
+    const completion = resData?.error?.completion || resData?.completion;
+    if (
+      errorCode === 'QUOTATION_INCOMPLETE_FOR_SUBMISSION' ||
+      lower.includes('incomplete and cannot be submitted') ||
+      completion
+    ) {
+      const sections: any[] = Array.isArray(completion?.sections)
+        ? completion.sections
+        : [];
+      const customerSec = sections.find((s) => s?.section === 'customer');
+      const coverageSec = sections.find((s) => s?.section === 'coverage');
+      const missingCoverage = (coverageSec?.missing || []).map((m: any) => m.label);
+      const missingCustomer = (customerSec?.missing || []).map((m: any) => m.label);
+      const parts: string[] = [];
+      if (missingCoverage.length > 0) {
+        parts.push(`Missing coverage: ${missingCoverage.join(', ')}.`);
+      }
+      if (customerSec && (customerSec.completedCount ?? 0) < 2) {
+        parts.push(
+          `Provide at least 2 customer details (currently ${customerSec.completedCount ?? 0}/2${
+            missingCustomer.length ? `; missing: ${missingCustomer.join(', ')}` : ''
+          }).`,
+        );
+      }
+      return {
+        title: 'Quotation Details Incomplete',
+        message:
+          parts.join(' ') ||
+          rawMsg ||
+          'Quotation is incomplete and cannot be submitted to back office.',
+        actionHint:
+          'Use Complete Details to add Mobile Number, Email Address, or Communication Address & PIN Code, then retry Select & Send.',
+        dataPreserved: true,
+        correlationId,
+        statusCode: 400,
+      };
+    }
+
     // Customer address & PIN code validation
     if (
       lower.includes('pincode') ||

@@ -34,6 +34,7 @@ describe('QuotationController', () => {
   let getService: GetQuotationService;
   let compareService: CompareQuotationService;
   let historyService: GetQuotationHistoryService;
+  let completionService: any;
 
   const mockUser: RequestUser = {
     id: 'user-1',
@@ -223,6 +224,10 @@ describe('QuotationController', () => {
     historyService = module.get<GetQuotationHistoryService>(
       GetQuotationHistoryService,
     );
+    completionService = module.get(
+      require('../services/queries/quotation-completion.service')
+        .QuotationCompletionService,
+    );
   });
 
   // 1. Happy Path
@@ -380,6 +385,37 @@ describe('QuotationController', () => {
         },
         message: 'Selected quotation submitted to back office successfully.',
       });
+    });
+
+    it('throws BadRequestException listing missing customer fields when canApprove is false', async () => {
+      completionService.getCompletion.mockResolvedValueOnce({
+        canApprove: false,
+        sections: [
+          { section: 'coverage', missing: [] },
+          {
+            section: 'customer',
+            completedCount: 1,
+            missing: [
+              { field: 'phone', label: 'Mobile Number' },
+              { field: 'email', label: 'Email Address' },
+            ],
+          },
+        ],
+      });
+
+      let caught: any;
+      try {
+        await controller.submitToBackOffice('quote-123', mockUser);
+      } catch (err) {
+        caught = err;
+      }
+
+      expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught.getResponse()).toMatchObject({
+        errorCode: 'QUOTATION_INCOMPLETE_FOR_SUBMISSION',
+        message: expect.stringContaining('currently 1/2'),
+      });
+      expect(caught.getResponse().message).toContain('Mobile Number, Email Address');
     });
   });
 });
