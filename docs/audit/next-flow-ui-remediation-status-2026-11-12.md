@@ -7,6 +7,8 @@
 
 ## Implemented on this branch
 
+Follow-up hardening after initial review: fixed the navigation role fallback, moved search selection handling before keyboard effects, removed duplicate commission mutation toasts, and made the commission table horizontally scrollable on narrow screens.
+
 1. **Responsive navigation shell**
    - Sidebar opens as a small-screen overlay drawer, closes on backdrop and route selection, and starts closed on mobile.
    - Main workspace uses responsive padding and min-width constraints.
