@@ -388,6 +388,7 @@ export interface SavedMotorQuote {
   status: string;
   workflowState?: string;
   createdAt: string;
+  updatedAt?: string;
   customerName?: string;
   proposerDetails?: ProposerDetails;
   vehicleDetails?: Record<string, any>;
