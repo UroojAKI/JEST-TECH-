@@ -1093,7 +1093,7 @@ export class BiService {
       this.prisma.backOfficeTask.findMany({
         where: {
           companyId: cleanCompanyId,
-          status: { in: ['PENDING', 'ASSIGNED', 'IN_PROGRESS'] as any[] },
+          status: { in: ['PENDING', 'IN_REVIEW', 'UNRESOLVED_MIGRATION'] as any[] },
           deletedAt: null,
         },
         select: {
