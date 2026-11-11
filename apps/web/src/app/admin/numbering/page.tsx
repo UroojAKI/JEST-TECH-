@@ -13,7 +13,7 @@ export default function NumberSeriesPage() {
           <h1 className="text-xl font-bold tracking-tight flex items-center gap-2">
             <Hash className="h-5 w-5 text-primary" /> Sequential Numbering & Document Format Engine
           </h1>
-          <p className="text-xs text-muted-foreground">Configure document numbering formats, sequence counters, financial year resets, and live sample previews</p>
+          <p className="text-xs text-muted-foreground">View document numbering formats, sequence counters, financial year resets, and live sample previews. Configuration is read-only in this release.</p>
         </div>
 
       </div>
@@ -42,6 +42,7 @@ export default function NumberSeriesPage() {
                   type="text"
                   value={ns.prefix}
                   readOnly
+                  aria-label={`${ns.entityType} prefix format`
                   className="w-full p-2 rounded border bg-background font-mono font-bold text-xs"
                 />
               </div>
@@ -52,6 +53,7 @@ export default function NumberSeriesPage() {
                   type="number"
                   value={ns.currentSequence}
                   readOnly
+                  aria-label={`${ns.entityType} current counter`
                   className="w-full p-2 rounded border bg-background font-mono font-bold text-xs text-emerald-600"
                 />
               </div>
