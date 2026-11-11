@@ -46,7 +46,8 @@ export function MotorDashboardWidgets({ data }: MotorDashboardWidgetsProps) {
       toast.error(error?.response?.data?.message || 'Could not create task');
     } finally { setTaskSaving(false); }
   };
-  const pipelineSteps: any[] = data?.pipelineSteps || [
+  const hasAnalyticsData = Boolean(data && typeof data === 'object');
+  const pipelineSteps: any[] = data?.pipelineSteps || (hasAnalyticsData ? [
     { label: 'Lead', count: 0, color: 'bg-blue-500' },
     { label: 'Need Analysis', count: 0, color: 'bg-cyan-500' },
     { label: 'Quotation', count: 0, color: 'bg-amber-500' },
@@ -54,16 +55,16 @@ export function MotorDashboardWidgets({ data }: MotorDashboardWidgetsProps) {
     { label: 'Negotiation', count: 0, color: 'bg-purple-500' },
     { label: 'Payment', count: 0, color: 'bg-emerald-500' },
     { label: 'Issued', count: 0, color: 'bg-emerald-700' },
-  ];
+  ] : []);
 
-  const renewals: any[] = data?.renewals || [
+  const renewals: any[] = data?.renewals || (hasAnalyticsData ? [
     { label: 'Today', count: 0, color: 'bg-rose-500 text-white font-black' },
     { label: 'Next 7 Days', count: 0, color: 'bg-amber-500/10 text-amber-600' },
     { label: 'Next 30 Days', count: 0, color: 'bg-sky-500/10 text-sky-600' },
     { label: 'Overdue', count: 0, color: 'bg-red-500/10 text-red-600' },
     { label: 'Lost', count: 0, color: 'bg-muted/40 text-muted-foreground' },
     { label: 'Completed', count: 0, color: 'bg-emerald-500/10 text-emerald-600' },
-  ];
+  ] : []);
 
   const todayTasks: any[] = data?.todayTasks || [];
   const followups: any[] = data?.followups || [];
@@ -100,7 +101,7 @@ export function MotorDashboardWidgets({ data }: MotorDashboardWidgetsProps) {
             </Link>
           </div>
 
-          <div className="space-y-3">
+          {!hasAnalyticsData ? <p className="rounded-lg border border-dashed p-5 text-center text-xs text-muted-foreground">Analytics unavailable — metrics have not been loaded.</p> : <div className="space-y-3">
             <div className="grid grid-cols-7 gap-1.5 text-center">
               {pipelineSteps.map((s: any, idx: number) => (
                 <div key={idx} className="space-y-1.5">
@@ -114,7 +115,7 @@ export function MotorDashboardWidgets({ data }: MotorDashboardWidgetsProps) {
                 </div>
               ))}
             </div>
-          </div>
+          </div>}
         </div>
 
         {/* Renewals Widget */}
@@ -133,14 +134,14 @@ export function MotorDashboardWidgets({ data }: MotorDashboardWidgetsProps) {
             </Link>
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
+          {!hasAnalyticsData ? <p className="rounded-lg border border-dashed p-5 text-center text-xs text-muted-foreground">Renewal metrics unavailable.</p> : <div className="grid grid-cols-3 gap-2">
             {renewals.map((r: any, idx: number) => (
               <div key={idx} className={`p-2.5 rounded-xl border text-center ${r.color}`}>
                 <div className="text-base font-black">{r.count ?? 0}</div>
                 <div className="text-[10px] font-bold opacity-80 mt-0.5 truncate">{r.label}</div>
               </div>
             ))}
-          </div>
+          </div>}
         </div>
       </div>
 
