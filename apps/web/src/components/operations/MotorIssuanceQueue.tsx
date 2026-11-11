@@ -108,6 +108,7 @@ export function MotorIssuanceQueue() {
       const res = await policiesRepository.getBackOfficeQueue({
         search: search.trim() || undefined,
         status: activeStatus === 'ALL' ? undefined : activeStatus,
+        productType: productFilter === 'ALL' ? undefined : productFilter,
         page,
         limit: pageSize,
       });
@@ -132,9 +133,13 @@ export function MotorIssuanceQueue() {
   useEffect(() => {
     const handle = window.setTimeout(() => { void loadQueue(); }, 250);
     return () => window.clearTimeout(handle);
-    // Search, status and page changes are intentionally debounced before fetching.
+    // Search, status, product and page changes are intentionally debounced before fetching.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, search, page, pageSize]);
+  }, [statusFilter, productFilter, search, page, pageSize]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [statusFilter, productFilter]);
 
   // Search and pagination are server-side; this array is the current server page.
   const filteredQueue = queue;
