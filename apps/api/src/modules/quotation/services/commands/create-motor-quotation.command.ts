@@ -912,10 +912,27 @@ export class CreateMotorQuotationCommand {
           });
         }
 
-        // A case represents one customer/vehicle comparison. Do not create the
-        // same insurer alternative twice: revisions belong under the explicit
-        // quotation-version workflow, not as duplicate insurer rows.
+        // Customer acceptance locks the winning version for this case.
+        // Once accepted, no further insurer alternatives may be added.
         if (activeCaseId) {
+          const acceptedQuote = await tx.quotation.findFirst({
+            where: {
+              companyId,
+              caseId: activeCaseId,
+              status: QuotationStatus.ACCEPTED,
+              deletedAt: null,
+            },
+            select: { id: true, quotationCode: true },
+          });
+          if (acceptedQuote) {
+            throw new ConflictException(
+              `This case already has customer-accepted quotation ${acceptedQuote.quotationCode || acceptedQuote.id}. Reopen it through the authorized case workflow before adding another alternative.`,
+            );
+          }
+
+          // A case represents one customer/vehicle comparison. Do not create the
+          // same insurer alternative twice: revisions belong under the explicit
+          // quotation-version workflow, not as duplicate insurer rows.
           const existingInsurerAlternative = await tx.quotation.findFirst({
             where: {
               companyId,
