@@ -1143,6 +1143,7 @@ export class BiService {
         },
         select: {
           id: true,
+          quotationId: true,
           inspectionCode: true,
           status: true,
           createdAt: true,
@@ -1201,7 +1202,7 @@ export class BiService {
         referenceCode: inspection.inspectionCode || inspection.quotation?.quotationCode,
         severity: 'HIGH',
         entityType: 'MotorInspection',
-        entityId: inspection.id,
+        entityId: inspection.quotationId,
         createdAt: inspection.createdAt.toISOString(),
       });
     }
