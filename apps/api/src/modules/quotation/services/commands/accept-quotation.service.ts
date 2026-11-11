@@ -76,21 +76,26 @@ export class AcceptQuotationService {
         return QuotationMapper.toResponse(detail!);
       }
 
-      // Check if another quotation for this lead is already accepted
+      // Underwriter approval is not customer acceptance. Only another
+      // quotation carrying explicit customer-acceptance evidence locks the lead.
       if (quotation.leadId) {
-        const existingAccepted = await tx.quotation.findFirst({
+        const competingLeadQuotes = await tx.quotation.findMany({
           where: {
             leadId: quotation.leadId,
             ...(companyId ? { companyId } : {}),
-            status: QuotationStatus.APPROVED,
             id: { not: quotation.id },
             deletedAt: null,
           },
+          select: { id: true, quotationCode: true, motorMetadata: true },
+        });
+        const existingAccepted = competingLeadQuotes.find((candidate: any) => {
+          const evidence = (candidate.motorMetadata as any)?.customerAcceptance;
+          return Boolean(evidence?.evidenceMethod && evidence?.timestamp);
         });
 
         if (existingAccepted) {
           throw new BadRequestException(
-            `Lead already has an accepted quotation (${existingAccepted.quotationCode}). Only one quotation can be accepted per opportunity.`,
+            `Lead already has a customer-accepted quotation (${existingAccepted.quotationCode}). Only one quotation can be accepted per opportunity.`,
           );
         }
 
