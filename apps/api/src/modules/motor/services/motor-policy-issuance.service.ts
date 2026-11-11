@@ -663,7 +663,7 @@ export class MotorPolicyIssuanceService {
           posCodeSnapshot: posEligibility.partner.posCode,
           posNameSnapshot: posEligibility.partner.name,
           insurerCodeSnapshot: posEligibility.insurer?.code || null,
-          insurerNameSnapshot: posEligibility.insurer?.name || null,
+          insurerNameSnapshot: posEligibility.insurer?.name || quote.insurerName || null,
           insurerPartnerCodeSnapshot: posEligibility.mapping?.insurerPartnerCode || null,
           insurerPospIdSnapshot: posEligibility.mapping?.insurerPospId || null,
         };
