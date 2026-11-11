@@ -658,14 +658,14 @@ export class MotorPolicyIssuanceService {
         });
         posSnapshotData = {
           posPartnerId: posEligibility.partner.id,
-          posInsurerMappingId: posEligibility.mapping.id,
+          posInsurerMappingId: posEligibility.mapping?.id || null,
           distributionChannel: 'POS',
           posCodeSnapshot: posEligibility.partner.posCode,
           posNameSnapshot: posEligibility.partner.name,
-          insurerCodeSnapshot: posEligibility.insurer.code,
-          insurerNameSnapshot: posEligibility.insurer.name,
-          insurerPartnerCodeSnapshot: posEligibility.mapping.insurerPartnerCode || null,
-          insurerPospIdSnapshot: posEligibility.mapping.insurerPospId || null,
+          insurerCodeSnapshot: posEligibility.insurer?.code || null,
+          insurerNameSnapshot: posEligibility.insurer?.name || null,
+          insurerPartnerCodeSnapshot: posEligibility.mapping?.insurerPartnerCode || null,
+          insurerPospIdSnapshot: posEligibility.mapping?.insurerPospId || null,
         };
       } else if (requestedPosId) {
         posSnapshotData = {
