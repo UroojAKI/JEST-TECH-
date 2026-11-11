@@ -5,6 +5,7 @@ import {
   Logger,
   Optional,
   InternalServerErrorException,
+  HttpException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../../database/prisma.service';
 import {
@@ -571,6 +572,7 @@ export class BackOfficeQueueService {
         },
       };
     } catch (err: any) {
+      if (err instanceof HttpException) throw err;
       this.logger.error(`Failed to get back-office queue: ${err?.message || err}`, err?.stack);
       throw new InternalServerErrorException(
         'Unable to load the Back Office issuance queue. Please retry or contact support with the request ID.',
