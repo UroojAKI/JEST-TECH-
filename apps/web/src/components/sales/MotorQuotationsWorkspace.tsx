@@ -584,38 +584,81 @@ export function MotorQuotationsWorkspace() {
                     caseId: (first as any)?.caseId,
                   })} className="px-3 py-1.5 rounded-md border bg-background hover:bg-muted text-xs font-semibold">{activeTab === 'RENEWALS' ? 'Generate Renewal Quote' : 'New Quote Version'}</button>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {quotes.map((quote, idx) => (
-                    <QuoteCard
-                      key={quote.id || quote.quotationCode || idx}
-                      quote={quote}
-                      onUploadQuote={(id) => toast.success(`Quotation document uploaded for record #${id.slice(-6)}`)}
-                      onConductInspection={setInspectionQuoteId}
-                      onCompleteProposal={setProposalQuote}
-                      onIssuePolicy={isBackOfficeOrAdmin ? setCompletionQuote : undefined}
-                      onSubmitToBackOffice={async (quotationId) => {
-                        const selected = allQuotes.find((item) => item.id === quotationId);
-                        if (!selected?.caseId) {
-                          throw new Error('This quotation is not linked to a quotation case and cannot be selected for handoff.');
-                        }
-                        // Select the winning alternative through the case state machine first.
-                        await apiClient.post(`/motor/quotation-cases/${selected.caseId}/select`, {
-                          quotationId,
-                        });
-                        await quotationsRepository.submitToBackOffice(quotationId);
-                        toast.success('Selected quotation sent to back office');
-                        await refetch();
-                      }}
-                      onAddComparisonQuote={(q) => handleOpenWizard(q.vehicleCategory, {
-                        vehicleDetails: q.vehicleDetails,
-                        proposerDetails: q.proposerDetails,
-                        previousPolicyDetails: (q as any).previousPolicyDetails,
-                        policyDetails: (q as any).policyDetails,
-                        caseId: (q as any).caseId,
-                        renewalOfPolicyId: (q as any).renewalOfPolicyId,
+                <div className="overflow-x-auto rounded-lg border">
+                  <table className="w-full min-w-[980px] text-xs">
+                    <thead className="bg-muted/60 text-muted-foreground">
+                      <tr className="text-left">
+                        <th className="px-3 py-3 font-semibold">Insurer / Quote</th>
+                        <th className="px-3 py-3 font-semibold">Cover</th>
+                        <th className="px-3 py-3 text-right font-semibold">IDV</th>
+                        <th className="px-3 py-3 text-right font-semibold">NCB</th>
+                        <th className="px-3 py-3 text-right font-semibold">Premium</th>
+                        <th className="px-3 py-3 font-semibold">Status</th>
+                        <th className="px-3 py-3 font-semibold">Updated</th>
+                        <th className="px-3 py-3 font-semibold">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {quotes.map((quote) => {
+                        const submitted = Boolean((quote as any).backOfficeSubmittedAt);
+                        const proposalReady = ['READY_FOR_PROPOSAL', 'APPROVED', 'PAYMENT_UNDER_PROCESS', 'PAYMENT_PENDING'].includes(String(quote.status));
+                        const issuanceReady = ['PAYMENT_DONE', 'PENDING_ISSUANCE'].includes(String(quote.status)) || (quote as any).issuanceStatus === 'ISSUANCE_PENDING';
+                        return (
+                          <tr key={quote.id} className="hover:bg-muted/30">
+                            <td className="px-3 py-3">
+                              <div className="font-semibold text-foreground">{quote.insurerName || 'Insurer not recorded'}</div>
+                              <div className="font-mono text-[10px] text-muted-foreground">{quote.quotationCode}</div>
+                            </td>
+                            <td className="px-3 py-3">
+                              <div className="font-medium">{(quote as any).policyType || '—'}</div>
+                              <div className="text-muted-foreground">{(quote as any).vehicleCategory || 'MOTOR'}</div>
+                            </td>
+                            <td className="px-3 py-3 text-right tabular-nums">₹{Number((quote as any).idv || (quote as any).sumInsured || 0).toLocaleString('en-IN')}</td>
+                            <td className="px-3 py-3 text-right tabular-nums">{quote.ncbPercentage ?? 0}%</td>
+                            <td className="px-3 py-3 text-right font-bold tabular-nums">₹{Number(quote.totalPremium || 0).toLocaleString('en-IN')}</td>
+                            <td className="px-3 py-3">
+                              <span className="inline-flex rounded-full border px-2 py-1 text-[10px] font-semibold">{String(quote.status || 'UNKNOWN').replaceAll('_', ' ')}</span>
+                              {submitted && <div className="mt-1 text-[10px] text-emerald-700">Sent to Back Office</div>}
+                            </td>
+                            <td className="px-3 py-3 text-muted-foreground whitespace-nowrap">{quote.updatedAt ? new Date(quote.updatedAt).toLocaleDateString('en-IN') : '—'}</td>
+                            <td className="px-3 py-3">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                {onAddComparisonQuote && (
+                                  <button onClick={() => onAddComparisonQuote(quote)} className="rounded border px-2 py-1 hover:bg-muted">Add insurer quote</button>
+                                )}
+                                {!isBackOfficeOrAdmin && onSubmitToBackOffice && !submitted && (quote as any).caseId && (
+                                  <button onClick={async () => {
+                                    const selected = allQuotes.find((item) => item.id === quote.id);
+                                    if (!selected?.caseId) {
+                                      toast.error('This quotation is not linked to a quotation case.');
+                                      return;
+                                    }
+                                    try {
+                                      await apiClient.post(`/motor/quotation-cases/${selected.caseId}/select`, { quotationId: quote.id });
+                                      await quotationsRepository.submitToBackOffice(quote.id);
+                                      toast.success('Selected quotation sent to Back Office');
+                                      await refetch();
+                                    } catch (error: any) {
+                                      toast.error(error?.response?.data?.message || 'Could not submit quotation to Back Office');
+                                    }
+                                  }} className="rounded bg-primary px-2 py-1 text-primary-foreground">Select & Send</button>
+                                )}
+                                {quote.status === 'PENDING_INSPECTION' && onConductInspection && (
+                                  <button onClick={() => onConductInspection(quote.id)} className="rounded border border-amber-300 px-2 py-1 text-amber-700">Inspection</button>
+                                )}
+                                {proposalReady && onCompleteProposal && (
+                                  <button onClick={() => onCompleteProposal(quote)} className="rounded border px-2 py-1 hover:bg-muted">Proposal / Payment</button>
+                                )}
+                                {issuanceReady && isBackOfficeOrAdmin && onIssuePolicy && (
+                                  <button onClick={() => onIssuePolicy(quote)} className="rounded bg-emerald-600 px-2 py-1 text-white">Issue</button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
                       })}
-                    />
-                  ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             );
