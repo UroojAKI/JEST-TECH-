@@ -29,7 +29,11 @@ vi.mock('../../agents/AgentSelector', () => ({
 }));
 
 vi.mock('@tanstack/react-query', () => ({
-  useQuery: () => ({ data: [] }),
+  useQuery: ({ queryKey }: any) => ({
+    data: queryKey?.[0] === 'partner-insurers'
+      ? [{ id: 'insurer-tata-aig', name: 'Tata AIG General Insurance', isActive: true }]
+      : [],
+  }),
 }));
 
 vi.mock('./InspectionDialog', () => ({
