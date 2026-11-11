@@ -376,7 +376,7 @@ export function PolicyCompletionDialog({ isOpen, quote, onClose, onSuccess }: Pr
                     const mapping = p.insurerMappings?.find((m: any) => m.insurer?.name?.toLowerCase() === quote.insurerName?.toLowerCase()) || p.insurerMappings?.[0];
                     return (
                       <option key={p.id} value={p.id}>
-                        {p.posCode} • {p.name} ({p.partnerType}) — {mapping?.insurer?.name || quote.insurerName} / {mapping?.insurerPospId || 'POS ID not set'}
+                        {p.posCode} • {p.name} ({p.partnerType}) — {mapping?.insurer?.name || quote.insurerName} / Partner code: {mapping?.insurerPartnerCode || '—'} / POS ID: {mapping?.insurerPospId || '—'}
                       </option>
                     );
                   })}

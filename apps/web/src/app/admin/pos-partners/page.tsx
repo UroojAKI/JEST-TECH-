@@ -177,7 +177,7 @@ export default function PosPartnerManagementPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-pos-partners'] });
       queryClient.invalidateQueries({ queryKey: ['admin-pos-partner-detail', selectedPartnerId] });
-      toast.success('Partner remapped to new insurer successfully!');
+      toast.success('Insurer-specific Agent POS mapping added.');
       setShowRemapModal(false);
     },
     onError: (err: any) => {

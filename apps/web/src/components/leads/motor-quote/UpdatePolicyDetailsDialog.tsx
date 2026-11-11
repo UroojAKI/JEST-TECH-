@@ -607,7 +607,7 @@ export function UpdatePolicyDetailsDialog({
                   const mapping = p.insurerMappings?.find((m: any) => m.insurer?.name?.toLowerCase() === quoteDetails?.insurerName?.toLowerCase()) || p.insurerMappings?.[0];
                   return (
                     <option key={p.id} value={p.id}>
-                      {p.posCode} • {p.name} ({p.partnerType}) — {mapping?.insurer?.name || quoteDetails?.insurerName} / {mapping?.insurerPospId || 'POS ID not set'}
+                      {p.posCode} • {p.name} ({p.partnerType}) — {mapping?.insurer?.name || quoteDetails?.insurerName} / Partner code: {mapping?.insurerPartnerCode || '—'} / POS ID: {mapping?.insurerPospId || '—'}
                     </option>
                   );
                 })}
