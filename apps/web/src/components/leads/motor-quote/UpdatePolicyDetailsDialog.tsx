@@ -51,7 +51,7 @@ export function UpdatePolicyDetailsDialog({
   const [policyPdf, setPolicyPdf] = useState<File | null>(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
 
-  // POS Partner Selection (DEC-02: Mandatory at Policy Issuance)
+  // Optional Agent POS attribution at policy issuance
   const [posPartnerId, setPosPartnerId] = useState('');
   const [posPartners, setPosPartners] = useState<any[]>([]);
   const [isLoadingPos, setIsLoadingPos] = useState(false);
@@ -275,11 +275,6 @@ export function UpdatePolicyDetailsDialog({
         ),
         'Policy PDF Required'
       );
-      return;
-    }
-
-    if (!posPartnerId) {
-      toast.error('POS Partner selection is mandatory for policy issuance (DEC-02).');
       return;
     }
 
@@ -644,42 +639,44 @@ export function UpdatePolicyDetailsDialog({
             </div>
           </div>
 
-          {/* POS Partner Selection (DEC-02 & DEC-03: Mandatory) */}
+          {/* Optional Agent POS attribution */}
           <div className="p-3.5 rounded-xl border bg-card space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold flex items-center gap-1.5">
                 <Users className="h-3.5 w-3.5 text-emerald-600" />
                 <span>
-                  Attributed POS Partner <span className="text-emerald-600 font-bold">* (Mandatory DEC-02)</span>
+                  Agent POS Attribution <span className="text-muted-foreground font-medium">(Optional)</span>
                 </span>
               </label>
               <span className="text-[9px] font-bold bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded">
-                1:1 Insurer Association (DEC-03)
+                Multiple insurer-specific Agent POS mappings
               </span>
             </div>
 
             {isLoadingPos ? (
               <div className="text-xs text-muted-foreground flex items-center gap-2 py-1">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Loading eligible POS partners for {quoteDetails?.insurerName}...
+                Loading Agent POS records for {quoteDetails?.insurerName}...
               </div>
             ) : posPartners.length > 0 ? (
               <select
                 value={posPartnerId}
                 onChange={(e) => setPosPartnerId(e.target.value)}
                 className="w-full px-3 py-2 border rounded-lg text-xs bg-background font-medium focus:ring-1 focus:ring-primary focus:outline-none"
-                required
               >
-                <option value="">Select Eligible POS Partner...</option>
-                {posPartners.map((p: any) => (
-                  <option key={p.id} value={p.id}>
-                    {p.posCode} • {p.name} ({p.partnerType}) — Insurer: {p.insurerMapping?.insurer?.name || quoteDetails?.insurerName}
-                  </option>
-                ))}
+                <option value="">No Agent POS attribution</option>
+                {posPartners.map((p: any) => {
+                  const mapping = p.insurerMappings?.find((m: any) => m.insurer?.name?.toLowerCase() === quoteDetails?.insurerName?.toLowerCase()) || p.insurerMappings?.[0];
+                  return (
+                    <option key={p.id} value={p.id}>
+                      {p.posCode} • {p.name} ({p.partnerType}) — {mapping?.insurer?.name || quoteDetails?.insurerName} / Partner code: {mapping?.insurerPartnerCode || '—'} / POS ID: {mapping?.insurerPospId || '—'}
+                    </option>
+                  );
+                })}
               </select>
             ) : (
               <div className="p-2.5 rounded-lg border border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300 text-xs flex items-center justify-between">
-                <span>No POS partner currently mapped to {quoteDetails?.insurerName}.</span>
+                <span>No Agent POS is currently mapped to {quoteDetails?.insurerName}. Policy issuance can continue without attribution.</span>
                 <a href="/admin/pos-partners" target="_blank" className="font-bold underline text-primary">
                   Manage POS Partners
                 </a>
