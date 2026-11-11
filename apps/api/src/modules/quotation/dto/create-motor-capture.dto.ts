@@ -17,6 +17,10 @@ export class CreateMotorCaptureDto {
   @IsString()
   registrationNumber?: string;
 
+  @IsOptional()
+  @IsString()
+  insurerId?: string;
+
   @IsString()
   insurerName: string;
 
