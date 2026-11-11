@@ -45,7 +45,7 @@ export class PosEligibilityService {
     const partner = await this.prisma.posPartner.findUnique({
       where: { id: params.posPartnerId },
       include: {
-        insurerMapping: {
+        insurerMappings: {
           include: { insurer: true },
         },
       },
@@ -90,11 +90,34 @@ export class PosEligibilityService {
     }
 
     // 4. Insurer Mapping Check (DEC-03)
-    const mapping = partner.insurerMapping;
-    if (!mapping || !mapping.isActive) {
+    const mappings = (partner as any).insurerMappings || [];
+    const mapping = mappings.find((candidate: any) =>
+      candidate.isActive &&
+      candidate.insurer?.isActive &&
+      (!params.policyInsurerId ||
+        candidate.insurerId === params.policyInsurerId ||
+        candidate.insurer?.code?.toLowerCase() === params.policyInsurerId.toLowerCase()) &&
+      (!params.policyInsurerName ||
+        candidate.insurer?.name?.trim().toLowerCase() === params.policyInsurerName.trim().toLowerCase() ||
+        candidate.insurer?.code?.trim().toLowerCase() === params.policyInsurerName.trim().toLowerCase()),
+    );
+    if (!mapping) {
       throw new BadRequestException({
         code: 'POS_INSURER_MAPPING_MISSING',
-        message: `POS Partner '${partner.name}' does not have an active insurer association`,
+        message: `POS Partner '${partner.name}' has no active mapping for the policy insurer`,
+      });
+    }
+
+    if (mapping.effectiveFrom && mapping.effectiveFrom > now) {
+      throw new BadRequestException({
+        code: 'POS_MAPPING_NOT_EFFECTIVE',
+        message: 'The Agent POS insurer registration is not effective yet',
+      });
+    }
+    if (mapping.effectiveUntil && mapping.effectiveUntil < now) {
+      throw new BadRequestException({
+        code: 'POS_MAPPING_EXPIRED',
+        message: 'The Agent POS insurer registration has expired',
       });
     }
 

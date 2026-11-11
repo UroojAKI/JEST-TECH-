@@ -33,7 +33,7 @@ export function PolicyCompletionDialog({ isOpen, quote, onClose, onSuccess }: Pr
   const [stateName, setStateName] = useState('');
   const [pincode, setPincode] = useState('');
 
-  // POS Partner Selection (DEC-02: Mandatory at Policy Issuance)
+  // Optional Agent POS attribution at policy issuance
   const [posPartnerId, setPosPartnerId] = useState('');
   const [posPartners, setPosPartners] = useState<any[]>([]);
   const [isLoadingPos, setIsLoadingPos] = useState(false);
@@ -171,11 +171,6 @@ export function PolicyCompletionDialog({ isOpen, quote, onClose, onSuccess }: Pr
 
     if (!nomineeName.trim()) {
       toast.error('Nominee Full Name is required for statutory IRDAI compliance.');
-      return;
-    }
-
-    if (!posPartnerId) {
-      toast.error('POS Partner selection is mandatory for policy issuance (DEC-02).');
       return;
     }
 
@@ -366,34 +361,36 @@ export function PolicyCompletionDialog({ isOpen, quote, onClose, onSuccess }: Pr
             </div>
             <div>
               <label className="block text-[10px] font-bold uppercase text-muted-foreground mb-1">
-                Attributed POS Partner *
+                Agent POS Attribution (Optional)
               </label>
               {isLoadingPos ? (
                 <div className="text-xs text-muted-foreground flex items-center gap-2 py-2">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  Loading eligible POS partners for {quote.insurerName}...
+                  Loading Agent POS records for {quote.insurerName}...
                 </div>
               ) : posPartners.length > 0 ? (
                 <select
                   value={posPartnerId}
                   onChange={(e) => setPosPartnerId(e.target.value)}
                   className="w-full px-3 py-2 border rounded-lg text-xs font-semibold bg-background focus:ring-1 focus:ring-primary"
-                  required
                 >
-                  <option value="">Select Eligible POS Partner...</option>
-                  {posPartners.map((p: any) => (
-                    <option key={p.id} value={p.id}>
-                      {p.posCode} • {p.name} ({p.partnerType}) — Mapped: {p.insurerMapping?.insurer?.name || quote.insurerName}
-                    </option>
-                  ))}
+                  <option value="">No Agent POS attribution</option>
+                  {posPartners.map((p: any) => {
+                    const mapping = p.insurerMappings?.find((m: any) => m.insurer?.name?.toLowerCase() === quote.insurerName?.toLowerCase()) || p.insurerMappings?.[0];
+                    return (
+                      <option key={p.id} value={p.id}>
+                        {p.posCode} • {p.name} ({p.partnerType}) — {mapping?.insurer?.name || quote.insurerName} / {mapping?.insurerPospId || 'POS ID not set'}
+                      </option>
+                    );
+                  })}
                 </select>
               ) : (
                 <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200 text-xs space-y-1.5">
                   <div className="font-bold flex items-center gap-1.5">
-                    <span>⚠️ No Eligible POS Partner Found</span>
+                    <span>No Agent POS mapping available</span>
                   </div>
                   <p className="text-[11px] leading-relaxed">
-                    No active POS Partner is currently mapped to <strong>{quote.insurerName}</strong> with an approved commercial agreement for MOTOR insurance. Please map an eligible partner or select an authorized agent before issuing this policy.
+                    No Agent POS is currently mapped to <strong>{quote.insurerName}</strong>. You can continue policy issuance without POS attribution.
                   </p>
                   <div className="pt-1">
                     <a href="/admin/pos-partners" target="_blank" rel="noreferrer" className="inline-flex items-center text-xs font-bold underline text-primary hover:text-primary/80">

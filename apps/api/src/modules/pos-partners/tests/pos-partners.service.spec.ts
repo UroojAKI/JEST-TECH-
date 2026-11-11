@@ -79,7 +79,7 @@ describe('POS Partner & Mandatory Policy Address Specifications', () => {
 
   describe('DEC-01 & DEC-04: POS Partner Types and Auto-Activation', () => {
     it('should register and auto-activate an INDIVIDUAL partner with ACTIVE status', async () => {
-      mockPrisma.insurer.findUnique.mockResolvedValue({
+      mockPrisma.insurer.findFirst.mockResolvedValue({
         id: 'ins-hdfc',
         name: 'HDFC ERGO General Insurance',
         code: 'HDFC_ERGO',
@@ -126,7 +126,7 @@ describe('POS Partner & Mandatory Policy Address Specifications', () => {
     });
 
     it('should register and auto-activate a CORPORATE partner with ACTIVE status', async () => {
-      mockPrisma.insurer.findUnique.mockResolvedValue({
+      mockPrisma.insurer.findFirst.mockResolvedValue({
         id: 'ins-icici',
         name: 'ICICI Lombard',
         code: 'ICICI_LOMBARD',
@@ -173,7 +173,7 @@ describe('POS Partner & Mandatory Policy Address Specifications', () => {
     });
 
     it('should register partner and persist initial commercial agreement transactionally', async () => {
-      mockPrisma.insurer.findUnique.mockResolvedValue({
+      mockPrisma.insurer.findFirst.mockResolvedValue({
         id: 'ins-hdfc',
         name: 'HDFC ERGO General Insurance',
         code: 'HDFC_ERGO',
@@ -241,7 +241,7 @@ describe('POS Partner & Mandatory Policy Address Specifications', () => {
     });
 
     it('should reject registration if insurer ID does not exist', async () => {
-      mockPrisma.insurer.findUnique.mockResolvedValue(null);
+      mockPrisma.insurer.findFirst.mockResolvedValue(null);
 
       await expect(
         posPartnerService.register(
@@ -259,7 +259,7 @@ describe('POS Partner & Mandatory Policy Address Specifications', () => {
     });
 
     it('should reject registration if initial agreement insurer mismatches mapped insurer', async () => {
-      mockPrisma.insurer.findUnique.mockResolvedValue({
+      mockPrisma.insurer.findFirst.mockResolvedValue({
         id: 'ins-hdfc',
         name: 'HDFC ERGO General Insurance',
         isActive: true,
@@ -285,7 +285,7 @@ describe('POS Partner & Mandatory Policy Address Specifications', () => {
     });
 
     it('should abort and roll back transaction if agreement creation fails', async () => {
-      mockPrisma.insurer.findUnique.mockResolvedValue({
+      mockPrisma.insurer.findFirst.mockResolvedValue({
         id: 'ins-hdfc',
         name: 'HDFC ERGO General Insurance',
         isActive: true,
@@ -324,7 +324,7 @@ describe('POS Partner & Mandatory Policy Address Specifications', () => {
 
   describe('DEC-03: Insurer Association 1:1 Invariant', () => {
     it('should reject mapping a partner to an inactive insurer', async () => {
-      mockPrisma.insurer.findUnique.mockResolvedValue({
+      mockPrisma.insurer.findFirst.mockResolvedValue({
         id: 'ins-inactive',
         name: 'Inactive Insurer Ltd',
         isActive: false,
@@ -346,7 +346,7 @@ describe('POS Partner & Mandatory Policy Address Specifications', () => {
     });
 
     it('should reject creating a second insurer mapping if one already exists', async () => {
-      mockPrisma.insurer.findUnique.mockResolvedValue({
+      mockPrisma.insurer.findFirst.mockResolvedValue({
         id: 'ins-tata',
         name: 'Tata AIG',
         isActive: true,
@@ -382,7 +382,7 @@ describe('POS Partner & Mandatory Policy Address Specifications', () => {
         posCode: 'POS-IND-100',
       });
 
-      mockPrisma.insurer.findUnique.mockResolvedValue({
+      mockPrisma.insurer.findFirst.mockResolvedValue({
         id: 'ins-new',
         name: 'New Partner Insurer',
         isActive: true,
@@ -412,6 +412,30 @@ describe('POS Partner & Mandatory Policy Address Specifications', () => {
     });
   });
 
+    it('should register an Agent POS without an insurer mapping', async () => {
+      mockPrisma.posPartner.create.mockResolvedValue({
+        id: 'pos-unmapped',
+        companyId,
+        posCode: 'POS-IND-UNMAPPED',
+        name: 'Unmapped Agent POS',
+        partnerType: PosPartnerType.INDIVIDUAL,
+        status: PosPartnerStatus.ACTIVE,
+        verificationStatus: PosVerificationStatus.PENDING,
+      });
+
+      const result = await posPartnerService.register({
+        partnerType: PosPartnerType.INDIVIDUAL,
+        name: 'Unmapped Agent POS',
+        mobile: '9876543210',
+        email: 'agent@example.com',
+      }, mockUser);
+
+      expect(result.id).toBe('pos-unmapped');
+      expect(mockPrisma.posPartner.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.not.objectContaining({ insurerMappings: expect.anything() }),
+      }));
+    });
+
   describe('DEC-02: Mandatory POS Attribution & Eligibility', () => {
     it('should throw NotFoundException if requested POS partner is not found in tenant', async () => {
       mockPrisma.posPartner.findUnique.mockResolvedValue(null);
@@ -432,11 +456,11 @@ describe('POS Partner & Mandatory Policy Address Specifications', () => {
         companyId,
         name: 'Suspended Agent',
         status: PosPartnerStatus.SUSPENDED,
-        insurerMapping: {
+        insurerMappings: [{
           id: 'map-1',
           isActive: true,
           insurer: { name: 'HDFC ERGO', code: 'HDFC_ERGO' },
-        },
+        }],
       });
 
       await expect(
@@ -457,7 +481,7 @@ describe('POS Partner & Mandatory Policy Address Specifications', () => {
         status: PosPartnerStatus.ACTIVE,
         effectiveFrom: new Date('2020-01-01'),
         effectiveUntil: null,
-        insurerMapping: {
+        insurerMappings: [{
           id: 'map-1',
           isActive: true,
           effectiveFrom: new Date('2020-01-01'),
@@ -468,7 +492,7 @@ describe('POS Partner & Mandatory Policy Address Specifications', () => {
             code: 'ICICI_LOMBARD',
             isActive: true,
           },
-        },
+        }],
       });
 
       await expect(
@@ -490,18 +514,29 @@ describe('POS Partner & Mandatory Policy Address Specifications', () => {
         status: PosPartnerStatus.ACTIVE,
         effectiveFrom: new Date('2020-01-01'),
         effectiveUntil: null,
-        insurerMapping: {
-          id: 'map-hdfc',
-          isActive: true,
-          effectiveFrom: new Date('2020-01-01'),
-          effectiveUntil: null,
-          insurer: {
-            id: 'ins-hdfc',
-            name: 'HDFC ERGO General Insurance',
-            code: 'HDFC_ERGO',
+        insurerMappings: [
+          {
+            id: 'map-icici',
+            insurerId: 'ins-icici',
             isActive: true,
+            effectiveFrom: new Date('2020-01-01'),
+            effectiveUntil: null,
+            insurer: { id: 'ins-icici', name: 'ICICI Lombard', code: 'ICICI_LOMBARD', isActive: true },
           },
-        },
+          {
+            id: 'map-hdfc',
+            insurerId: 'ins-hdfc',
+            isActive: true,
+            effectiveFrom: new Date('2020-01-01'),
+            effectiveUntil: null,
+            insurer: {
+              id: 'ins-hdfc',
+              name: 'HDFC ERGO General Insurance',
+              code: 'HDFC_ERGO',
+              isActive: true,
+            },
+          },
+        ],
       };
 
       mockPrisma.posPartner.findUnique.mockResolvedValue(partner);

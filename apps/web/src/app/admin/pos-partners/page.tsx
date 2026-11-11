@@ -63,7 +63,7 @@ export default function PosPartnerManagementPage() {
   const [stateName, setStateName] = useState('');
   const [pincode, setPincode] = useState('');
 
-  // Insurer Mapping (1:1 locked per DEC-03)
+  // Optional insurer-specific Agent POS identifiers
   const [selectedInsurerId, setSelectedInsurerId] = useState('');
   const [insurerPartnerCode, setInsurerPartnerCode] = useState('');
   const [insurerPospId, setInsurerPospId] = useState('');
@@ -78,6 +78,8 @@ export default function PosPartnerManagementPage() {
   const [showRemapModal, setShowRemapModal] = useState(false);
   const [remapInsurerId, setRemapInsurerId] = useState('');
   const [remapReason, setRemapReason] = useState('');
+  const [remapPartnerCode, setRemapPartnerCode] = useState('');
+  const [remapInsurerPospId, setRemapInsurerPospId] = useState('');
 
   // 1. Fetch Partner List
   const {
@@ -164,8 +166,10 @@ export default function PosPartnerManagementPage() {
   // 7. Remap Insurer Mutation
   const remapInsurerMutation = useMutation({
     mutationFn: async ({ id, insurerId, reason }: { id: string; insurerId: string; reason: string }) => {
-      const res = await apiClient.patch(`/pos-partners/${id}/insurer-mapping`, {
+      const res = await apiClient.post(`/pos-partners/${id}/insurer-mapping`, {
         insurerId,
+        insurerPartnerCode: remapPartnerCode.trim() || undefined,
+        insurerPospId: remapInsurerPospId.trim() || undefined,
         reason,
       });
       return res.data;
@@ -203,13 +207,28 @@ export default function PosPartnerManagementPage() {
     setFixedAmount('0');
   };
 
+  const handleExport = async () => {
+    try {
+      const response = await apiClient.get('/pos-partners/export.xlsx', { responseType: 'blob' });
+      const url = URL.createObjectURL(new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'agent-pos-register.xlsx';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Unable to export Agent POS workbook');
+    }
+  };
+
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!name.trim()) return toast.error('Partner Name is required');
     if (!phone.trim() || phone.trim().length !== 10) return toast.error('Valid 10-digit mobile number is required');
     if (!email.trim() || !email.includes('@')) return toast.error('Valid email address is required');
-    if (!selectedInsurerId) return toast.error('Please select an Insurer (Mandatory DEC-03)');
     if (!addressLine1.trim() || !city.trim() || !stateName.trim() || !pincode.trim()) {
       return toast.error('Complete structured address is required');
     }
@@ -235,15 +254,15 @@ export default function PosPartnerManagementPage() {
         pincode: pincode.trim(),
         country: 'India',
       },
-      insurerId: selectedInsurerId,
+      insurerId: selectedInsurerId || undefined,
       insurerPartnerCode: insurerPartnerCode.trim() || undefined,
       insurerPospId: insurerPospId.trim() || undefined,
-      initialAgreement: {
+      ...(selectedInsurerId ? { initialAgreement: {
         productType,
         commissionType,
         commissionRate: commissionType === 'PERCENTAGE' ? Number(commissionRate) : undefined,
         fixedAmount: commissionType === 'FIXED' ? Number(fixedAmount) : undefined,
-      },
+      } } : {}),
     };
 
     createPartnerMutation.mutate(payload);
@@ -265,11 +284,18 @@ export default function PosPartnerManagementPage() {
               POS Partner Management
             </h1>
             <p className="text-xs text-muted-foreground mt-1 max-w-2xl leading-relaxed">
-              Register and manage Individual & Corporate Point of Sales (POS) partners, enforce 1:1 insurer associations (DEC-03), record commercial terms, and monitor mandatory policy attribution (DEC-02).
+              Manage Agent POS records, insurer-specific partner codes and POS IDs, optional policy attribution, and the policy activity associated with each insurer POS ID.
             </p>
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              onClick={handleExport}
+              className="px-3 py-2.5 rounded-xl border bg-card hover:bg-muted text-xs font-bold"
+              title="Export Agent POS, policy attribution and activity to Excel"
+            >
+              Export Excel
+            </button>
             <button
               onClick={() => refetch()}
               className="p-2.5 rounded-xl border bg-card hover:bg-muted text-muted-foreground transition-all"
@@ -408,10 +434,10 @@ export default function PosPartnerManagementPage() {
               <table className="w-full text-left text-xs">
                 <thead className="bg-muted/50 border-b text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                   <tr>
-                    <th className="py-3 px-4">Partner Code & Name</th>
+                    <th className="py-3 px-4">Agent POS Code & Name</th>
                     <th className="py-3 px-4">Type</th>
                     <th className="py-3 px-4">Contact</th>
-                    <th className="py-3 px-4">Mapped Insurer (1:1)</th>
+                    <th className="py-3 px-4">Agent POS / Insurer IDs</th>
                     <th className="py-3 px-4">Address</th>
                     <th className="py-3 px-4">KYC Status</th>
                     <th className="py-3 px-4">Status</th>
@@ -420,7 +446,8 @@ export default function PosPartnerManagementPage() {
                 </thead>
                 <tbody className="divide-y divide-border/60">
                   {partners.map((partner: any) => {
-                    const insurer = partner.insurerMapping?.insurer;
+                    const mappings = Array.isArray(partner.insurerMappings) ? partner.insurerMappings : [];
+                    const insurer = mappings[0]?.insurer;
                     const isSuspended = partner.status === 'SUSPENDED';
 
                     return (
@@ -457,28 +484,27 @@ export default function PosPartnerManagementPage() {
                         </td>
 
                         <td className="py-3.5 px-4">
-                          <div className="font-medium text-foreground">{partner.phone}</div>
+                          <div className="font-medium text-foreground">{partner.mobile}</div>
                           <div className="text-[11px] text-muted-foreground truncate max-w-[150px]">
                             {partner.email}
                           </div>
                         </td>
 
                         <td className="py-3.5 px-4">
-                          {insurer ? (
-                            <div>
-                              <div className="font-bold text-foreground flex items-center space-x-1">
-                                <span>{insurer.name}</span>
-                              </div>
-                              <div className="text-[10px] text-muted-foreground font-mono">
-                                Code: {insurer.code}
-                                {partner.insurerMapping.insurerPartnerCode && (
-                                  <span> • P-Code: {partner.insurerMapping.insurerPartnerCode}</span>
-                                )}
-                              </div>
+                          {mappings.length ? (
+                            <div className="space-y-1.5">
+                              {mappings.map((mapping: any) => (
+                                <div key={mapping.id} className="text-[10px] leading-4">
+                                  <div className="font-bold text-foreground">{mapping.insurer?.name || 'Insurer'}</div>
+                                  <div className="font-mono text-muted-foreground">
+                                    Partner Code: {mapping.insurerPartnerCode || '—'} · Insurer POS ID: {mapping.insurerPospId || '—'}
+                                  </div>
+                                </div>
+                              ))}
                             </div>
                           ) : (
-                            <span className="text-[10px] font-bold text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded">
-                              Unmapped
+                            <span className="text-[10px] font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                              No insurer mapping
                             </span>
                           )}
                         </td>
@@ -834,21 +860,20 @@ export default function PosPartnerManagementPage() {
                 <div className="space-y-3 pt-2 border-t">
                   <div className="flex items-center justify-between">
                     <div className="text-[11px] font-bold uppercase tracking-wider text-primary">
-                      Section D • Insurer Association (DEC-03: 1:1 Invariant)
+                      Section D • Insurer-Specific Agent POS IDs
                     </div>
                     <span className="text-[10px] font-bold bg-amber-500/10 text-amber-600 px-2 py-0.5 rounded">
-                      Single Insurer Exclusive
+                      Multiple Insurer Registrations
                     </span>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="sm:col-span-1">
-                      <label className="text-[11px] font-bold text-foreground">Mapped Partner Insurer *</label>
+                      <label className="text-[11px] font-bold text-foreground">Insurer (Optional)</label>
                       <select
                         value={selectedInsurerId}
                         onChange={(e) => setSelectedInsurerId(e.target.value)}
                         className="w-full mt-1 px-3 py-2 text-xs rounded-xl border bg-background font-medium"
-                        required
                       >
                         <option value="">Select Insurer Master...</option>
                         {insurersList.map((ins: any) => (
@@ -871,7 +896,7 @@ export default function PosPartnerManagementPage() {
                     </div>
 
                     <div>
-                      <label className="text-[11px] font-bold text-foreground">Insurer POSP ID</label>
+                      <label className="text-[11px] font-bold text-foreground">Insurer POS ID</label>
                       <input
                         type="text"
                         value={insurerPospId}
@@ -1035,25 +1060,23 @@ export default function PosPartnerManagementPage() {
                   <div className="p-4 rounded-2xl border bg-muted/30 flex items-center justify-between">
                     <div>
                       <div className="text-[10px] font-bold text-muted-foreground uppercase">
-                        Active Insurer Mapping (1:1 Locked DEC-03)
+                        Agent POS insurer registrations
                       </div>
                       <div className="text-base font-bold text-foreground mt-0.5">
-                        {partnerDetail.insurerMapping?.insurer?.name || 'No Insurer Mapped'}
+                        {(partnerDetail.insurerMappings || []).length ? `${partnerDetail.insurerMappings.length} insurer mapping(s)` : 'No insurer mapping'}
                       </div>
-                      {partnerDetail.insurerMapping && (
-                        <div className="text-xs text-muted-foreground mt-0.5 font-mono">
-                          Insurer Code: {partnerDetail.insurerMapping.insurer?.code}
-                          {partnerDetail.insurerMapping.insurerPartnerCode &&
-                            ` • Partner Code: ${partnerDetail.insurerMapping.insurerPartnerCode}`}
+                      {(partnerDetail.insurerMappings || []).map((mapping: any) => (
+                        <div key={mapping.id} className="text-xs text-muted-foreground mt-1 font-mono">
+                          {mapping.insurer?.name} · Partner Code: {mapping.insurerPartnerCode || '—'} · Insurer POS ID: {mapping.insurerPospId || '—'}
                         </div>
-                      )}
+                      ))}
                     </div>
 
                     <button
                       onClick={() => setShowRemapModal(true)}
                       className="px-3 py-1.5 rounded-xl border bg-background hover:bg-muted text-xs font-bold"
                     >
-                      Authorize Remap
+Add Insurer POS ID
                     </button>
                   </div>
 
@@ -1198,23 +1221,19 @@ export default function PosPartnerManagementPage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
             <div className="bg-card border rounded-3xl max-w-md w-full shadow-2xl p-6 space-y-4">
               <div className="flex items-center justify-between border-b pb-3">
-                <h3 className="text-sm font-bold text-foreground">Authorize Insurer Remap</h3>
+                <h3 className="text-sm font-bold text-foreground">Add Insurer POS Mapping</h3>
                 <button onClick={() => setShowRemapModal(false)}>
                   <XCircle className="h-4 w-4 text-muted-foreground" />
                 </button>
               </div>
 
               <p className="text-xs text-muted-foreground">
-                Current mapped insurer:{' '}
-                <span className="font-bold text-foreground">
-                  {partnerDetail.insurerMapping?.insurer?.name || 'None'}
-                </span>
-                . Selecting a new insurer will update the 1:1 association with an audit log.
+                Add another insurer-specific registration for Agent POS <strong>{partnerDetail.posCode}</strong>. Existing insurer mappings and policy snapshots remain unchanged.
               </p>
 
               <div className="space-y-3">
                 <div>
-                  <label className="text-[11px] font-bold text-foreground">Select New Insurer *</label>
+                  <label className="text-[11px] font-bold text-foreground">Select Insurer *</label>
                   <select
                     value={remapInsurerId}
                     onChange={(e) => setRemapInsurerId(e.target.value)}
@@ -1230,7 +1249,7 @@ export default function PosPartnerManagementPage() {
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-bold text-foreground">Remap Authorization Reason *</label>
+                  <label className="text-[11px] font-bold text-foreground">Reason / Admin note</label>
                   <input
                     type="text"
                     value={remapReason}
@@ -1238,6 +1257,14 @@ export default function PosPartnerManagementPage() {
                     placeholder="e.g. Agency re-contracting approved by compliance"
                     className="w-full mt-1 px-3 py-2 text-xs rounded-xl border bg-background"
                   />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-foreground">Partner Code at Insurer</label>
+                  <input value={remapPartnerCode} onChange={(e) => setRemapPartnerCode(e.target.value)} className="w-full mt-1 px-3 py-2 text-xs rounded-xl border bg-background" />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-foreground">Insurer POS ID</label>
+                  <input value={remapInsurerPospId} onChange={(e) => setRemapInsurerPospId(e.target.value)} className="w-full mt-1 px-3 py-2 text-xs rounded-xl border bg-background" />
                 </div>
               </div>
 
@@ -1249,7 +1276,7 @@ export default function PosPartnerManagementPage() {
                   Cancel
                 </button>
                 <button
-                  disabled={!remapInsurerId || !remapReason || remapInsurerMutation.isPending}
+                  disabled={!remapInsurerId || remapInsurerMutation.isPending}
                   onClick={() =>
                     remapInsurerMutation.mutate({
                       id: partnerDetail.id,
@@ -1259,7 +1286,7 @@ export default function PosPartnerManagementPage() {
                   }
                   className="px-4 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold disabled:opacity-50"
                 >
-                  {remapInsurerMutation.isPending ? 'Remapping...' : 'Confirm Remap'}
+                  {remapInsurerMutation.isPending ? 'Saving...' : 'Add Mapping'}
                 </button>
               </div>
             </div>
