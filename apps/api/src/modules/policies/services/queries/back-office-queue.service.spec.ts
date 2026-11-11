@@ -218,6 +218,24 @@ describe('BackOfficeQueueService (G021 Multi-Gate Policy Issuance Queue)', () =>
     expect(item.nextAction).toContain('Payment');
   });
 
+  it('includes linked issued policies in the issued summary metric without listing them as pending', async () => {
+    const issuedQuote = {
+      ...baseQuote,
+      id: 'quote-issued',
+      quotationCode: 'QT-ISSUED-001',
+      status: QuotationStatus.CONVERTED_TO_POLICY,
+      policy: { id: 'policy-issued', policyNumber: 'POL-001' },
+    };
+    mockPrisma.quotation.findMany.mockResolvedValue([baseQuote, issuedQuote]);
+    mockPrisma.document.findMany.mockResolvedValue([]);
+
+    const result = await service.getBackOfficeQueue();
+
+    expect(result.data).toHaveLength(1);
+    expect(result.summary.totalPending).toBe(1);
+    expect(result.summary.issuedCount).toBe(1);
+  });
+
   it('searches insurer and vehicle/customer fields before computing queue totals', async () => {
     mockPrisma.quotation.findMany.mockResolvedValue([baseQuote]);
     mockPrisma.document.findMany.mockResolvedValue([]);
