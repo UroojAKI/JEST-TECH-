@@ -322,14 +322,13 @@ describe('POS Partner & Mandatory Policy Address Specifications', () => {
     });
   });
 
-  describe('DEC-03: Insurer Association 1:1 Invariant', () => {
-    it('should reject mapping a partner to an inactive insurer', async () => {
-      mockPrisma.insurer.findFirst.mockResolvedValue({
+  describe('DEC-03: Multi-insurer Agent POS mappings', () => {
+    it('should reject mapping to an inactive insurer', async () => {
+      mockPrisma.insurer.findUnique.mockResolvedValue({
         id: 'ins-inactive',
         name: 'Inactive Insurer Ltd',
         isActive: false,
       });
-
       mockPrisma.posPartner.findFirst.mockResolvedValue({
         id: 'pos-1',
         companyId,
@@ -340,26 +339,54 @@ describe('POS Partner & Mandatory Policy Address Specifications', () => {
         posInsurerMappingService.createMapping(
           'pos-1',
           { insurerId: 'ins-inactive' },
-          mockUser
-        )
+          mockUser,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('should reject creating a second insurer mapping if one already exists', async () => {
-      mockPrisma.insurer.findFirst.mockResolvedValue({
-        id: 'ins-tata',
-        name: 'Tata AIG',
-        isActive: true,
-      });
-
+    it('should allow the same Agent POS to be mapped to a second insurer', async () => {
       mockPrisma.posPartner.findFirst.mockResolvedValue({
         id: 'pos-1',
         companyId,
         posCode: 'POS-IND-100',
       });
+      mockPrisma.posInsurerMapping.findFirst.mockResolvedValue(null);
+      mockPrisma.insurer.findUnique.mockResolvedValue({
+        id: 'ins-tata',
+        name: 'Tata AIG',
+        isActive: true,
+      });
+      mockPrisma.posInsurerMapping.create.mockResolvedValue({
+        id: 'map-tata',
+        posPartnerId: 'pos-1',
+        insurerId: 'ins-tata',
+        insurerPartnerCode: 'TATA-AGENT-44',
+        insurerPospId: 'TATA-POSP-9988',
+        isActive: true,
+      });
 
-      // Existing mapping exists
-      mockPrisma.posInsurerMapping.findUnique.mockResolvedValue({
+      const mapping = await posInsurerMappingService.createMapping(
+        'pos-1',
+        {
+          insurerId: 'ins-tata',
+          insurerPartnerCode: 'TATA-AGENT-44',
+          insurerPospId: 'TATA-POSP-9988',
+        },
+        mockUser,
+      );
+
+      expect(mapping.insurerId).toBe('ins-tata');
+      expect(mapping.insurerPospId).toBe('TATA-POSP-9988');
+      expect(mockPrisma.posInsurerMapping.create).toHaveBeenCalled();
+    });
+
+    it('should reject duplicate mappings for the same insurer', async () => {
+      mockPrisma.posPartner.findFirst.mockResolvedValue({
+        id: 'pos-1',
+        companyId,
+        posCode: 'POS-IND-100',
+      });
+      mockPrisma.posInsurerMapping.findFirst.mockResolvedValue({
         id: 'map-existing',
         posPartnerId: 'pos-1',
         insurerId: 'ins-hdfc',
@@ -369,48 +396,43 @@ describe('POS Partner & Mandatory Policy Address Specifications', () => {
       await expect(
         posInsurerMappingService.createMapping(
           'pos-1',
-          { insurerId: 'ins-tata' },
-          mockUser
-        )
+          { insurerId: 'ins-hdfc' },
+          mockUser,
+        ),
       ).rejects.toThrow(ConflictException);
     });
 
-    it('should permit authorized remapping and audit log the change', async () => {
+    it('should keep the backward-compatible remap endpoint additive and audit the new mapping', async () => {
       mockPrisma.posPartner.findFirst.mockResolvedValue({
         id: 'pos-1',
         companyId,
         posCode: 'POS-IND-100',
       });
-
-      mockPrisma.insurer.findFirst.mockResolvedValue({
+      mockPrisma.posInsurerMapping.findFirst.mockResolvedValue(null);
+      mockPrisma.insurer.findUnique.mockResolvedValue({
         id: 'ins-new',
         name: 'New Partner Insurer',
         isActive: true,
       });
-
-      mockPrisma.posInsurerMapping.findUnique.mockResolvedValue({
-        id: 'map-1',
-        posPartnerId: 'pos-1',
-        insurer: { name: 'Old Partner Insurer' },
-      });
-
-      mockPrisma.posInsurerMapping.upsert.mockResolvedValue({
-        id: 'map-1',
+      mockPrisma.posInsurerMapping.create.mockResolvedValue({
+        id: 'map-new',
         posPartnerId: 'pos-1',
         insurerId: 'ins-new',
         isActive: true,
       });
 
-      const remapped = await posInsurerMappingService.remapInsurer(
+      const added = await posInsurerMappingService.remapInsurer(
         'pos-1',
-        { insurerId: 'ins-new', reason: 'Contract transfer' },
-        mockUser
+        { insurerId: 'ins-new', reason: 'Additional insurer partnership' },
+        mockUser,
       );
 
-      expect(remapped.insurerId).toBe('ins-new');
+      expect(added.insurerId).toBe('ins-new');
+      expect(mockPrisma.posInsurerMapping.create).toHaveBeenCalled();
       expect(mockPrisma.auditLog.create).toHaveBeenCalled();
     });
   });
+
 
     it('should register an Agent POS without an insurer mapping', async () => {
       mockPrisma.posPartner.create.mockResolvedValue({
