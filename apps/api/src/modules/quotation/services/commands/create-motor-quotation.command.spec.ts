@@ -234,6 +234,37 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
     });
   });
 
+  it('rejects adding the same active insurer twice to one quotation case', async () => {
+    prisma.motorQuotationCase.findFirst.mockResolvedValue({
+      id: 'case-existing',
+      companyId: 'company-1',
+      status: 'QUOTED',
+      selectedQuoteId: null,
+      contactId: 'c-1',
+      vehicleId: 'veh-1',
+      registrationNumber: 'MH02CB1234',
+      customerSnapshot: {},
+      vehicleSnapshot: {},
+      previousPolicySnapshot: {},
+    });
+    prisma.quotation.findFirst.mockResolvedValue({
+      id: 'quote-existing',
+      quotationCode: 'QTN-EXISTING-HDFC',
+    });
+
+    await expect(command.execute({
+      caseId: 'case-existing',
+      vehicleCategory: 'PRIVATE_CAR',
+      policyType: 'PACKAGE',
+      insurerName: 'HDFC ERGO',
+      contactId: 'c-1',
+      vehicleId: 'veh-1',
+      registrationNumber: 'MH02CB1234',
+    } as any, mockUser)).rejects.toThrow(ConflictException);
+
+    expect(prisma.quotation.create).not.toHaveBeenCalled();
+  });
+
   it('MOTOR-REG-19: should execute single transactional quotation creation and bind journey 1:1', async () => {
     prisma.quotation.create.mockResolvedValue({
       id: 'q-created-1',
