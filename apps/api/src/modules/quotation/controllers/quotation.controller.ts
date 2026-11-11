@@ -247,8 +247,22 @@ export class QuotationController {
     if (!quotation) {
       throw new ForbiddenException('Quotation not found in the current company workspace');
     }
-    if (!quotation.insurerName?.trim()) {
-      throw new BadRequestException('Select a valid insurance partner before submitting this quotation');
+    const normalizedInsurerName = String(quotation.insurerName || '').trim().toLowerCase();
+    if (!quotation.insurerId || !normalizedInsurerName || normalizedInsurerName === 'partner insurer') {
+      throw new BadRequestException('This quotation does not have a valid insurer master record. Correct the insurer identity before Back Office handoff.');
+    }
+    const activeInsurer = await this.prisma.insurer.findFirst({
+      where: { id: quotation.insurerId, isActive: true },
+      select: { id: true },
+    });
+    if (!activeInsurer) {
+      throw new BadRequestException('The selected insurer is not active in Insurer Master. Refresh the insurer selection before Back Office handoff.');
+    }
+    if (quotation.productType === 'MOTOR') {
+      const acceptance = (quotation.motorMetadata as any)?.customerAcceptance;
+      if (!acceptance?.evidenceMethod || !acceptance?.timestamp) {
+        throw new BadRequestException('Record customer acceptance with its evidence method before submitting this Motor quotation to Back Office.');
+      }
     }
     if (quotation.status === 'REJECTED' || quotation.status === 'EXPIRED' || quotation.status === 'CONVERTED_TO_POLICY') {
       throw new BadRequestException(`A quotation in ${quotation.status} status cannot be submitted to back office`);
