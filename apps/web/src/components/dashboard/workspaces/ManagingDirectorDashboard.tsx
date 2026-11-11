@@ -80,7 +80,7 @@ export default function ManagingDirectorDashboard() {
   });
 
   // Workstream 3: Operational Action Centre
-  const { data: actionCentre, isLoading: isActionCentreLoading } = useQuery({
+  const { data: actionCentre, isLoading: isActionCentreLoading, isError: isActionCentreError, error: actionCentreError, refetch: refetchActionCentre } = useQuery({
     queryKey: ['bi-operational-action-centre'],
     enabled: canFetch,
     queryFn: () => biRepository.getOperationalActionCentre(),
@@ -514,6 +514,8 @@ export default function ManagingDirectorDashboard() {
         <div className="space-y-6">
           {isActionCentreLoading ? (
             <div className="p-12 text-center text-xs text-muted-foreground">Loading operational action centre...</div>
+          ) : isActionCentreError ? (
+            <div className="p-6 border border-destructive/30 rounded-xl flex items-center justify-between"><span className="text-xs text-destructive">{getApiErrorMessage(actionCentreError) || 'Failed to load operational queues.'}</span><button onClick={() => refetchActionCentre()} className="px-3 py-1.5 rounded border text-xs font-semibold">Retry</button></div>
           ) : !actionCentre ? (
             <div className="p-8 text-center text-xs text-muted-foreground">No operational action items pending.</div>
           ) : (
@@ -590,6 +592,7 @@ export default function ManagingDirectorDashboard() {
                       <tbody className="divide-y font-mono">
                         {[
                           ...actionCentre.itemsByCategory.overdueTasks,
+                          ...actionCentre.itemsByCategory.backOfficeTasks,
                           ...actionCentre.itemsByCategory.pendingInspections,
                           ...actionCentre.itemsByCategory.pendingPayments,
                           ...actionCentre.itemsByCategory.complianceBlocks,
