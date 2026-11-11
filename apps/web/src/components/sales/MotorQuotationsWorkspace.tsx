@@ -607,8 +607,15 @@ export function MotorQuotationsWorkspace() {
                     <tbody className="divide-y">
                       {quotes.map((quote) => {
                         const submitted = Boolean((quote as any).backOfficeSubmittedAt);
-                        const proposalReady = ['READY_FOR_PROPOSAL', 'APPROVED', 'PAYMENT_UNDER_PROCESS', 'PAYMENT_PENDING'].includes(String(quote.status));
-                        const issuanceReady = ['PAYMENT_DONE', 'PENDING_ISSUANCE'].includes(String(quote.status)) || (quote as any).issuanceStatus === 'ISSUANCE_PENDING';
+                        // Proposal/payment remains reachable for saved drafts as well as
+                        // later workflow states; do not hide the existing wizard just
+                        // because the display status is still DRAFT.
+                        const proposalReady =
+                          !['ISSUED', 'CONVERTED_TO_POLICY', 'REJECTED', 'EXPIRED'].includes(String(quote.status)) &&
+                          (quote as any).issuanceStatus !== 'ISSUED';
+                        const issuanceReady = ['PAYMENT_DONE', 'PENDING_ISSUANCE'].includes(String(quote.status)) ||
+                          ['PAYMENT_DONE', 'PROPOSAL_APPROVED'].includes(String((quote as any).workflowState)) ||
+                          (quote as any).issuanceStatus === 'ISSUANCE_PENDING';
                         return (
                           <tr key={quote.id} className="hover:bg-muted/30">
                             <td className="px-3 py-3">
