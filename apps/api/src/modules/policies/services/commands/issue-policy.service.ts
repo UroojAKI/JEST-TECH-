@@ -399,7 +399,7 @@ export class IssuePolicyService {
         posCodeSnapshot: posEligibility.partner.posCode,
         posNameSnapshot: posEligibility.partner.name,
         insurerCodeSnapshot: posEligibility.insurer?.code || null,
-        insurerNameSnapshot: posEligibility.insurer?.name || null,
+        insurerNameSnapshot: posEligibility.insurer?.name || quotation.insurerName || null,
         insurerPartnerCodeSnapshot: posEligibility.mapping?.insurerPartnerCode || null,
         insurerPospIdSnapshot: posEligibility.mapping?.insurerPospId || null,
       };
