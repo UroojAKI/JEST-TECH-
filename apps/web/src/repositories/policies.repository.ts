@@ -135,7 +135,7 @@ export const policiesRepository = {
     return response.data;
   },
 
-  async getBackOfficeQueue(params?: { search?: string; status?: string; page?: number; limit?: number }): Promise<any> {
+  async getBackOfficeQueue(params?: { search?: string; status?: string; page?: number; limit?: number; productType?: 'MOTOR' | 'HEALTH' }): Promise<any> {
     // Preserve transport/API failures. An unavailable queue must never look like
     // a successful empty result, otherwise operators may assume work disappeared.
     const response = await apiClient.get('/back-office/queue', { params });
