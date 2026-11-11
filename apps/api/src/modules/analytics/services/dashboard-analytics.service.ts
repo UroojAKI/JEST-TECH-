@@ -407,7 +407,16 @@ export class DashboardAnalyticsService {
               select: { targetGwp: true, targetPolicies: true },
             },
             leadsAssigned: {
-              where: { deletedAt: null },
+              where: {
+                deletedAt: null,
+                ...(effectivePeriod === 'mtd'
+                  ? { createdAt: { gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) } }
+                  : effectivePeriod === 'ytd'
+                    ? { createdAt: { gte: new Date(new Date().getFullYear(), 0, 1) } }
+                    : effectivePeriod === 'today'
+                      ? { createdAt: { gte: new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) } }
+                      : {}),
+              },
               select: { id: true, status: true },
             },
           },
