@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -26,10 +27,20 @@ export class AcceptQuotationService {
    * Records agentId, timestamp, quotationVersion, selectedGstRate, and evidenceMethod.
    * Supercedes/rejects competing draft versions under the same lead.
    */
-  async execute(id: string, actorId: string, commentsOrDto?: string | CustomerAcceptanceDto) {
+  async execute(
+    id: string,
+    actorId: string,
+    commentsOrDto?: string | CustomerAcceptanceDto,
+    actor?: { companyId?: string; organizationId?: string },
+  ) {
+    const companyId = actor?.companyId || actor?.organizationId;
+    if (actor && !companyId) {
+      throw new ForbiddenException('Company context is required to accept a quotation');
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const quotation = await tx.quotation.findFirst({
-        where: { id, deletedAt: null },
+        where: { id, deletedAt: null, ...(companyId ? { companyId } : {}) },
       });
 
       if (!quotation) {
@@ -51,10 +62,15 @@ export class AcceptQuotationService {
         );
       }
 
-      // If already accepted, return idempotently
+      // Underwriter approval and customer acceptance are distinct events.
+      // Only treat this request as idempotent when the auditable customer
+      // acceptance evidence is already present in the quotation snapshot.
+      const priorAcceptance = (quotation.motorMetadata as any)?.customerAcceptance;
       if (
         quotation.status === QuotationStatus.APPROVED &&
-        quotation.workflowState === MotorWorkflowState.READY_FOR_PROPOSAL
+        quotation.workflowState === MotorWorkflowState.READY_FOR_PROPOSAL &&
+        priorAcceptance?.evidenceMethod &&
+        priorAcceptance?.timestamp
       ) {
         const detail = await this.quotationRepository.findDetail(id);
         return QuotationMapper.toResponse(detail!);
@@ -65,6 +81,7 @@ export class AcceptQuotationService {
         const existingAccepted = await tx.quotation.findFirst({
           where: {
             leadId: quotation.leadId,
+            ...(companyId ? { companyId } : {}),
             status: QuotationStatus.APPROVED,
             id: { not: quotation.id },
             deletedAt: null,
@@ -81,6 +98,7 @@ export class AcceptQuotationService {
         await tx.quotation.updateMany({
           where: {
             leadId: quotation.leadId,
+            ...(companyId ? { companyId } : {}),
             id: { not: quotation.id },
             status: {
               in: [QuotationStatus.DRAFT, QuotationStatus.PENDING_APPROVAL],
@@ -162,7 +180,7 @@ export class AcceptQuotationService {
       });
 
       const finalDetail = await tx.quotation.findFirst({
-        where: { id },
+        where: { id, ...(companyId ? { companyId } : {}) },
         include: {
           contact: true,
           account: true,
