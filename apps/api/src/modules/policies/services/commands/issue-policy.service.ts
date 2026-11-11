@@ -385,7 +385,10 @@ export class IssuePolicyService {
     // ── Module B: Optional Agent POS attribution with insurer-specific validation ──
     let posSnapshotData: any = {};
     const requestedPosId = dto.posPartnerId;
-    if (this.posEligibilityService && requestedPosId) {
+    if (requestedPosId) {
+      if (!this.posEligibilityService) {
+        throw new BadRequestException('Agent POS validation is unavailable. Retry without POS attribution or contact an administrator.');
+      }
       const posEligibility = await this.posEligibilityService.assertEligibleForIssuance({
         posPartnerId: requestedPosId,
         companyId: quotation.companyId,
@@ -402,11 +405,6 @@ export class IssuePolicyService {
         insurerNameSnapshot: posEligibility.insurer?.name || quotation.insurerName || null,
         insurerPartnerCodeSnapshot: posEligibility.mapping?.insurerPartnerCode || null,
         insurerPospIdSnapshot: posEligibility.mapping?.insurerPospId || null,
-      };
-    } else if (requestedPosId) {
-      posSnapshotData = {
-        posPartnerId: requestedPosId,
-        distributionChannel: 'POS',
       };
     }
     if (!requestedPosId) {
