@@ -41,6 +41,11 @@ export class CreateMotorQuotationCommand {
       );
     }
 
+    const selectedInsurer = dto.insurerName?.trim();
+    if (!selectedInsurer || selectedInsurer.toLowerCase() === 'partner insurer') {
+      throw new BadRequestException('Select a valid insurer before generating a Motor quotation');
+    }
+
     // ── 0. Vehicle Duplicate Policy & Quotation Prevention ──
     if (dto.registrationNumber) {
       const vehicleCheck = await this.vehicleDataService.checkVehicleRunningPolicy(
