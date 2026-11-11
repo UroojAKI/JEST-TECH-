@@ -338,15 +338,36 @@ export class RenewalsController {
 
     // Calculate authoritative renewal parameters derived from IRDAI rating config & statutory depreciation:
     const prevSumInsured = Number(
-      existingQuote?.sumInsured || task.policy.actualPremium || task.policy.premiumAmount,
+      existingQuote?.sumInsured || (task.policy.motorMetadata as Record<string, any>)?.idv || 0,
     );
     const prevBasePrem = Number(
-      existingQuote?.basePremium || task.policy.actualPremium || task.policy.premiumAmount,
+      existingQuote?.basePremium || task.policy.premiumAmount || 0,
     );
+    if (!Number.isFinite(prevSumInsured) || prevSumInsured <= 0) {
+      throw new BadRequestException(
+        'A verified expiring IDV / sum insured is required to create a renewal quotation. Premium amounts cannot be used as an IDV substitute.',
+      );
+    }
+    if (!Number.isFinite(prevBasePrem) || prevBasePrem <= 0) {
+      throw new BadRequestException(
+        'A valid expiring base premium is required to calculate renewal pricing.',
+      );
+    }
     const prevNcb = Number(existingQuote?.ncbPercentage || 0);
 
     const vehicleMeta = (task.policy.motorMetadata as Record<string, any>) || {};
-    const regYear = Number(vehicleMeta.registrationYear || vehicleMeta.manufacturingYear || (new Date().getFullYear() - 1));
+    const registrationDate = task.policy.vehicle?.dateOfRegistration
+      ? new Date(task.policy.vehicle.dateOfRegistration)
+      : null;
+    const manufactureYear = task.policy.vehicle?.manufactureYearMonth
+      ? Number(task.policy.vehicle.manufactureYearMonth.split('/')[1] || task.policy.vehicle.manufactureYearMonth)
+      : Number(vehicleMeta.manufacturingYear || vehicleMeta.registrationYear || NaN);
+    const regYear = registrationDate && Number.isFinite(registrationDate.getTime())
+      ? registrationDate.getFullYear()
+      : manufactureYear;
+    if (!Number.isFinite(regYear) || regYear < 1900 || regYear > new Date().getFullYear()) {
+      throw new BadRequestException('A valid vehicle registration/manufacture year is required for renewal IDV depreciation.');
+    }
     const vehicleAgeYears = Math.max(1, new Date().getFullYear() - regYear);
 
     const hasClaims = task.policy.claims.length > 0;
