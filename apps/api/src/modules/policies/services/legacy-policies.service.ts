@@ -53,8 +53,8 @@ export class LegacyPoliciesService {
     });
     if (!document) throw new BadRequestException('Evidence must be an active insurer-issued policy document uploaded by you and associated with the selected customer/contact');
 
-    const normalizedInsurer = dto.insurerName.trim();
-    const normalizedNumber = dto.insurerPolicyNumber.trim();
+    const normalizedInsurer = dto.insurerName.trim().toUpperCase();
+    const normalizedNumber = dto.insurerPolicyNumber.trim().toUpperCase();
     const duplicate = await this.prisma.legacyPolicyRecord.findFirst({
       where: { companyId, insurerName: { equals: normalizedInsurer, mode: 'insensitive' }, insurerPolicyNumber: { equals: normalizedNumber, mode: 'insensitive' } },
       select: { id: true },
@@ -63,35 +63,55 @@ export class LegacyPoliciesService {
 
     const now = new Date();
     const status = expiry > now ? LegacyPolicyStatus.ACTIVE : LegacyPolicyStatus.EXPIRED;
-    const record = await this.prisma.legacyPolicyRecord.create({
-      data: {
-        legacyPolicyNumber: `LEG-${randomUUID()}`,
-        insurerName: normalizedInsurer,
-        insurerPolicyNumber: normalizedNumber,
-        productType: dto.productType.trim(),
-        coverageDescription: dto.coverageDescription?.trim() || null,
-        premiumAmount: premium,
-        policyStartDate: start,
-        policyExpiryDate: expiry,
-        issueDate: dto.issueDate ? new Date(dto.issueDate) : null,
-        status,
-        customerId: dto.customerId || null,
-        contactId: dto.contactId || null,
-        companyId,
-        evidenceDocumentId: document.id,
-        agentDeclaration: true,
-        declarationText: DECLARATION,
-        createdById: userId,
-      },
-    });
-
-    const offsets = [45, 30, 15, 7, 0, -1];
-    await this.prisma.legacyPolicyRenewalReminder.createMany({
-      data: offsets.map(offsetDays => {
-        const dueDate = new Date(expiry);
-        dueDate.setDate(dueDate.getDate() - offsetDays);
-        return { legacyPolicyId: record.id, offsetDays, dueDate };
-      }),
+    const record = await this.prisma.$transaction(async tx => {
+      const created = await tx.legacyPolicyRecord.create({
+        data: {
+          legacyPolicyNumber: `LEG-${randomUUID()}`,
+          insurerName: normalizedInsurer,
+          insurerPolicyNumber: normalizedNumber,
+          productType: dto.productType.trim(),
+          coverageDescription: dto.coverageDescription?.trim() || null,
+          premiumAmount: premium,
+          policyStartDate: start,
+          policyExpiryDate: expiry,
+          issueDate: dto.issueDate ? new Date(dto.issueDate) : null,
+          status,
+          customerId: dto.customerId || null,
+          contactId: dto.contactId || null,
+          companyId,
+          evidenceDocumentId: document.id,
+          agentDeclaration: true,
+          declarationText: DECLARATION,
+          createdById: userId,
+        },
+      });
+      const offsets = [45, 30, 15, 7, 0, -1];
+      await tx.legacyPolicyRenewalReminder.createMany({
+        data: offsets.map(offsetDays => {
+          const dueDate = new Date(expiry);
+          dueDate.setDate(dueDate.getDate() - offsetDays);
+          return { legacyPolicyId: created.id, offsetDays, dueDate };
+        }),
+      });
+      await tx.auditLog.create({
+        data: {
+          action: 'CREATE',
+          entity: 'LEGACY_POLICY',
+          entityId: created.id,
+          userId,
+          performedById: userId,
+          entityType: 'LEGACY_POLICY',
+          module: 'POLICIES',
+          newValue: {
+            legacyPolicyNumber: created.legacyPolicyNumber,
+            insurerName: normalizedInsurer,
+            insurerPolicyNumber: normalizedNumber,
+            status,
+            evidenceDocumentId: document.id,
+          },
+        },
+      });
+      return created;
     });
     return { ...record, renewalTracking: 'SCHEDULED', declarationText: DECLARATION };
   }
