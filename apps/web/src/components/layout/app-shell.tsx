@@ -28,9 +28,9 @@ export function AppShell({
       <AppHeader />
 
       {/* Main Container */}
-      <div className="flex flex-1">
+      <div className="flex min-w-0 flex-1">
         <AppSidebar />
-        <main className="flex-1 overflow-x-hidden p-6 bg-muted/10 flex flex-col justify-between">
+        <main className="min-w-0 flex-1 overflow-x-hidden px-3 py-4 sm:px-4 lg:p-6 bg-muted/10 flex flex-col justify-between">
           <div className="space-y-6">{children}</div>
           <AppFooter />
         </main>
