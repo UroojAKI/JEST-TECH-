@@ -104,7 +104,16 @@ export function AppSidebar() {
   const { canAccess } = usePermissions();
   const isSidebarOpen = useUIStore((s) => s.isSidebarOpen);
   const user = useAuthStore((s) => s.user);
-  const role = user?.roles?.[0] || user?.role || 'AGENT';
+  const assignedRoles = [...(user?.roles || []), user?.role]
+    .filter(Boolean)
+    .map((value) => String(value).toUpperCase());
+  // Prefer the most privileged assigned workspace so role-array ordering cannot
+  // silently hide the Admin configuration menu from multi-role administrators.
+  const role =
+    assignedRoles.find((value) => ['SUPER_ADMIN', 'SYSTEM_ADMINISTRATOR', 'ADMIN'].includes(value)) ||
+    assignedRoles.find((value) => ['BACK_OFFICE', 'OPERATIONS', 'UNDERWRITER'].includes(value)) ||
+    assignedRoles[0] ||
+    'AGENT';
 
   const { data: healthData } = useQuery({
     queryKey: ['system-health'],
