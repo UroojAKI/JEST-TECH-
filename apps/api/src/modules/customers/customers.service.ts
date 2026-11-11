@@ -654,58 +654,36 @@ export class CustomersService {
       }
     }
 
-    try {
-      const [customers, total] = await Promise.all([
-        this.prisma.customer.findMany({
-          where,
-          skip,
-          take: limit,
-          orderBy: { [sortBy]: sortOrder },
-          include: {
-            _count: {
-              select: {
-                leads: true,
-                policies: true,
-                vehicles: true,
-                quotations: true,
-                claims: true,
-              },
+    const [customers, total] = await Promise.all([
+      this.prisma.customer.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { [sortBy]: sortOrder },
+        include: {
+          _count: {
+            select: {
+              leads: true,
+              policies: true,
+              vehicles: true,
+              quotations: true,
+              claims: true,
             },
           },
-        }),
-        this.prisma.customer.count({ where }),
-      ]);
+        },
+      }),
+      this.prisma.customer.count({ where }),
+    ]);
 
-      return {
-        data: customers,
-        meta: {
-          page,
-          limit,
-          total,
-          totalPages: Math.ceil(total / limit),
-        },
-      };
-    } catch (err: any) {
-      this.logger.warn('Failed full customer query, falling back');
-      const [customers, total] = await Promise.all([
-        this.prisma.customer.findMany({
-          where,
-          skip,
-          take: limit,
-          orderBy: { [sortBy]: sortOrder },
-        }),
-        this.prisma.customer.count({ where }).catch(() => 0),
-      ]);
-      return {
-        data: customers,
-        meta: {
-          page,
-          limit,
-          total,
-          totalPages: Math.ceil(total / limit),
-        },
-      };
-    }
+    return {
+      data: customers,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 
   async findById(id: string, user: RequestUser) {
@@ -1026,10 +1004,14 @@ export class CustomersService {
   async markAlertRead(customerId: string, alertId: string, user: RequestUser) {
     await this.findById(customerId, user);
 
-    return this.prisma.customerAlert.update({
-      where: { id: alertId },
+    const result = await this.prisma.customerAlert.updateMany({
+      where: { id: alertId, customerId },
       data: { isRead: true },
     });
+    if (result.count !== 1) {
+      throw new NotFoundException('Customer alert not found');
+    }
+    return { success: true, id: alertId, isRead: true };
   }
 
   async getCustomerVehicles(customerId: string, user: RequestUser) {
