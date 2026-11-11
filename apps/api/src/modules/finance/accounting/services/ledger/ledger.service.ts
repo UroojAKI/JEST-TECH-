@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../../../../database/prisma.service';
 import { JournalEntry } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
@@ -63,6 +63,9 @@ export class LedgerService {
    * cannot produce duplicate entry numbers.
    */
   async postEntry(data: CreateJournalEntryDto, companyId?: string): Promise<JournalEntry> {
+    if (!companyId) {
+      throw new ForbiddenException('Company context is required to post journal entries');
+    }
     if (!data.lines || data.lines.length < 2) {
       throw new BadRequestException(
         'A journal entry must have at least two lines.',
@@ -159,7 +162,7 @@ export class LedgerService {
           description: data.description.trim(),
           referenceId: data.referenceId,
           referenceType: data.referenceType,
-          companyId: companyId || (data as any).companyId || null,
+          companyId,
           status: 'POSTED',
           lines: {
             create: data.lines.map((line) => ({
@@ -186,6 +189,9 @@ export class LedgerService {
    * LIABILITY / EQUITY / REVENUE: Balance = Credit - Debit
    */
   async getAccountBalance(accountId: string, companyId?: string): Promise<Decimal> {
+    if (!companyId) {
+      throw new ForbiddenException('Company context is required to read ledger balances');
+    }
     const account = await this.prisma.chartOfAccount.findUnique({
       where: { id: accountId },
     });
@@ -197,7 +203,7 @@ export class LedgerService {
         accountId,
         journalEntry: {
           status: 'POSTED',
-          ...(companyId ? { companyId } : {}),
+          companyId,
         },
       },
       _sum: {
@@ -230,15 +236,19 @@ export class LedgerService {
     },
     companyId?: string,
   ) {
+    const effectiveCompanyId = companyId || params?.companyId;
+    if (!effectiveCompanyId) {
+      throw new ForbiddenException('Company context is required to read ledger entries');
+    }
+    if (companyId && params?.companyId && companyId !== params.companyId) {
+      throw new ForbiddenException('Requested ledger tenant does not match authenticated tenant');
+    }
+
     const page = Math.max(1, Number(params?.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(params?.limit) || 20));
     const skip = (page - 1) * limit;
 
-    const where: any = {};
-    const effectiveCompanyId = companyId || params?.companyId;
-    if (effectiveCompanyId) {
-      where.companyId = effectiveCompanyId;
-    }
+    const where: any = { companyId: effectiveCompanyId };
     if (params?.referenceType && params.referenceType !== 'ALL') {
       where.referenceType = params.referenceType;
     }
