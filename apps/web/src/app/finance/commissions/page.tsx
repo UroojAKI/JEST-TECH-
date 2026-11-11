@@ -8,16 +8,20 @@ import { StatusBadge } from '../../../components/ui/status-badge';
 import { toast } from 'sonner';
 
 export default function CommissionsWorkspacePage() {
-  const { commissions = [], approveCommission, isLoading, isError, isApproving } = useCommissions();
+  const { commissions = [], approveCommission, bulkApproveCommissions, isLoading, isError, isApproving, isBulkApproving } = useCommissions();
 
-  const handleBulkApprove = () => {
+  const handleBulkApprove = async () => {
     const pendingCommissions = (Array.isArray(commissions) ? commissions : (((commissions as any)?.data || (commissions as any)?.items || []))).filter((c: any) => c.payoutStatus === 'PENDING_APPROVAL');
     if (pendingCommissions.length === 0) {
       toast.info('No pending commissions to approve.');
       return;
     }
-    pendingCommissions.forEach((c: any) => approveCommission(c.id));
-    toast.success(`Bulk approval started for ${pendingCommissions.length} commissions.`);
+    try {
+      const result = await bulkApproveCommissions(pendingCommissions.map((c: any) => c.id));
+      toast.success(`Bulk approval completed: ${result.successfulCount} approved, ${result.alreadyProcessedCount} already processed, ${result.failedCount + result.stateMismatchCount} failed or mismatched.`);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Bulk approval failed');
+    }
   };
 
   if (isLoading) {
@@ -49,11 +53,11 @@ export default function CommissionsWorkspacePage() {
         <div className="flex items-center space-x-2">
           <button
             onClick={handleBulkApprove}
-            disabled={isApproving}
+            disabled={isApproving || isBulkApproving}
             className="flex items-center space-x-1 px-4 py-2 text-xs font-bold rounded-lg bg-emerald-600 text-white shadow hover:bg-emerald-700 disabled:opacity-50"
           >
             <CheckCircle2 className="h-4 w-4" />
-            <span>{isApproving ? 'Approving...' : '✓ Bulk Approve Payouts'}</span>
+            <span>{isBulkApproving ? 'Approving...' : '✓ Bulk Approve Payouts'}</span>
           </button>
         </div>
       </div>
