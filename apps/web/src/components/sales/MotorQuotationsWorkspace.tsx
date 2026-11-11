@@ -28,6 +28,9 @@ export function MotorQuotationsWorkspace() {
   const isBackOfficeOrAdmin = userRoles.some((r) =>
     ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMINISTRATOR', 'BACK_OFFICE', 'OPERATIONS', 'UNDERWRITER'].includes(r)
   );
+  const canSubmitToBackOffice = userRoles.some((r) =>
+    ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMINISTRATOR', 'AGENT', 'SALES_AGENT', 'SALES_MANAGER'].includes(r)
+  );
 
   const searchParams = useSearchParams();
   const leadIdParam = searchParams?.get('leadId') || undefined;
@@ -671,7 +674,7 @@ export function MotorQuotationsWorkspace() {
                                 >
                                   Add insurer quote
                                 </button>
-                                {!isBackOfficeOrAdmin && !submitted && (quote as any).caseId && customerAccepted && validInsurer && (
+                                {canSubmitToBackOffice && !submitted && (quote as any).caseId && customerAccepted && validInsurer && (
                                   <button onClick={async () => {
                                     const selected = allQuotes.find((item) => item.id === quote.id);
                                     if (!selected?.caseId) {
@@ -688,7 +691,7 @@ export function MotorQuotationsWorkspace() {
                                     }
                                   }} className="rounded bg-primary px-2 py-1 text-primary-foreground">Select & Send</button>
                                 )}
-                                {!isBackOfficeOrAdmin && !submitted && (quote as any).caseId && !customerAccepted && (
+                                {canSubmitToBackOffice && !submitted && (quote as any).caseId && !customerAccepted && (
                                   <span className="rounded bg-amber-500/10 px-2 py-1 text-amber-700">Accept before handoff</span>
                                 )}
                                 {!validInsurer && (
