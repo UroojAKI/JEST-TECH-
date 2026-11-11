@@ -222,6 +222,54 @@ export class LedgerService {
     }
   }
 
+  async reconcileLedger(companyId?: string) {
+    if (!companyId) {
+      throw new ForbiddenException('Company context is required for ledger reconciliation');
+    }
+
+    const entries = await this.prisma.journalEntry.findMany({
+      where: { companyId, status: 'POSTED' },
+      include: { lines: { select: { debit: true, credit: true } } },
+      orderBy: { date: 'asc' },
+    });
+
+    let totalDebit = new Decimal(0);
+    let totalCredit = new Decimal(0);
+    const discrepancies: Array<{ entryId: string; entryNumber: string; debit: number; credit: number; difference: number }> = [];
+
+    for (const entry of entries) {
+      let entryDebit = new Decimal(0);
+      let entryCredit = new Decimal(0);
+      for (const line of entry.lines) {
+        entryDebit = entryDebit.add(line.debit || 0);
+        entryCredit = entryCredit.add(line.credit || 0);
+      }
+      totalDebit = totalDebit.add(entryDebit);
+      totalCredit = totalCredit.add(entryCredit);
+      if (!entryDebit.equals(entryCredit)) {
+        discrepancies.push({
+          entryId: entry.id,
+          entryNumber: entry.entryNumber,
+          debit: entryDebit.toNumber(),
+          credit: entryCredit.toNumber(),
+          difference: entryDebit.sub(entryCredit).toNumber(),
+        });
+      }
+    }
+
+    return {
+      companyId,
+      checkedEntries: entries.length,
+      balancedEntries: entries.length - discrepancies.length,
+      discrepancyCount: discrepancies.length,
+      totalDebit: totalDebit.toNumber(),
+      totalCredit: totalCredit.toNumber(),
+      ledgerIsBalanced: discrepancies.length === 0 && totalDebit.equals(totalCredit),
+      discrepancies,
+      checkedAt: new Date().toISOString(),
+    };
+  }
+
   /**
    * Retrieves paginated double-entry ledger journal entries with balanced validation.
    */
