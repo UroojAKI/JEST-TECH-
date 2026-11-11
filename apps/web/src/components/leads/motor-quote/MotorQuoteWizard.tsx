@@ -934,6 +934,11 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
   };
 
   const handleSave = async () => {
+    if (!insurerName || !insurerName.trim() || insurerName.trim().toLowerCase() === 'partner insurer') {
+      toast.error('Select an active insurer before generating a quotation.');
+      return;
+    }
+
     if (!vehicleCategory || !policyType) {
       toast.error('Vehicle category and policy type are required');
       return;
@@ -1034,7 +1039,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
         vehicleCategory,
         policyType,
         registrationNumber: registrationNumber || '',
-        insurerName: insurerName || 'Partner Insurer',
+        insurerName: insurerName.trim(),
         leadId: leadId && leadId !== 'new' ? leadId : undefined,
         contactId: resolvedContactId || contactId || undefined,
         customerId: resolvedCustomerId || customerId || undefined,
