@@ -3,6 +3,7 @@
 import React, { useRef, useState } from 'react';
 import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { canUserSubmitToBackOffice } from '../../repositories/quotations.repository';
 import { toast } from 'sonner';
 import {
   AlertCircle,
@@ -677,7 +678,7 @@ export function HealthCaseWorkspace({ caseId }: { caseId: string }) {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {!isBackOfficeOrAdmin && (
+              {canUserSubmitToBackOffice([user?.role, ...(user?.roles || [])]) && !selectedQuote.policy && (
                 <button
                   type="button"
                   disabled={handoffMutation.isPending || Boolean(selectedQuote.backOfficeSubmittedAt)}

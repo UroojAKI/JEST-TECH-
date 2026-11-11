@@ -7,6 +7,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { QuotationStatus, RoleType, UserStatus } from '@prisma/client';
+import { ROLES_KEY } from '../../auth/decorators/roles.decorator';
 
 import { QuotationController } from '../controllers/quotation.controller';
 import { GenerateQuotationService } from '../services/commands/generate-quotation.service';
@@ -151,8 +152,31 @@ describe('QuotationController', () => {
           useValue: {
             quotation: {
               findMany: jest.fn().mockResolvedValue([mockQuotationResponse]),
+              findFirst: jest.fn().mockResolvedValue({
+                ...mockQuotationResponse,
+                companyId: 'org-1',
+                deletedAt: null,
+                case: { id: 'case-1', selectedQuoteId: 'quote-123' },
+                healthCase: null,
+              }),
               count: jest.fn().mockResolvedValue(1),
             },
+            $transaction: jest.fn(async (cb: any) =>
+              cb({
+                quotation: {
+                  updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+                  findFirst: jest.fn().mockResolvedValue({
+                    id: 'quote-123',
+                    quotationCode: 'QT-000001',
+                    backOfficeSubmittedAt: new Date(),
+                    backOfficeSubmittedById: 'bo-1',
+                  }),
+                },
+                quotationHistory: {
+                  create: jest.fn().mockResolvedValue({ id: 'hist-1' }),
+                },
+              }),
+            ),
           },
         },
         {
@@ -175,6 +199,7 @@ describe('QuotationController', () => {
             .QuotationCompletionService,
           useValue: {
             calculateCompletionStatus: jest.fn().mockReturnValue({}),
+            getCompletion: jest.fn().mockResolvedValue({ canApprove: true }),
           },
         },
       ],
@@ -309,6 +334,52 @@ describe('QuotationController', () => {
       await expect(
         controller.approve('quote-123', 'Comments', mockUser),
       ).rejects.toThrow(ConflictException);
+    });
+  });
+
+  // 7. Submit to Back Office
+  describe('submitToBackOffice', () => {
+    it('allows ADMIN, BACK_OFFICE, and AGENT roles on submitToBackOffice', () => {
+      const roles = Reflect.getMetadata(
+        ROLES_KEY,
+        QuotationController.prototype.submitToBackOffice,
+      );
+
+      expect(roles).toEqual(
+        expect.arrayContaining([
+          RoleType.ADMIN,
+          RoleType.BACK_OFFICE,
+          RoleType.AGENT,
+        ]),
+      );
+    });
+
+    it('submits a selected quotation to back office for a BACK_OFFICE user', async () => {
+      const backOfficeUser: RequestUser = {
+        ...mockUser,
+        id: 'bo-1',
+        userId: 'bo-1',
+        role: RoleType.BACK_OFFICE,
+        roles: [RoleType.BACK_OFFICE],
+        workspaces: ['OPERATIONS'],
+      };
+
+      const result = await controller.submitToBackOffice(
+        'quote-123',
+        backOfficeUser,
+      );
+
+      expect(result).toEqual({
+        success: true,
+        alreadySubmitted: false,
+        quotation: {
+          id: 'quote-123',
+          quotationCode: 'QT-000001',
+          backOfficeSubmittedAt: expect.any(Date),
+          backOfficeSubmittedById: 'bo-1',
+        },
+        message: 'Selected quotation submitted to back office successfully.',
+      });
     });
   });
 });

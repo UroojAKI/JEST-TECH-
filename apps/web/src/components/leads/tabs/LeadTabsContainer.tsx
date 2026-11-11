@@ -19,7 +19,8 @@ import {
 } from 'lucide-react';
 import { ChunkedFileUploader } from '../../upload/chunked-file-uploader';
 import { toast } from 'sonner';
-import { apiClient } from '../../../lib/api-client';
+import { apiClient, showApiErrorToast } from '../../../lib/api-client';
+import { quotationsRepository } from '../../../repositories/quotations.repository';
 import { MotorQuoteWizard } from '../motor-quote/MotorQuoteWizard';
 import { QuoteCard } from '../motor-quote/QuoteCard';
 import type { SavedMotorQuote } from '../motor-quote/motorFormTypes';
@@ -135,6 +136,8 @@ export function LeadTabsContainer({
           vehicleDetails: (q.motorMetadata as any)?.vehicleDetails,
           policyDetails: (q.motorMetadata as any)?.policyDetails,
           caseId: q.caseId || (q.motorMetadata as any)?.caseId || undefined,
+          issuanceStatus: q.issuanceStatus,
+          backOfficeSubmittedAt: q.backOfficeSubmittedAt,
           motorDocuments: q.motorDocuments || [],
         }));
 
@@ -281,6 +284,19 @@ export function LeadTabsContainer({
       loadMotorQuotes();
     } catch (err: any) {
       toast.error(`Failed to select quotation: ${err.response?.data?.message || err.message}`);
+    }
+  };
+
+  const handleSubmitQuoteToBackOffice = async (quotationId: string) => {
+    const selected = motorQuotes.find((q) => q.id === quotationId) as any;
+    const caseId = selected?.caseId || selected?.motorMetadata?.caseId;
+    try {
+      await quotationsRepository.selectAndSubmitMotorQuotation(quotationId, caseId);
+      toast.success('Selected quotation sent to Back Office');
+      await loadMotorQuotes();
+    } catch (err: any) {
+      showApiErrorToast(err, 'Could not submit quotation to Back Office');
+      throw err;
     }
   };
 
@@ -501,6 +517,7 @@ export function LeadTabsContainer({
                       quote={q}
                       onUploadQuote={handleUploadQuote}
                       onAddComparisonQuote={handleAddComparisonQuote}
+                      onSubmitToBackOffice={handleSubmitQuoteToBackOffice}
                     />
                   ))}
                 </div>

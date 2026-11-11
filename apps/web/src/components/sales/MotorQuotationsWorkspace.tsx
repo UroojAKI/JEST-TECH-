@@ -16,7 +16,10 @@ import type { VehicleCategory, SavedMotorQuote } from '../leads/motor-quote/moto
 import { MotorProductCards } from '../workspaces/sales/MotorProductCards';
 import { useAuthStore } from '../../store/auth-store';
 import { policiesRepository } from '../../repositories/policies.repository';
-import { quotationsRepository } from '../../repositories/quotations.repository';
+import {
+  canUserSubmitToBackOffice,
+  quotationsRepository,
+} from '../../repositories/quotations.repository';
 
 export function MotorQuotationsWorkspace() {
   const authUser = useAuthStore((s) => s.user);
@@ -27,10 +30,7 @@ export function MotorQuotationsWorkspace() {
   const isBackOfficeOrAdmin = userRoles.some((r) =>
     ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMINISTRATOR', 'BACK_OFFICE', 'OPERATIONS', 'UNDERWRITER'].includes(r)
   );
-  const isAdmin = userRoles.some((r) =>
-    ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMINISTRATOR'].includes(r)
-  );
-  const canSubmitToBackOffice = !isBackOfficeOrAdmin || isAdmin;
+  const canSubmitToBackOffice = canUserSubmitToBackOffice(userRoles);
 
   const searchParams = useSearchParams();
   const leadIdParam = searchParams?.get('leadId') || undefined;
@@ -646,16 +646,14 @@ export function MotorQuotationsWorkspace() {
                                 >
                                   Add insurer quote
                                 </button>
-                                {canSubmitToBackOffice && !submitted && !isTerminalQuoteStatus && (quote as any).caseId && (
+                                {canSubmitToBackOffice && !submitted && !isTerminalQuoteStatus && (
                                   <button onClick={async () => {
                                     const selected = allQuotes.find((item) => item.id === quote.id);
-                                    if (!selected?.caseId) {
-                                      toast.error('This quotation is not linked to a quotation case.');
-                                      return;
-                                    }
                                     try {
-                                      await apiClient.post(`/motor/quotation-cases/${selected.caseId}/select`, { quotationId: quote.id });
-                                      await quotationsRepository.submitToBackOffice(quote.id);
+                                      await quotationsRepository.selectAndSubmitMotorQuotation(
+                                        quote.id,
+                                        selected?.caseId,
+                                      );
                                       toast.success('Selected quotation sent to Back Office');
                                       await refetch();
                                     } catch (error: any) {

@@ -8,6 +8,7 @@ import { QuotationCompletionView } from './QuotationCompletionView';
 import { useAuthStore } from '../../../store/auth-store';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../../lib/api-client';
+import { canUserSubmitToBackOffice } from '../../../repositories/quotations.repository';
 
 interface Props {
   quote: SavedMotorQuote;
@@ -59,10 +60,7 @@ export function QuoteCard({ quote, onUploadQuote, onConductInspection, onComplet
     ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMINISTRATOR', 'BACK_OFFICE', 'OPERATIONS', 'UNDERWRITER'].includes(r)
   );
   const isAgent = !isBackOfficeOrAdmin;
-  const isAdmin = userRoles.some((r) =>
-    ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMINISTRATOR'].includes(r)
-  );
-  const canSubmitToBackOffice = isAgent || isAdmin;
+  const canSubmitToBackOffice = canUserSubmitToBackOffice(userRoles);
   const isSubmittedToBackOffice =
     submittedToBackOffice || Boolean((quote as any).backOfficeSubmittedAt);
   const isTerminalQuoteStatus =

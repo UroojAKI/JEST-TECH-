@@ -1,6 +1,22 @@
 import { apiClient } from '../lib/api-client';
 import { PaginatedResult, PaginationParams } from '../types';
 
+const CUSTOMER_PORTAL_ROLES = new Set(['CUSTOMER', 'CLIENT']);
+
+/**
+ * Returns true when at least one assigned role represents internal agency staff
+ * (Agent, Back Office, or Admin) permitted to hand off quotations to Back Office.
+ */
+export function canUserSubmitToBackOffice(
+  roles: Array<string | null | undefined>,
+): boolean {
+  const normalized = roles
+    .filter((r): r is string => Boolean(r))
+    .map((r) => String(r).toUpperCase());
+  if (normalized.length === 0) return true;
+  return normalized.some((r) => !CUSTOMER_PORTAL_ROLES.has(r));
+}
+
 export interface QuotationItem {
   id: string;
   quotationNumber: string;
@@ -50,6 +66,17 @@ export const quotationsRepository = {
   async submitToBackOffice(id: string): Promise<any> {
     const response = await apiClient.post(`/quotations/${id}/submit-to-back-office`);
     return response.data;
+  },
+
+  /**
+   * Binds the winning quotation to its Motor Quotation Case (when linked to a case)
+   * and submits it into the Back-Office Policy Issuance queue.
+   */
+  async selectAndSubmitMotorQuotation(quotationId: string, caseId?: string | null): Promise<any> {
+    if (caseId) {
+      await apiClient.post(`/motor/quotation-cases/${caseId}/select`, { quotationId });
+    }
+    return this.submitToBackOffice(quotationId);
   },
 
   async createQuotation(data: any): Promise<QuotationItem> {

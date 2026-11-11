@@ -221,7 +221,7 @@ export class QuotationController {
 
   @Post(':id/submit-to-back-office')
   @HttpCode(HttpStatus.OK)
-  @Roles(RoleType.ADMIN, RoleType.AGENT)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({
     summary: 'Explicitly hand off the selected quotation to the back-office workbench',
   })

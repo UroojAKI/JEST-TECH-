@@ -78,8 +78,13 @@ describe('QuoteCard back-office handoff button visibility', () => {
     expect(screen.getByRole('button', { name: /select & send to back office/i })).toBeEnabled();
   });
 
-  it('hides Select & Send to Back Office from BACK_OFFICE', () => {
+  it('shows Select & Send to Back Office to BACK_OFFICE as well as AGENT and ADMIN', () => {
     renderQuoteCard({}, 'BACK_OFFICE');
+    expect(screen.getByRole('button', { name: /select & send to back office/i })).toBeEnabled();
+  });
+
+  it('hides Select & Send to Back Office from CUSTOMER', () => {
+    renderQuoteCard({}, 'CUSTOMER');
     expect(screen.queryByRole('button', { name: /select & send to back office/i })).toBeNull();
   });
 
