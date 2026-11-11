@@ -20,19 +20,24 @@ export class CompareQuotationService {
   ) {}
 
   async execute(ids: string[], actor: RequestUser) {
-    if (!ids || ids.length === 0) {
+    if (!Array.isArray(ids) || ids.length < 2 || ids.length > 10) {
       throw new BadRequestException(
-        'At least one quotation ID must be provided for comparison',
+        'Provide between 2 and 10 saved quotation IDs for comparison',
       );
+    }
+    if (new Set(ids).size !== ids.length) {
+      throw new BadRequestException('Duplicate quotation IDs are not allowed');
+    }
+    const companyId = actor.companyId || actor.organizationId;
+    if (!companyId) {
+      throw new ForbiddenException('Company context is required to compare quotations');
     }
 
     const quotationsVerify = await this.prisma.quotation.findMany({
       where: {
         id: { in: ids },
+        companyId,
         deletedAt: null,
-        ...(actor.organizationId
-          ? { createdBy: { companyId: actor.organizationId } }
-          : {}),
       },
     });
 
