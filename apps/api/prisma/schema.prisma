@@ -3161,6 +3161,7 @@ model Company {
   commissions              Commission[]               @relation("CompanyCommissions")
   settlements              Settlement[]               @relation("CompanySettlements")
   posPartners              PosPartner[]               @relation("CompanyPosPartners")
+  commissionPlans          CommissionPlan[]           @relation("CompanyCommissionPlans")
 
   @@index([taxId])
 }
@@ -3630,9 +3631,13 @@ model CommissionPlan {
   name        String
   description String?
   rules       String // JSON containing slab, product, tier logic
+  companyId   String?
+  company     Company? @relation("CompanyCommissionPlans", fields: [companyId], references: [id], onDelete: Cascade)
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([companyId, isActive])
 }
 
 model Commission {
