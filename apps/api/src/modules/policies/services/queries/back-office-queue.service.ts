@@ -162,6 +162,7 @@ export class BackOfficeQueueService {
                 { status: { in: statusFilter } },
                 { issuanceStatus: 'ISSUANCE_PENDING' },
                 { workflowState: 'PAYMENT_DONE' },
+                { policy: { isNot: null } },
               ],
             }),
       };
