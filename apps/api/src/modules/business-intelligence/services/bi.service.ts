@@ -1163,7 +1163,7 @@ export class BiService {
       category: 'BACK_OFFICE_TASK',
       title: `${task.taskType.replace(/_/g, ' ')} verification task`,
       referenceCode: task.taskCode,
-      severity: task.priority === 'CRITICAL' || task.priority === 'HIGH' ? 'CRITICAL' : 'HIGH',
+      severity: task.priority === 'URGENT' || task.priority === 'HIGH' ? 'CRITICAL' : 'HIGH',
       assignedTo: task.assignedTo ? `${task.assignedTo.firstName} ${task.assignedTo.lastName || ''}`.trim() : undefined,
       entityType: 'BackOfficeTask',
       entityId: task.id,
