@@ -1,9 +1,11 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards, ForbiddenException } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RoleType } from '@prisma/client';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../auth/guards/roles.guard';
 import { Roles } from '../../../auth/decorators/roles.decorator';
+import { CurrentUser } from '../../../auth/decorators/current-user.decorator';
+import type { RequestUser } from '../../../auth/decorators/current-user.decorator';
 import { CommissionEngineService } from '../services/commission-engine/commission-engine.service';
 
 @ApiTags('Finance Commissions')
@@ -33,7 +35,10 @@ export class CommissionController {
       premiumAmount: string;
       planId: string;
     },
+    @CurrentUser() actor: RequestUser,
   ) {
+    const companyId = actor.companyId || (actor as any).organizationId;
+    if (!companyId) throw new ForbiddenException('Company context is required');
     return this.commissionEngineService.accrueCommissions(
       dto.policyId,
       dto.agentId,
@@ -48,9 +53,14 @@ export class CommissionController {
     summary:
       'Mark accrued commissions as realized upon policy payment confirmation',
   })
-  async realize(@Param('policyId') policyId: string) {
+  async realize(
+    @Param('policyId') policyId: string,
+    @CurrentUser() actor: RequestUser,
+  ) {
+    const companyId = actor.companyId || (actor as any).organizationId;
+    if (!companyId) throw new ForbiddenException('Company context is required');
     const count =
-      await this.commissionEngineService.realizeCommissions(policyId);
+      await this.commissionEngineService.realizeCommissions(policyId, companyId);
     return { status: 'success', realizedCount: count };
   }
 }
