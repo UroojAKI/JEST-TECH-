@@ -218,6 +218,67 @@ describe('BackOfficeQueueService (G021 Multi-Gate Policy Issuance Queue)', () =>
     expect(item.nextAction).toContain('Payment');
   });
 
+  it('includes linked issued policies in the issued summary metric without listing them as pending', async () => {
+    const issuedQuote = {
+      ...baseQuote,
+      id: 'quote-issued',
+      quotationCode: 'QT-ISSUED-001',
+      status: QuotationStatus.CONVERTED_TO_POLICY,
+      policy: { id: 'policy-issued', policyNumber: 'POL-001' },
+    };
+    mockPrisma.quotation.findMany.mockResolvedValue([baseQuote, issuedQuote]);
+    mockPrisma.document.findMany.mockResolvedValue([]);
+
+    const result = await service.getBackOfficeQueue();
+
+    expect(result.data).toHaveLength(1);
+    expect(result.summary.totalPending).toBe(1);
+    expect(result.summary.issuedCount).toBe(1);
+  });
+
+  it('searches insurer and vehicle/customer fields before computing queue totals', async () => {
+    mockPrisma.quotation.findMany.mockResolvedValue([baseQuote]);
+    mockPrisma.document.findMany.mockResolvedValue([]);
+
+    const matched = await service.getBackOfficeQueue({ search: 'icici' });
+    expect(matched.data).toHaveLength(1);
+    expect(matched.summary.totalPending).toBe(1);
+
+    const unmatched = await service.getBackOfficeQueue({ search: 'no-such-insurer' });
+    expect(unmatched.data).toHaveLength(0);
+    expect(unmatched.summary.totalPending).toBe(0);
+    expect(unmatched.summary.readyCount).toBe(0);
+    expect(unmatched.summary.blockedCount).toBe(0);
+  });
+
+  it('passes the selected product type into the tenant-scoped quotation query', async () => {
+    mockPrisma.quotation.findMany.mockResolvedValue([baseQuote]);
+    mockPrisma.document.findMany.mockResolvedValue([]);
+
+    await service.getBackOfficeQueue({ productType: 'MOTOR', page: 1, limit: 10 });
+
+    expect(mockPrisma.quotation.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ productType: 'MOTOR' }),
+      }),
+    );
+  });
+
+  it('returns newest-first server-side pages and counts from the filtered population', async () => {
+    const older = { ...baseQuote, id: 'quote-older', quotationCode: 'QT-2026-000' , createdAt: new Date('2026-01-01') };
+    const newer = { ...baseQuote, id: 'quote-newer', quotationCode: 'QT-2026-002', createdAt: new Date('2026-02-01') };
+    mockPrisma.quotation.findMany.mockResolvedValue([newer, older]);
+    mockPrisma.document.findMany.mockResolvedValue([]);
+
+    const result = await service.getBackOfficeQueue({ page: 2, limit: 1 });
+
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0].id).toBe('quote-older');
+    expect(result.meta).toEqual({ page: 2, limit: 1, total: 2, totalPages: 2 });
+    expect(result.summary.totalPending).toBe(2);
+    expect(result.summary.readyCount + result.summary.blockedCount).toBe(2);
+  });
+
   it('validateIssuanceGates throws BadRequestException when payment gate fails', async () => {
     const unpaidQuote = {
       ...baseQuote,
