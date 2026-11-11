@@ -193,6 +193,9 @@ export function MotorIssuanceQueue() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [productFilter, setProductFilter] = useState<'ALL' | 'MOTOR' | 'HEALTH'>('ALL');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalRecords, setTotalRecords] = useState(0);
   const [viewMode, setViewMode] = useState<'TABLE' | 'CARDS'>('TABLE');
   const [issuingId, setIssuingId] = useState<string | null>(null);
   const [selectedQuote, setSelectedQuote] = useState<{ id: string; productType: 'MOTOR' | 'HEALTH' } | null>(null);
@@ -217,9 +220,14 @@ export function MotorIssuanceQueue() {
       const res = await policiesRepository.getBackOfficeQueue({
         search: search.trim() || undefined,
         status: activeStatus === 'ALL' ? undefined : activeStatus,
+        page,
+        limit: 25,
+        productType: productFilter === 'ALL' ? undefined : productFilter,
       });
       const items = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
       setQueue(items);
+      setTotalPages(Number(res?.meta?.totalPages || 1));
+      setTotalRecords(Number(res?.meta?.total || items.length));
       if (res?.summary) setSummary(res.summary);
     } catch (error: any) {
       console.error('Failed to load queue:', error);
@@ -235,8 +243,9 @@ export function MotorIssuanceQueue() {
   };
 
   useEffect(() => {
-    void loadQueue();
-  }, [statusFilter]);
+    const timer = setTimeout(() => { void loadQueue(); }, search.trim() ? 300 : 0);
+    return () => clearTimeout(timer);
+  }, [statusFilter, productFilter, page, search]);
 
   // Client-side search & partitioning
   const filteredQueue = useMemo(() => {
@@ -1440,6 +1449,15 @@ export function MotorIssuanceQueue() {
           )}
         </div>
       )}
+
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 rounded-xl border bg-card p-3 text-xs">
+        <span className="text-muted-foreground">Showing {queue.length} records on page {page} of {totalPages} · {totalRecords} matching records</span>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={page <= 1 || loading} className="rounded border px-3 py-1.5 font-semibold disabled:opacity-40">Previous</button>
+          <span className="font-mono">{page} / {totalPages}</span>
+          <button type="button" onClick={() => setPage((current) => Math.min(totalPages, current + 1))} disabled={page >= totalPages || loading} className="rounded border px-3 py-1.5 font-semibold disabled:opacity-40">Next</button>
+        </div>
+      </div>
 
       {/* Underwriter Review Modal */}
       {underwriterAction && (
