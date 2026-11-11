@@ -327,23 +327,19 @@ export class BackOfficeQueueService {
               },
             },
           },
-          orderBy: { createdAt: 'asc' },
-        })
+          orderBy: { createdAt: 'desc' },
+      });
 
       // Optimize: batch-fetch all related documents in a single roundtrip rather than N+1 queries
       const quotationIds = quotations.map((q) => q.id);
       let allDocuments: any[] = [];
-      if (quotationIds.length > 0 && this.prisma?.document?.findMany) {
-        try {
-          allDocuments = await this.prisma.document.findMany({
-            where: {
-              entityId: { in: quotationIds },
-              deletedAt: null,
-            },
-          });
-        } catch {
-          allDocuments = [];
-        }
+      if (quotationIds.length > 0) {
+        allDocuments = await this.prisma.document.findMany({
+          where: {
+            entityId: { in: quotationIds },
+            deletedAt: null,
+          },
+        });
       }
       const docsByQuoteId = new Map<string, any[]>();
       for (const doc of allDocuments) {
@@ -358,8 +354,6 @@ export class BackOfficeQueueService {
       const now = Date.now();
       const items: BackOfficeQueueItem[] = [];
 
-      let readyCount = 0;
-      let blockedCount = 0;
       let issuedCount = 0;
 
       for (const q of quotations) {
@@ -595,14 +589,6 @@ export class BackOfficeQueueService {
           nextAction = isMotor ? 'Awaiting Document KYC/RC Verification' : 'Awaiting Document Verification';
         } else if (!customerGate.passed) {
           nextAction = 'Awaiting Customer Identity Completion';
-        }
-
-        if (!q.policy) {
-          if (allGatesPassed) {
-            readyCount++;
-          } else {
-            blockedCount++;
-          }
         }
 
         // SLA Countdown (IRDAI target 24h from quotation approval / payment)
