@@ -1077,7 +1077,7 @@ export class BiService {
             { customer: { companyId: cleanCompanyId } },
             { lead: { companyId: cleanCompanyId } },
           ],
-          status: { in: ['PENDING', 'IN_PROGRESS', 'OPEN'] as any[] },
+          status: { in: ['PENDING', 'IN_PROGRESS'] as any[] },
           deletedAt: null,
         },
         select: {
