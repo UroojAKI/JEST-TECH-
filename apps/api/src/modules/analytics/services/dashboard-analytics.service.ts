@@ -340,15 +340,16 @@ export class DashboardAnalyticsService {
       );
     }
 
+    const effectivePeriod = (period || 'mtd').toLowerCase();
     let dateWhere: any = {};
-    if (period) {
+    if (effectivePeriod) {
       const now = new Date();
       let startDate: Date | null = null;
-      if (period === 'mtd') {
+      if (effectivePeriod === 'mtd') {
         startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-      } else if (period === 'ytd') {
+      } else if (effectivePeriod === 'ytd') {
         startDate = new Date(now.getFullYear(), 0, 1);
-      } else if (period === 'today') {
+      } else if (effectivePeriod === 'today') {
         startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       }
       if (startDate) {
@@ -399,7 +400,7 @@ export class DashboardAnalyticsService {
             salesTargets: {
               where: {
                 year: new Date().getFullYear(),
-                ...(period === 'ytd'
+                ...(effectivePeriod === 'ytd'
                   ? { month: { lte: new Date().getMonth() + 1 } }
                   : { month: new Date().getMonth() + 1 }),
               },
