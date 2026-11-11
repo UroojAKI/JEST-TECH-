@@ -1109,7 +1109,7 @@ export class BiService {
       this.prisma.proposal.findMany({
         where: {
           quotation: { companyId: cleanCompanyId },
-          status: { in: ['PAYMENT_PENDING', 'SUBMITTED', 'UNDERWRITING_REVIEW'] as any[] },
+          status: { in: ['SUBMITTED', 'UNDER_REVIEW', 'DOCUMENT_PENDING'] as any[] },
         },
         select: {
           id: true,
@@ -1121,18 +1121,22 @@ export class BiService {
         },
         take: 50,
       }),
-      this.prisma.motorQuotation.findMany({
+      this.prisma.motorInspection.findMany({
         where: {
           companyId: cleanCompanyId,
-          status: { in: ['INSPECTION_PENDING', 'UNDERWRITING_PENDING'] as any[] },
-          deletedAt: null,
+          status: { in: ['REQUIRED', 'PENDING', 'IN_PROGRESS', 'SUBMITTED_FOR_REVIEW'] as any[] },
         },
         select: {
           id: true,
-          quotationNumber: true,
+          inspectionCode: true,
           status: true,
-          customer: { select: { firstName: true, lastName: true } },
           createdAt: true,
+          quotation: {
+            select: {
+              quotationCode: true,
+              contact: { select: { firstName: true, lastName: true } },
+            },
+          },
         },
         take: 50,
       }),
@@ -1171,17 +1175,19 @@ export class BiService {
     }));
 
     const pendingInspections: ActionCentreItem[] = [];
-    for (const q of inspectionQuotes) {
-      const cust = q.customer ? `${q.customer.firstName} ${q.customer.lastName || ''}`.trim() : 'Customer';
+    for (const inspection of inspectionQuotes) {
+      const cust = inspection.quotation?.contact
+        ? `${inspection.quotation.contact.firstName} ${inspection.quotation.contact.lastName || ''}`.trim()
+        : 'Customer';
       pendingInspections.push({
-        id: q.id,
+        id: inspection.id,
         category: 'PENDING_INSPECTION',
-        title: `Vehicle Inspection Required for ${cust}`,
-        referenceCode: q.quotationNumber,
+        title: `Vehicle Inspection ${inspection.status.toLowerCase().replace(/_/g, ' ')} for ${cust}`,
+        referenceCode: inspection.inspectionCode || inspection.quotation?.quotationCode,
         severity: 'HIGH',
-        entityType: 'MotorQuotation',
-        entityId: q.id,
-        createdAt: q.createdAt.toISOString(),
+        entityType: 'MotorInspection',
+        entityId: inspection.id,
+        createdAt: inspection.createdAt.toISOString(),
       });
     }
 
