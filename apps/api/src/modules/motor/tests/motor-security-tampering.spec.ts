@@ -58,6 +58,7 @@ describe('Phase 8: Motor Security & Financial Tampering Gates', () => {
       },
       quotation: {
         findFirst: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
         findUnique: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),

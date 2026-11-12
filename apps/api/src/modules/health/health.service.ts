@@ -115,7 +115,7 @@ export class HealthService {
     }
 
     let storageStatus = 'unsupported';
-    let storageProvider = this.storage?.getProviderName?.() || 'UNCONFIGURED';
+    const storageProvider = this.storage?.getProviderName?.() || 'UNCONFIGURED';
     let storageMessage: string | undefined;
     if (this.storage?.isAvailable) {
       try {

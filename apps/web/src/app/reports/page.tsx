@@ -138,8 +138,8 @@ export default function ReportsPage() {
           >
             <option value="ALL">All reports</option>
             {categories.map((item) => (
-              <option key={item} value={item}>
-                {item}
+              <option key={item.value} value={item.value}>
+                {item.label}
               </option>
             ))}
           </select>

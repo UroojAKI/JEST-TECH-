@@ -64,6 +64,8 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
         findUnique: jest.fn().mockResolvedValue({ collectContacts: false }),
       },
       quotation: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        findMany: jest.fn().mockResolvedValue([]),
         create: jest.fn(),
       },
       saodTpVerification: {

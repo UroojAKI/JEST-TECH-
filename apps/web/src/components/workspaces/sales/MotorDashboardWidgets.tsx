@@ -19,7 +19,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { apiClient } from '../../lib/api-client';
+import { apiClient } from '../../../lib/api-client';
 import { useQueryClient } from '@tanstack/react-query';
 
 interface MotorDashboardWidgetsProps {

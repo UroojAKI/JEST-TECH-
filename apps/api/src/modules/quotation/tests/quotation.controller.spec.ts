@@ -151,10 +151,21 @@ describe('QuotationController', () => {
         {
           provide: PrismaService,
           useValue: {
+            insurer: {
+              findFirst: jest.fn().mockResolvedValue({ id: 'insurer-1' }),
+            },
             quotation: {
               findMany: jest.fn().mockResolvedValue([mockQuotationResponse]),
               findFirst: jest.fn().mockResolvedValue({
                 ...mockQuotationResponse,
+                insurerId: 'insurer-1',
+                insurerName: 'HDFC ERGO General Insurance',
+                motorMetadata: {
+                  customerAcceptance: {
+                    evidenceMethod: 'EMAIL',
+                    timestamp: '2026-11-12T00:00:00.000Z',
+                  },
+                },
                 companyId: 'org-1',
                 deletedAt: null,
                 case: { id: 'case-1', selectedQuoteId: 'quote-123' },
