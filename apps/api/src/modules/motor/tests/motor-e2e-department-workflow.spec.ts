@@ -232,6 +232,7 @@ describe('BO-10: End-to-End Department Handoff Workflow (Agent -> BO -> Finance 
     it('Step 4: Finance reconciles and verifies exact payable payment amount', async () => {
       prisma.quotation.findUnique.mockResolvedValue({
         ...baseQuotation,
+        backOfficeSubmittedAt: new Date('2026-11-11T00:00:00.000Z'),
         workflowState: 'PAYMENT_PENDING',
       });
       prisma.motorInspection.findUnique.mockResolvedValue({

@@ -232,7 +232,9 @@ describe('HealthQuotationCaseService access and integrity', () => {
           companyId: 'company-1',
           healthCaseId: 'case-1',
           totalPremium: 1000,
-          status: 'ACCEPTED',
+          status: 'APPROVED',
+          workflowState: 'PROPOSAL_APPROVED',
+          backOfficeSubmittedAt: new Date('2026-11-11T00:00:00.000Z'),
         }),
         update: jest.fn().mockResolvedValue(undefined),
       },
@@ -278,7 +280,13 @@ describe('HealthQuotationCaseService access and integrity', () => {
         findFirst: jest.fn().mockResolvedValue({ id: 'case-1', selectedQuoteId: 'quote-1' }),
       },
       quotation: {
-        findFirst: jest.fn().mockResolvedValue({ id: 'quote-1', totalPremium: 1000 }),
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'quote-1',
+          totalPremium: 1000,
+          status: 'APPROVED',
+          workflowState: 'PROPOSAL_APPROVED',
+          backOfficeSubmittedAt: new Date('2026-11-11T00:00:00.000Z'),
+        }),
         update: jest.fn(),
       },
       motorPaymentRecord: {
@@ -307,5 +315,75 @@ describe('HealthQuotationCaseService access and integrity', () => {
 
     expect(tx.motorPaymentRecord.update).not.toHaveBeenCalled();
     expect(tx.quotation.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects re-recording payment once payment is already PAID even with matching details', async () => {
+    const tx = {
+      healthQuotationCase: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'case-1', selectedQuoteId: 'quote-1' }),
+      },
+      quotation: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'quote-1',
+          totalPremium: 1000,
+          status: 'APPROVED',
+          workflowState: 'PROPOSAL_APPROVED',
+          backOfficeSubmittedAt: new Date('2026-11-11T00:00:00.000Z'),
+        }),
+        update: jest.fn(),
+      },
+      motorPaymentRecord: {
+        findUnique: jest.fn().mockResolvedValue({
+          status: 'PAID',
+          amount: 1000,
+          paymentMethod: 'UPI',
+          referenceNumber: 'UTR-1',
+        }),
+        update: jest.fn(),
+        create: jest.fn(),
+      },
+    };
+    const prisma = {
+      $transaction: jest.fn((work: (client: any) => Promise<any>) => work(tx)),
+    };
+    const service = makeService(prisma);
+
+    await expect(
+      service.recordPayment(
+        'case-1',
+        { amount: 1000, paymentMethod: 'UPI', referenceNumber: 'UTR-1', status: 'PAID' } as any,
+        { id: 'ops-1', userId: 'ops-1', companyId: 'company-1', role: 'BACK_OFFICE' } as any,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(tx.motorPaymentRecord.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects health payment when quotation has not been submitted to Back Office', async () => {
+    const tx = {
+      healthQuotationCase: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'case-1', selectedQuoteId: 'quote-1' }),
+      },
+      quotation: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'quote-1',
+          totalPremium: 1000,
+          status: 'ACCEPTED',
+          backOfficeSubmittedAt: null,
+        }),
+      },
+    };
+    const prisma = {
+      $transaction: jest.fn((work: (client: any) => Promise<any>) => work(tx)),
+    };
+    const service = makeService(prisma);
+
+    await expect(
+      service.recordPayment(
+        'case-1',
+        { amount: 1000, paymentMethod: 'UPI', referenceNumber: 'UTR-1', status: 'PAID' } as any,
+        { id: 'ops-1', userId: 'ops-1', companyId: 'company-1', role: 'BACK_OFFICE' } as any,
+      ),
+    ).rejects.toThrow('sent to Back Office');
   });
 });

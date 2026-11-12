@@ -120,24 +120,33 @@ export class MotorPaymentTrackingService {
       ? ['APPROVED', 'ACCEPTED'].includes(rawProposalStatus)
       : true;
 
-    const isQuotationApproved =
+    const isSubmittedToBackOffice = Boolean(quotation.backOfficeSubmittedAt);
+    const hasMetadataApproval =
+      String((quotation.motorMetadata as any)?.workflowStatus || '').toUpperCase() ===
+      'PROPOSAL_APPROVED';
+    const hasBackOfficeApproval =
       (proposal && ['APPROVED', 'ACCEPTED'].includes(rawProposalStatus)) ||
       (isProposalApproved &&
-        (quotation.status === QuotationStatus.APPROVED ||
-          quotation.status === QuotationStatus.ACCEPTED ||
+        (hasMetadataApproval ||
           [
-            'APPROVED',
-            'ACCEPTED',
-            'CUSTOMER_ACCEPTED',
             'PROPOSAL_APPROVED',
             'PAYMENT_PENDING',
             'PAYMENT_UNDER_PROCESS',
             'PAYMENT_DONE',
             'ISSUANCE_PENDING',
             'PROPOSAL_COMPLETED',
-            'READY_FOR_PROPOSAL',
           ].includes(rawWorkflowState) ||
-          ['PAYMENT_PENDING', 'CUSTOMER_ACCEPTED', 'QUOTE_PREPARED', 'QUOTATION', 'POST_PAYMENT'].includes(rawLeadStatus)));
+          (quotation.status === QuotationStatus.APPROVED &&
+            ![
+              'QUOTATION_DRAFT',
+              'DRAFT',
+              'READY_FOR_PROPOSAL',
+              'INSPECTION_REQUIRED',
+              'INSPECTION_IN_PROGRESS',
+              'INSPECTION_REJECTED',
+            ].includes(rawWorkflowState))));
+    const isQuotationApproved =
+      isSubmittedToBackOffice && Boolean(hasBackOfficeApproval);
 
     if (actor) {
       const roles = actor.roles?.length ? actor.roles : [actor.role];
@@ -193,18 +202,48 @@ export class MotorPaymentTrackingService {
     });
 
     if (existing?.status === 'PAID') {
-      if (
-        dto.status === 'PAID' &&
-        existing.referenceNumber === dto.referenceNumber &&
-        Number(existing.amount) === Number(dto.amount)
-      ) {
-        this.logger.log(
-          `Idempotent duplicate payment verified for quotation ${dto.quotationId}, ref: ${dto.referenceNumber}`,
-        );
-        return existing;
+      if (dto.idempotencyKey && this.prisma.idempotencyKey?.findFirst) {
+        const requestHash = createHash('sha256')
+          .update(
+            JSON.stringify({
+              quotationId: dto.quotationId,
+              amount: dto.amount,
+              referenceNumber: dto.referenceNumber,
+              status: dto.status,
+            }),
+          )
+          .digest('hex');
+        const existingKey = await this.prisma.idempotencyKey.findFirst({
+          where: {
+            companyId: quotation.companyId,
+            actorId: dto.recordedById || 'SYSTEM',
+            operationType: 'MOTOR_PAYMENT',
+            idempotencyKey: dto.idempotencyKey,
+            status: 'SUCCEEDED',
+            requestHash,
+          },
+        });
+        if (existingKey) {
+          this.logger.log(
+            `Idempotent payment retry verified via key for quotation ${dto.quotationId}, ref: ${dto.referenceNumber}`,
+          );
+          return (existingKey.responsePayload as any) ?? existing;
+        }
       }
       throw new BadRequestException(
-        `Financial immutability violation: Payment for quotation ${dto.quotationId} is already verified and marked as PAID. Reconciled payments are strictly immutable.`,
+        `Financial immutability violation: Payment for quotation ${dto.quotationId} has already been recorded as PAID and cannot be recorded again.`,
+      );
+    }
+
+    if (!isSubmittedToBackOffice) {
+      throw new BadRequestException(
+        'Quotation must be sent to Back Office before payment can be recorded.',
+      );
+    }
+
+    if (!isQuotationApproved) {
+      throw new BadRequestException(
+        'Proposal has not been approved yet. Payment can only be recorded after Back Office approval.',
       );
     }
 

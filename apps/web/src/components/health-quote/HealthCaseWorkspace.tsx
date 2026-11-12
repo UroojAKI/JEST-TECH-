@@ -3,7 +3,7 @@
 import React, { useRef, useState } from 'react';
 import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { canUserSubmitToBackOffice } from '../../repositories/quotations.repository';
+import { canUserSubmitToBackOffice, canQuotationRecordPayment } from '../../repositories/quotations.repository';
 import { toast } from 'sonner';
 import {
   AlertCircle,
@@ -260,11 +260,19 @@ export function HealthCaseWorkspace({ caseId }: { caseId: string }) {
                     </button>
                   )}
                 </div>
+              ) : paymentStatus === 'UNDER_PROCESS' && canQuotationRecordPayment(selectedQuote) ? (
+                <button
+                  type="button"
+                  onClick={() => openPaymentModal(selectedQuote)}
+                  className="px-3 py-1.5 rounded-xl text-[11px] font-bold bg-amber-500/15 text-amber-700 border border-amber-500/30 hover:bg-amber-500/20 flex items-center gap-1 transition"
+                >
+                  <Clock className="h-3.5 w-3.5" /> Payment Under Verification
+                </button>
               ) : paymentStatus === 'UNDER_PROCESS' ? (
                 <span className="px-3 py-1 rounded-full text-[11px] font-black bg-amber-500/10 text-amber-600 border border-amber-500/20 flex items-center gap-1">
                   <Clock className="h-3.5 w-3.5" /> Payment Under Verification
                 </span>
-              ) : (
+              ) : canQuotationRecordPayment(selectedQuote) ? (
                 <button
                   type="button"
                   onClick={() => openPaymentModal(selectedQuote)}
@@ -272,6 +280,10 @@ export function HealthCaseWorkspace({ caseId }: { caseId: string }) {
                 >
                   <Wallet className="h-3.5 w-3.5" /> Record Payment
                 </button>
+              ) : (
+                <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-muted text-muted-foreground border">
+                  {selectedQuote.backOfficeSubmittedAt ? 'Awaiting Back Office Approval' : 'Submit to Back Office First'}
+                </span>
               )}
             </>
           )}
@@ -626,18 +638,26 @@ export function HealthCaseWorkspace({ caseId }: { caseId: string }) {
                         <span className="text-[10px] text-muted-foreground">Due: {inr(p.totalPremium || q.totalPremium)}</span>
                       </div>
                     )}
-                    <button
-                      type="button"
-                      onClick={() => openPaymentModal(q)}
-                      className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition shadow-sm"
-                    >
-                      <Wallet className="h-3.5 w-3.5" />
-                      {q.motorPaymentRecord?.status === 'PAID'
-                        ? (isBackOfficeOrAdmin ? 'Update Reconciled Payment' : 'View Payment Details')
-                        : q.motorPaymentRecord?.status === 'UNDER_PROCESS'
+                    {canQuotationRecordPayment(q) ? (
+                      <button
+                        type="button"
+                        onClick={() => openPaymentModal(q)}
+                        className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition shadow-sm"
+                      >
+                        <Wallet className="h-3.5 w-3.5" />
+                        {q.motorPaymentRecord?.status === 'UNDER_PROCESS'
                           ? (isBackOfficeOrAdmin ? 'Verify & Mark Paid' : 'Update Payment Details')
                           : 'Record Payment'}
-                    </button>
+                      </button>
+                    ) : q.motorPaymentRecord?.status === 'PAID' ? (
+                      <div className="w-full text-center px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-700 text-xs font-bold border border-emerald-500/20">
+                        Payment Recorded (PAID)
+                      </div>
+                    ) : (
+                      <div className="w-full text-center px-3 py-1.5 rounded-lg bg-muted text-muted-foreground text-[11px] font-medium border">
+                        {q.backOfficeSubmittedAt ? 'Awaiting Back Office Approval' : 'Send to Back Office First'}
+                      </div>
+                    )}
                   </div>
                 )}
                 <div className="flex gap-2 pt-1">
@@ -704,18 +724,26 @@ export function HealthCaseWorkspace({ caseId }: { caseId: string }) {
                   Issue Health Policy
                 </button>
               )}
-              <button
-                type="button"
-                onClick={() => openPaymentModal(selectedQuote)}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition shadow-sm"
-              >
-                <Wallet className="h-4 w-4" />
-                {paymentStatus === 'PAID'
-                  ? (isBackOfficeOrAdmin ? 'Update Reconciled Payment' : 'View Payment Record')
-                  : paymentStatus === 'UNDER_PROCESS'
+              {canQuotationRecordPayment(selectedQuote) ? (
+                <button
+                  type="button"
+                  onClick={() => openPaymentModal(selectedQuote)}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition shadow-sm"
+                >
+                  <Wallet className="h-4 w-4" />
+                  {paymentStatus === 'UNDER_PROCESS'
                     ? (isBackOfficeOrAdmin ? 'Verify & Confirm Paid' : 'Update Payment Details')
                     : 'Record Payment'}
-              </button>
+                </button>
+              ) : paymentStatus === 'PAID' ? (
+                <span className="px-3 py-2 rounded-xl bg-emerald-500/10 text-emerald-700 border border-emerald-500/20 text-xs font-bold flex items-center gap-1.5">
+                  <CheckCircle2 className="h-4 w-4" /> Payment Recorded
+                </span>
+              ) : (
+                <span className="px-3 py-2 rounded-xl bg-muted text-muted-foreground border text-xs font-medium">
+                  {selectedQuote.backOfficeSubmittedAt ? 'Awaiting Back Office Approval' : 'Send to Back Office First'}
+                </span>
+              )}
             </div>
           </div>
 

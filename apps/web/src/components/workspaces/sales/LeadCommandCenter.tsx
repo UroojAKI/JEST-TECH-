@@ -14,6 +14,7 @@ import { QuotationCompletionView } from '../../leads/motor-quote/QuotationComple
 import type { SavedMotorQuote } from '../../leads/motor-quote/motorFormTypes';
 import { MarkLostModal } from '../../leads/drawers/MarkLostModal';
 import { leadsRepository } from '../../../repositories/leads.repository';
+import { canQuotationRecordPayment } from '../../../repositories/quotations.repository';
 import type { LostReason } from '../../../types/leads';
 import {
   User,
@@ -182,10 +183,16 @@ export function LeadCommandCenter({ lead, onRefresh }: LeadCommandCenterProps) {
       registrationNumber: quote.registrationNumber || quote.motorMetadata?.registrationNumber || '',
       totalPremium: Number(quote.totalPremium || 0),
       status: quote.status,
+      workflowState: quote.motorWorkflowState || (typeof quote.workflowState === 'string' ? quote.workflowState : undefined),
+      motorWorkflowState: quote.motorWorkflowState || (typeof quote.workflowState === 'string' ? quote.workflowState : null),
+      issuanceStatus: quote.issuanceStatus || null,
+      insurerId: quote.insurerId || null,
+      backOfficeSubmittedAt: quote.backOfficeSubmittedAt || null,
       createdAt: quote.createdAt,
       leadId: lead.id,
       caseId: quote.caseId || quote.case?.id,
-      proposalStatus: quote.proposal?.status,
+      proposalStatus: quote.proposalStatus || quote.proposal?.status,
+      motorPaymentRecord: quote.motorPaymentRecord || null,
       paymentRecord: quote.motorPaymentRecord
         ? {
             status: quote.motorPaymentRecord.status,
@@ -763,7 +770,7 @@ export function LeadCommandCenter({ lead, onRefresh }: LeadCommandCenterProps) {
                             {isSelected ? 'Selected' : selectingQuoteId === quote.id ? 'Selecting…' : 'Select Quote'}
                           </button>
                         )}
-                        {quote.productType === 'MOTOR' && !quote.policy && paymentStatus !== 'PAID' && (
+                        {quote.productType === 'MOTOR' && canQuotationRecordPayment(quote) && (
                           <button
                             onClick={() => openPayment(quote)}
                             className="font-bold text-emerald-700 hover:underline"
@@ -819,7 +826,7 @@ export function LeadCommandCenter({ lead, onRefresh }: LeadCommandCenterProps) {
                       Proposal {quote.proposal?.status || 'PENDING'} · Inspection {quote.motorInspection?.status || 'NOT STARTED'} · Payment {quote.motorPaymentRecord?.status || 'NOT DONE'} · Policy {quote.policy?.policyNumber || 'NOT ISSUED'}
                     </div>
                   </div>
-                  {quote.productType === 'MOTOR' && !quote.policy && quote.motorPaymentRecord?.status !== 'PAID' && (
+                  {quote.productType === 'MOTOR' && canQuotationRecordPayment(quote) && (
                     <button
                       onClick={() => openPayment(quote)}
                       className="px-3 py-2 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-700"

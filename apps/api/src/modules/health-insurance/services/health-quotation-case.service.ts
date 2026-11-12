@@ -596,6 +596,21 @@ export class HealthQuotationCaseService {
       if (!quotation) {
         throw new NotFoundException(`Selected quotation ${healthCase.selectedQuoteId} not found`);
       }
+      if (!quotation.backOfficeSubmittedAt) {
+        throw new BadRequestException(
+          'Quotation must be sent to Back Office before payment can be recorded',
+        );
+      }
+      const isBackOfficeApproved =
+        quotation.status === QuotationStatus.APPROVED ||
+        String(quotation.workflowState || '').toUpperCase() === 'PROPOSAL_APPROVED' ||
+        String(quotation.workflowState || '').toUpperCase() === 'PAYMENT_UNDER_PROCESS' ||
+        String(quotation.workflowState || '').toUpperCase() === 'PAYMENT_DONE';
+      if (!isBackOfficeApproved) {
+        throw new BadRequestException(
+          'Quotation must be approved by Back Office before payment can be recorded',
+        );
+      }
 
       const payableAmount = Number(quotation.totalPremium);
       const submittedAmount = amount ?? payableAmount;
@@ -621,9 +636,9 @@ export class HealthQuotationCaseService {
       );
 
       if (existingPayment?.status === PaymentTrackingStatus.PAID) {
-        if (targetStatus !== PaymentTrackingStatus.PAID || !samePayment) {
-          throw new BadRequestException('A verified payment cannot be downgraded or replaced');
-        }
+        throw new BadRequestException(
+          'Payment has already been recorded as PAID for this quotation and cannot be recorded again.',
+        );
       } else if (existingPayment?.status === PaymentTrackingStatus.UNDER_PROCESS && !samePayment) {
         throw new BadRequestException('An in-process payment cannot be replaced; reconcile it before resubmission');
       } else if (

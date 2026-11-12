@@ -34,6 +34,7 @@ export class QuotationMapper {
     dto.leadId = q.leadId;
     dto.contactId = q.contactId;
     dto.accountId = q.accountId;
+    dto.insurerId = q.insurerId ?? null;
     dto.insurerName = q.insurerName;
     dto.productType = q.productType;
     dto.sumInsured = Number(q.sumInsured);
@@ -99,7 +100,17 @@ export class QuotationMapper {
       lastTransitionAt: q.updatedAt,
     };
 
+    dto.motorWorkflowState = (q.workflowState as string | null) ?? null;
     dto.issuanceStatus = q.issuanceStatus;
+    const linkedProposal = (q as any).proposal;
+    dto.proposalStatus = linkedProposal?.status ?? null;
+    dto.proposal = linkedProposal
+      ? {
+          id: linkedProposal.id,
+          status: linkedProposal.status,
+          proposalNumber: linkedProposal.proposalNumber ?? null,
+        }
+      : null;
     dto.calculationSnapshot = this.maskPiiData(q.calculationSnapshot);
 
     if (q.versions)

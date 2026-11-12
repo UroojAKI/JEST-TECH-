@@ -123,6 +123,7 @@ export function LeadTabsContainer({
           quotationCode: q.quotationCode,
           vehicleCategory: q.vehicleCategory,
           policyType: q.policyType,
+          insurerId: q.insurerId || null,
           insurerName: q.insurerName,
           registrationNumber: q.registrationNumber || '',
           totalPremium: Number(q.totalPremium || 0),
@@ -131,6 +132,8 @@ export function LeadTabsContainer({
           policyStartDate: (q.motorMetadata as any)?.policyDetails?.policyStartDate || '',
           policyEndDate: (q.motorMetadata as any)?.policyDetails?.policyEndDate || '',
           status: q.status || 'DRAFT',
+          workflowState: q.motorWorkflowState || (typeof q.workflowState === 'string' ? q.workflowState : undefined),
+          motorWorkflowState: q.motorWorkflowState || (typeof q.workflowState === 'string' ? q.workflowState : null),
           createdAt: q.createdAt,
           proposerDetails: (q.motorMetadata as any)?.proposerDetails,
           vehicleDetails: (q.motorMetadata as any)?.vehicleDetails,
@@ -138,6 +141,9 @@ export function LeadTabsContainer({
           caseId: q.caseId || (q.motorMetadata as any)?.caseId || undefined,
           issuanceStatus: q.issuanceStatus,
           backOfficeSubmittedAt: q.backOfficeSubmittedAt,
+          proposalStatus: q.proposalStatus || q.proposal?.status || undefined,
+          paymentRecord: q.motorPaymentRecord || undefined,
+          motorPaymentRecord: q.motorPaymentRecord || null,
           motorDocuments: q.motorDocuments || [],
         }));
 

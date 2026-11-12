@@ -10,12 +10,17 @@ vi.mock('../../repositories/policies.repository', () => ({
   },
 }));
 
-vi.mock('../../repositories/quotations.repository', () => ({
-  quotationsRepository: {
-    approveQuotation: vi.fn(),
-    rejectQuotation: vi.fn(),
-  },
-}));
+vi.mock('../../repositories/quotations.repository', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../repositories/quotations.repository')>();
+  return {
+    ...actual,
+    quotationsRepository: {
+      ...actual.quotationsRepository,
+      approveQuotation: vi.fn(),
+      rejectQuotation: vi.fn(),
+    },
+  };
+});
 
 vi.mock('../leads/motor-quote/UpdatePolicyDetailsDialog', () => ({
   UpdatePolicyDetailsDialog: () => <div data-testid="manual-dialog" />,

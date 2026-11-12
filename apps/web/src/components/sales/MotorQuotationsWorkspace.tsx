@@ -20,6 +20,9 @@ import { useAuthStore } from '../../store/auth-store';
 import { policiesRepository } from '../../repositories/policies.repository';
 import {
   canUserSubmitToBackOffice,
+  canQuotationRecordPayment,
+  isQuotationPaymentPaid,
+  isQuotationBackOfficeApproved,
   quotationsRepository,
 } from '../../repositories/quotations.repository';
 
@@ -272,30 +275,52 @@ export function MotorQuotationsWorkspace() {
         });
         const list = res.data?.data || res.data?.items || res.data || [];
         const total = res.data?.meta?.total || res.data?.total || list.length;
-        const quotes = (Array.isArray(list) ? list : []).map((item: any) => ({
-          id: item.id,
-          quotationCode: item.quotationCode,
-          version: item.version || item.latestVersion?.versionNumber || null,
-          insurerId: item.insurerId || null,
-          customerAcceptance: item.motorMetadata?.customerAcceptance || null,
-          vehicleCategory: item.motorMetadata?.vehicleCategory || item.vehicleCategory || 'PRIVATE_CAR',
-          policyType: item.motorMetadata?.policyType || item.policyType || 'PACKAGE',
-          registrationNumber: item.motorMetadata?.registrationNumber || item.registrationNumber || '',
-          insurerName: item.insurerName?.trim() && item.insurerName.trim().toLowerCase() !== 'partner insurer' ? item.insurerName.trim() : 'Insurer missing',
-          totalPremium: Number(item.totalPremium || 0),
-          idv: Number(item.sumInsured || 0),
-          ncbPercentage: Number(item.ncbPercentage || 0),
-          status:
-            item.status === 'APPROVED' ? 'APPROVED' :
-            item.status === 'ACCEPTED' ? 'ACCEPTED' :
-            item.status === 'CONVERTED_TO_POLICY' ? 'ISSUED' :
-            item.workflowState === 'PROPOSAL_APPROVED' ? 'APPROVED' :
-            item.workflowState === 'PAYMENT_DONE' ? 'PENDING_ISSUANCE' :
-            item.workflowState === 'PAYMENT_UNDER_PROCESS' ? 'PAYMENT_UNDER_PROCESS' :
-            item.workflowState === 'INSPECTION_REQUIRED' ? 'PENDING_INSPECTION' :
-            item.issuanceStatus === 'ISSUED' ? 'ISSUED' :
-            item.status || item.motorMetadata?.workflowStatus || 'DRAFT',
-          workflowState: item.workflowState,
+        const quotes = (Array.isArray(list) ? list : []).map((item: any) => {
+          const rawWfState = String(
+            item.motorWorkflowState ||
+              (typeof item.workflowState === 'string' ? item.workflowState : '') ||
+              item.motorMetadata?.workflowStatus ||
+              '',
+          ).toUpperCase();
+          const paymentStatus = String(item.motorPaymentRecord?.status || '').toUpperCase();
+          const proposalStatus = String(item.proposalStatus || item.proposal?.status || '').toUpperCase();
+          const normalizedStatus =
+            item.status === 'CONVERTED_TO_POLICY' || item.issuanceStatus === 'ISSUED'
+              ? 'ISSUED'
+              : paymentStatus === 'PAID' || rawWfState === 'PAYMENT_DONE' || item.issuanceStatus === 'ISSUANCE_PENDING'
+                ? 'PENDING_ISSUANCE'
+                : paymentStatus === 'UNDER_PROCESS' || rawWfState === 'PAYMENT_UNDER_PROCESS'
+                  ? 'PAYMENT_UNDER_PROCESS'
+                  : rawWfState === 'PROPOSAL_APPROVED' || proposalStatus === 'APPROVED'
+                    ? 'APPROVED'
+                    : rawWfState === 'INSPECTION_REQUIRED'
+                      ? 'PENDING_INSPECTION'
+                      : item.status === 'APPROVED'
+                        ? 'APPROVED'
+                        : item.status === 'ACCEPTED'
+                          ? 'ACCEPTED'
+                          : item.status || item.motorMetadata?.workflowStatus || 'DRAFT';
+
+          return {
+            id: item.id,
+            quotationCode: item.quotationCode,
+            version: item.version || item.latestVersion?.versionNumber || null,
+            insurerId: item.insurerId || null,
+            customerAcceptance: item.motorMetadata?.customerAcceptance || null,
+            vehicleCategory: item.motorMetadata?.vehicleCategory || item.vehicleCategory || 'PRIVATE_CAR',
+            policyType: item.motorMetadata?.policyType || item.policyType || 'PACKAGE',
+            registrationNumber: item.motorMetadata?.registrationNumber || item.registrationNumber || '',
+            insurerName: item.insurerName?.trim() && item.insurerName.trim().toLowerCase() !== 'partner insurer' ? item.insurerName.trim() : 'Insurer missing',
+            totalPremium: Number(item.totalPremium || 0),
+            idv: Number(item.sumInsured || 0),
+            ncbPercentage: Number(item.ncbPercentage || 0),
+            status: normalizedStatus,
+            workflowState: rawWfState || undefined,
+            motorWorkflowState: rawWfState || null,
+            issuanceStatus: item.issuanceStatus || null,
+            proposalStatus: proposalStatus || undefined,
+            paymentRecord: item.motorPaymentRecord || undefined,
+            motorPaymentRecord: item.motorPaymentRecord || null,
           createdAt: item.createdAt || new Date().toISOString(),
           updatedAt: item.updatedAt || item.createdAt || new Date().toISOString(),
           policyStartDate: item.motorMetadata?.policyDetails?.policyStartDate,
@@ -308,7 +333,8 @@ export function MotorQuotationsWorkspace() {
           renewalOfPolicyId: item.renewalOfPolicyId,
           backOfficeSubmittedAt: item.backOfficeSubmittedAt,
           previousPolicyDetails: item.motorMetadata?.previousPolicyDetails,
-        } as SavedMotorQuote));
+        } as SavedMotorQuote;
+        });
         return { quotes, total };
       } catch (error: any) {
         console.error('Failed to load quotations:', error);
@@ -653,8 +679,10 @@ export function MotorQuotationsWorkspace() {
                         const isTerminalQuoteStatus = isTerminalQuoteStatusValue(quote);
                         const customerAccepted = quote.status === 'ACCEPTED' || Boolean((quote as any).customerAcceptance);
                         const validInsurer = Boolean((quote as any).insurerId && quote.insurerName && !['insurer missing', 'partner insurer'].includes(quote.insurerName.toLowerCase()));
-                        const proposalReady = !isTerminalQuoteStatus && (quote as any).issuanceStatus !== 'ISSUED';
-                        const issuanceReady = ['PAYMENT_DONE', 'PENDING_ISSUANCE'].includes(String(quote.status)) || (quote as any).issuanceStatus === 'ISSUANCE_PENDING';
+                        const backOfficeApproved = isQuotationBackOfficeApproved(quote);
+                        const paymentAlreadyPaid = isQuotationPaymentPaid(quote);
+                        const proposalReady = !isTerminalQuoteStatus && canQuotationRecordPayment(quote);
+                        const issuanceReady = paymentAlreadyPaid && (quote as any).issuanceStatus !== 'ISSUED';
                         return (
                           <tr key={quote.id} className="hover:bg-muted/30">
                             <td className="px-3 py-3">
@@ -748,6 +776,12 @@ export function MotorQuotationsWorkspace() {
                                 )}
                                 {proposalReady && (
                                   <button onClick={() => setProposalQuote(quote)} className="rounded border px-2 py-1 hover:bg-muted">Proposal / Payment</button>
+                                )}
+                                {paymentAlreadyPaid && !isTerminalQuoteStatus && (
+                                  <span className="rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-medium text-emerald-700">Payment Recorded</span>
+                                )}
+                                {submitted && !backOfficeApproved && !paymentAlreadyPaid && !isTerminalQuoteStatus && (
+                                  <span className="rounded border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-medium text-amber-700">Awaiting Approval</span>
                                 )}
                                 {issuanceReady && isBackOfficeOrAdmin && (
                                   <button onClick={() => setCompletionQuote(quote)} className="rounded bg-emerald-600 px-2 py-1 text-white">Issue</button>

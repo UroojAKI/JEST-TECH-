@@ -8,7 +8,10 @@ import { QuotationCompletionView } from './QuotationCompletionView';
 import { useAuthStore } from '../../../store/auth-store';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../../lib/api-client';
-import { canUserSubmitToBackOffice } from '../../../repositories/quotations.repository';
+import {
+  canUserSubmitToBackOffice,
+  canQuotationRecordPayment,
+} from '../../../repositories/quotations.repository';
 
 interface Props {
   quote: SavedMotorQuote;
@@ -278,14 +281,13 @@ export function QuoteCard({ quote, onUploadQuote, onConductInspection, onComplet
           )
         )}
 
-        {(quote.status === 'READY_FOR_PROPOSAL' ||
-          quote.status === 'APPROVED' ||
-          quote.status === 'PAYMENT_UNDER_PROCESS' ||
-          quote.status === 'PAYMENT_PENDING' ||
-          canonicalState === 'READY_FOR_PROPOSAL' ||
-          canonicalState === 'PROPOSAL_APPROVED' ||
-          canonicalState === 'APPROVED' ||
-          canonicalState === 'PAYMENT_UNDER_PROCESS') &&
+        {canQuotationRecordPayment({
+          ...quote,
+          motorWorkflowState:
+            projection?.canonicalState ||
+            (quote as any).motorWorkflowState ||
+            quote.workflowState,
+        }) &&
           onCompleteProposal && (
           <button
             onClick={() => onCompleteProposal(quote)}

@@ -112,5 +112,9 @@ export class QuotationResponseDto {
   motorDocuments?: QuotationMotorDocumentResponseDto[];
   contact?: any;
   vehicle?: any;
+  insurerId?: string | null;
+  motorWorkflowState?: string | null;
+  proposalStatus?: string | null;
+  proposal?: { id: string; status: string; proposalNumber?: string | null } | null;
   motorPaymentRecord?: any;
 }

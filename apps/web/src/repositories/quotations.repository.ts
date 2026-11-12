@@ -17,6 +17,109 @@ export function canUserSubmitToBackOffice(
   return normalized.some((r) => !CUSTOMER_PORTAL_ROLES.has(r));
 }
 
+const TERMINAL_QUOTATION_STATUSES = new Set([
+  'REJECTED',
+  'EXPIRED',
+  'CONVERTED_TO_POLICY',
+  'ISSUED',
+  'CANCELLED',
+  'POLICY_ISSUED',
+]);
+
+const UNDERWRITER_APPROVED_WORKFLOW_STATES = new Set([
+  'PROPOSAL_APPROVED',
+  'PAYMENT_PENDING',
+  'PAYMENT_UNDER_PROCESS',
+  'PAYMENT_DONE',
+  'ISSUANCE_PENDING',
+  'PROPOSAL_COMPLETED',
+  'POLICY_ISSUED',
+]);
+
+const UNAPPROVED_MOTOR_WORKFLOW_STATES = new Set([
+  'QUOTATION_DRAFT',
+  'DRAFT',
+  'READY_FOR_PROPOSAL',
+  'INSPECTION_REQUIRED',
+  'INSPECTION_IN_PROGRESS',
+  'INSPECTION_REJECTED',
+]);
+
+export function getQuotationWorkflowState(quote: any): string {
+  return String(
+    quote?.motorWorkflowState ||
+      (typeof quote?.workflowState === 'string' ? quote.workflowState : '') ||
+      quote?.motorMetadata?.workflowStatus ||
+      quote?.motorMetadata?.workflowState ||
+      '',
+  ).toUpperCase();
+}
+
+export function isQuotationSubmittedToBackOffice(quote: any): boolean {
+  return Boolean(quote?.backOfficeSubmittedAt);
+}
+
+export function isQuotationBackOfficeApproved(quote: any): boolean {
+  const wf = getQuotationWorkflowState(quote);
+  const proposalStatus = String(
+    quote?.proposalStatus || quote?.proposal?.status || '',
+  ).toUpperCase();
+  const status = String(quote?.status || '').toUpperCase();
+
+  if (proposalStatus === 'APPROVED') return true;
+  if (UNDERWRITER_APPROVED_WORKFLOW_STATES.has(wf)) return true;
+  if (status === 'APPROVED' && !UNAPPROVED_MOTOR_WORKFLOW_STATES.has(wf)) {
+    return true;
+  }
+  return false;
+}
+
+export function isQuotationPaymentPaid(quote: any): boolean {
+  const payStatus = String(
+    quote?.paymentRecord?.status ||
+      quote?.motorPaymentRecord?.status ||
+      quote?.paymentStatus ||
+      '',
+  ).toUpperCase();
+  const wf = getQuotationWorkflowState(quote);
+  const issuance = String(quote?.issuanceStatus || '').toUpperCase();
+  const status = String(quote?.status || '').toUpperCase();
+
+  return (
+    payStatus === 'PAID' ||
+    wf === 'PAYMENT_DONE' ||
+    wf === 'POLICY_ISSUED' ||
+    issuance === 'ISSUANCE_PENDING' ||
+    issuance === 'ISSUED' ||
+    status === 'PAYMENT_DONE' ||
+    status === 'PENDING_ISSUANCE' ||
+    status === 'ISSUED' ||
+    status === 'CONVERTED_TO_POLICY'
+  );
+}
+
+/**
+ * Payment recording is permitted only after the quotation has been handed off to
+ * Back Office, approved by Back Office / Underwriter, and has not already been marked PAID.
+ */
+export function canQuotationRecordPayment(quote: any): boolean {
+  const status = String(quote?.status || '').toUpperCase();
+  const issuance = String(quote?.issuanceStatus || '').toUpperCase();
+  if (
+    TERMINAL_QUOTATION_STATUSES.has(status) ||
+    issuance === 'ISSUED' ||
+    Boolean(quote?.policy) ||
+    Boolean(quote?.issuedPolicy)
+  ) {
+    return false;
+  }
+  return (
+    isQuotationSubmittedToBackOffice(quote) &&
+    isQuotationBackOfficeApproved(quote) &&
+    !isQuotationPaymentPaid(quote)
+  );
+}
+
 export interface QuotationItem {
   id: string;
   quotationNumber: string;

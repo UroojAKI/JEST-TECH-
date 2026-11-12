@@ -38,7 +38,10 @@ import {
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { policiesRepository } from '../../repositories/policies.repository';
-import { quotationsRepository } from '../../repositories/quotations.repository';
+import {
+  isQuotationBackOfficeApproved,
+  quotationsRepository,
+} from '../../repositories/quotations.repository';
 import { UpdatePolicyDetailsDialog } from '../leads/motor-quote/UpdatePolicyDetailsDialog';
 import { showApiErrorToast } from '../../lib/api-client';
 
@@ -445,7 +448,7 @@ export function MotorIssuanceQueue() {
    */
   const renderCaseCard = (item: BackOfficeQueueItem, domain: 'MOTOR' | 'HEALTH') => {
     const isHealth = domain === 'HEALTH';
-    const isApprovedOrAccepted = item.status === 'APPROVED' || item.status === 'ACCEPTED';
+    const isApprovedOrAccepted = isQuotationBackOfficeApproved(item);
     const allGatesCleared = Boolean(
       item.allGatesPassed &&
       item.gates?.customer?.passed &&
@@ -1090,7 +1093,7 @@ export function MotorIssuanceQueue() {
               <tbody className="divide-y divide-border">
                 {displayedQueue.map((item) => {
                   const isHealth = item.productType === 'HEALTH';
-                  const isApproved = item.status === 'APPROVED' || item.status === 'ACCEPTED';
+                  const isApproved = isQuotationBackOfficeApproved(item);
                   const allGatesCleared = Boolean(
                     item.allGatesPassed &&
                     item.gates?.customer?.passed &&

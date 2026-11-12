@@ -388,6 +388,9 @@ export interface SavedMotorQuote {
   policyEndDate?: string;
   status: string;
   workflowState?: string;
+  motorWorkflowState?: string | null;
+  issuanceStatus?: string | null;
+  insurerId?: string | null;
   createdAt: string;
   updatedAt?: string;
   customerName?: string;
@@ -400,6 +403,7 @@ export interface SavedMotorQuote {
   backOfficeSubmittedAt?: string | null;
   proposalStatus?: string;
   paymentRecord?: PaymentRecord;
+  motorPaymentRecord?: PaymentRecord | null;
   motorDocuments?: Array<{
     id: string;
     documentId: string;
