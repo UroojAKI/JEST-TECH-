@@ -73,6 +73,7 @@ export default function CustomerRegisterPage() {
     branchId: '',
     agentCode: '',
     agentCodeSystem: '',
+    isOldCustomer: false,
   });
 
 
@@ -157,6 +158,7 @@ export default function CustomerRegisterPage() {
       type: formData.type as 'INDIVIDUAL' | 'CORPORATE',
       firstName: cleanFirstName,
       lastName: cleanLastName,
+      isOldCustomer: formData.isOldCustomer,
       ...(cleanPhone ? { phone: cleanPhone } : {}),
     };
 
@@ -200,6 +202,7 @@ export default function CustomerRegisterPage() {
         branchId: dbBranches[0]?.id || '',
         agentCode: '',
         agentCodeSystem: '',
+        isOldCustomer: false,
       });
       router.replace('/crm/contacts');
     } catch (err: any) {
@@ -479,6 +482,24 @@ export default function CustomerRegisterPage() {
                     : 'Select a registered Agent or enter an external code and namespace. Leave blank to use the authenticated Agent where applicable.'}
                 </span>
               </div>
+            </div>
+
+            <div className="space-y-0.5 pt-1">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="contactIsOldCustomer"
+                  checked={formData.isOldCustomer}
+                  onChange={(e) => setFormData({ ...formData, isOldCustomer: e.target.checked })}
+                  className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary/50"
+                />
+                <label htmlFor="contactIsOldCustomer" className="text-xs font-bold text-muted-foreground cursor-pointer">
+                  Old Customer
+                </label>
+              </div>
+              <p className="pl-6 text-[11px] text-muted-foreground">
+                Marks this customer as an existing / old customer on their profile (tick Old Customer on Motor Quotation Step 1 to skip expired-policy inspection).
+              </p>
             </div>
 
             <p className="text-[11px] text-muted-foreground border rounded-lg p-3 bg-muted/20">

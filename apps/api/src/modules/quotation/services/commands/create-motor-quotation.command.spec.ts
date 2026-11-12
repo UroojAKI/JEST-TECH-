@@ -1261,5 +1261,58 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
       expect(err.response?.errorCode).toBe('CONTACT_COLLECTION_REQUIRED');
     });
   });
+
+  describe('Old Customer quotation evaluation & isolation', () => {
+    beforeEach(() => {
+      prisma.quotation.create.mockResolvedValue({
+        id: 'q-old-cust-1',
+        quotationCode: 'QTN-OLD-000001',
+        totalPremium: 11800,
+        workflowState: 'READY_FOR_PROPOSAL',
+        status: 'DRAFT',
+        createdAt: new Date(),
+      });
+    });
+
+    it('passes isOldCustomer to rule engine and stores it in motorMetadata without mutating contacts/customers', async () => {
+      prisma.contact.findFirst.mockResolvedValue(null);
+
+      await command.execute(
+        {
+          vehicleCategory: 'PRIVATE_CAR',
+          policyType: 'PACKAGE',
+          insurerName: 'HDFC ERGO',
+          isOldCustomer: true,
+          proposerDetails: {
+            customerName: 'Old Client',
+            mobileNumber: '9876543210',
+            isOldCustomer: true,
+          },
+          previousPolicyDetails: {
+            policyType: 'COMPREHENSIVE',
+            policyExpiryDate: '2025-01-01',
+          },
+        } as any,
+        mockUser,
+      );
+
+      expect(ruleEngine.evaluateQuotation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          isOldCustomer: true,
+        }),
+      );
+      expect(prisma.quotation.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            motorMetadata: expect.objectContaining({
+              isOldCustomer: true,
+            }),
+          }),
+        }),
+      );
+      const contactCreateArg = contactsService.create.mock.calls[0]?.[0] || {};
+      expect(contactCreateArg.isOldCustomer).toBeUndefined();
+    });
+  });
 });
 

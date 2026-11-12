@@ -78,6 +78,11 @@ export class CreateCustomerDto {
   @IsBoolean()
   isVip?: boolean;
 
+  @ApiPropertyOptional({ description: 'Old customer status' })
+  @IsOptional()
+  @IsBoolean()
+  isOldCustomer?: boolean;
+
   @ApiPropertyOptional({ description: 'Legacy Contact ID if migrating' })
   @IsOptional()
   @IsUUID()

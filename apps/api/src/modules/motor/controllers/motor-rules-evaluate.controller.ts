@@ -104,6 +104,10 @@ export class EvaluateMotorRulesDto {
   @IsOptional()
   @IsString()
   newOwnerName?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isOldCustomer?: boolean;
 }
 
 @ApiTags('Motor — Rules Engine')
@@ -204,6 +208,7 @@ export class MotorRulesEvaluateController {
       tpExpiryDate: dto.tpExpiryDate ? new Date(dto.tpExpiryDate) : null,
       odExpiryDate: dto.odExpiryDate ? new Date(dto.odExpiryDate) : null,
       newOwnerName: dto.newOwnerName,
+      isOldCustomer: Boolean(dto.isOldCustomer),
     });
 
     return result;

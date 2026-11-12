@@ -222,4 +222,104 @@ describe('MotorRuleEngineService (Business Invariants)', () => {
       expect(result.inspectionReasons).toHaveLength(0);
     });
   });
+
+  describe('Old Customer inspection bypass', () => {
+    it('bypasses expiry inspection when isOldCustomer=true even if policy expired <= 90 days', () => {
+      const today = dateService.getBusinessToday();
+      const expiredYesterday = dateService.addDays(today, -5);
+
+      const result = service.evaluateQuotation({
+        newPolicyType: 'PACKAGE',
+        vehicleStatus: 'EXISTING',
+        previousPolicyType: 'COMPREHENSIVE',
+        policyExpiryDate: expiredYesterday,
+        eligibleNcbPercentage: 25,
+        isOldCustomer: true,
+      });
+
+      expect(result.inspectionRequired).toBe(false);
+      expect(result.inspectionReasons).toHaveLength(0);
+      expect(result.nextStep).toBe('QUOTATION');
+      expect(result.ncb).toBe(25);
+      expect(result.missingDocuments).toContain('PREVIOUS_POLICY_COPY');
+    });
+
+    it('bypasses expiry inspection when isOldCustomer=true and policy expired > 90 days while keeping NCB reset and missing document checks unchanged', () => {
+      const today = dateService.getBusinessToday();
+      const expiredLongAgo = dateService.addDays(today, -120);
+
+      const result = service.evaluateQuotation({
+        newPolicyType: 'PACKAGE',
+        vehicleStatus: 'EXISTING',
+        previousPolicyType: 'COMPREHENSIVE',
+        policyExpiryDate: expiredLongAgo,
+        eligibleNcbPercentage: 35,
+        isOldCustomer: true,
+      });
+
+      expect(result.inspectionRequired).toBe(false);
+      expect(result.inspectionReasons).toHaveLength(0);
+      expect(result.nextStep).toBe('QUOTATION');
+      expect(result.ncb).toBe(0);
+      expect(result.ncbReason).toBe('POLICY_EXPIRED_MORE_THAN_90_DAYS');
+      expect(result.missingDocuments).toContain('PREVIOUS_POLICY_COPY');
+    });
+
+    it('bypasses SAOD expired OD inspection when isOldCustomer=true and TP is active', () => {
+      const today = dateService.getBusinessToday();
+      const activeTpExpiry = dateService.addDays(today, 180);
+      const expiredOd = dateService.addDays(today, -30);
+
+      const result = service.evaluateQuotation({
+        newPolicyType: 'SAOD',
+        vehicleStatus: 'EXISTING',
+        previousPolicyType: 'SAOD',
+        policyExpiryDate: expiredOd,
+        odExpiryDate: expiredOd,
+        tpExpiryDate: activeTpExpiry,
+        eligibleNcbPercentage: 20,
+        isOldCustomer: true,
+      });
+
+      expect(result.inspectionRequired).toBe(false);
+      expect(result.inspectionReasons).toHaveLength(0);
+      expect(result.nextStep).toBe('QUOTATION');
+    });
+
+    it('still requires inspection for non-expiry rules even when isOldCustomer=true', () => {
+      const today = dateService.getBusinessToday();
+      const activeExpiry = dateService.addDays(today, 10);
+
+      const tpUpgrade = service.evaluateQuotation({
+        newPolicyType: 'PACKAGE',
+        vehicleStatus: 'EXISTING',
+        previousPolicyType: 'THIRD_PARTY',
+        policyExpiryDate: activeExpiry,
+        isOldCustomer: true,
+      });
+      expect(tpUpgrade.inspectionRequired).toBe(true);
+      expect(tpUpgrade.inspectionReasons).toContain('TP_TO_PACKAGE_UPGRADE');
+
+      const transferNotTransferred = service.evaluateQuotation({
+        newPolicyType: 'PACKAGE',
+        vehicleStatus: 'EXISTING',
+        previousPolicyType: 'COMPREHENSIVE',
+        policyExpiryDate: activeExpiry,
+        ownershipTransfer: true,
+        previousPolicyTransferred: false,
+        isOldCustomer: true,
+      });
+      expect(transferNotTransferred.inspectionRequired).toBe(true);
+      expect(transferNotTransferred.inspectionReasons).toContain('OWNERSHIP_TRANSFER_POLICY_NOT_TRANSFERRED');
+
+      const missingPrevPolicy = service.evaluateQuotation({
+        newPolicyType: 'PACKAGE',
+        vehicleStatus: 'EXISTING',
+        previousPolicyType: 'NOT_AVAILABLE',
+        isOldCustomer: true,
+      });
+      expect(missingPrevPolicy.inspectionRequired).toBe(true);
+      expect(missingPrevPolicy.inspectionReasons).toContain('PREVIOUS_POLICY_DETAILS_UNAVAILABLE');
+    });
+  });
 });

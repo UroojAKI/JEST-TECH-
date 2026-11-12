@@ -355,7 +355,7 @@ export default function PolicyRegisterPage() {
             }`}
           >
             <Layers className="h-3.5 w-3.5" />
-            <span>All Policies ({rawList.length})</span>
+            <span>All Policies ({total})</span>
           </button>
           <button
             onClick={() => setProductFilter('MOTOR')}

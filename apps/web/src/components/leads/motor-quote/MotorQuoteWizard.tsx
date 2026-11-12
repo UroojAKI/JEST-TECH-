@@ -83,6 +83,7 @@ function emptyProposer(contact?: Props['leadContact']): ProposerDetails {
     pincode: (contact as any)?.pincode || '',
     panNumber: contact?.pan || '',
     relationshipManager: contact?.rm || '',
+    isOldCustomer: false,
   };
 }
 
@@ -707,6 +708,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
     activeTpVerifiedByUserConfirmed: policyType === 'SAOD' ? saodForm.tpVerification?.verifiedByUserConfirmed : undefined,
     odExpiryDate: previousPolicy.odExpiryDate,
     newOwnerName: previousPolicy.newOwnerName,
+    isOldCustomer: Boolean(proposer.isOldCustomer),
   });
 
   const evaluateRules = async (): Promise<boolean> => {
@@ -787,6 +789,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
     policyType,
     step,
     journeyId,
+    proposer.isOldCustomer,
     vehicleDetails.vehicleStatus,
     previousPolicy.previousPolicyType,
     previousPolicy.policyExpiryDate,
@@ -1072,6 +1075,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
         calculationSnapshot: calcResult,
         idv: getIDV(),
         ncbPercentage: getNCB(),
+        isOldCustomer: Boolean(proposer.isOldCustomer),
         proposerDetails: proposer,
         vehicleDetails,
         previousPolicyDetails: previousPolicy,
@@ -1399,6 +1403,26 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
                     {proposer.address && proposer.address.trim().length > 0 && proposer.address.trim().length < 5 && (
                       <p className="text-[10px] text-red-500">Address must be at least 5 characters in length</p>
                     )}
+                  </div>
+                  <div className="md:col-span-2 space-y-0.5 pt-1">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="motorProposerIsOldCustomer"
+                        checked={Boolean(proposer.isOldCustomer)}
+                        onChange={(e) => setProposer({ ...proposer, isOldCustomer: e.target.checked })}
+                        className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary/50"
+                      />
+                      <label
+                        htmlFor="motorProposerIsOldCustomer"
+                        className="text-xs font-semibold text-foreground cursor-pointer select-none"
+                      >
+                        Old Customer
+                      </label>
+                    </div>
+                    <p className="pl-6 text-[11px] text-muted-foreground">
+                      If checked, no vehicle inspection is required even if the previous policy is expired (non-expiry inspection rules still apply).
+                    </p>
                   </div>
                   <div className="space-y-1.5 md:col-span-2 pt-2 border-t border-border">
                     <AgentSelector

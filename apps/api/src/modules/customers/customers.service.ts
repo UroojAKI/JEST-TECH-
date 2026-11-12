@@ -216,6 +216,7 @@ export class CustomersService {
           state: dto.state,
           pincode: dto.pincode,
           isVip: dto.isVip || false,
+          isOldCustomer: dto.isOldCustomer || false,
           primaryAgentId: primaryAgentId || null,
           primaryAgentExternalCodeId,
           createdById: user.id,

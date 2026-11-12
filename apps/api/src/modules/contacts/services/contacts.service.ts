@@ -226,6 +226,7 @@ export class ContactsService {
       company: { connect: { id: targetCompanyId } },
       agentCode: storedAgentCode,
       type: restDto.type,
+      isOldCustomer: Boolean(restDto.isOldCustomer),
       firstName: restDto.firstName,
       middleName: restDto.middleName,
       lastName: restDto.lastName ?? '',

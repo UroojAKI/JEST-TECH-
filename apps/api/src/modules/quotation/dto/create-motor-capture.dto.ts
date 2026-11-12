@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsString,
   IsOptional,
   IsNumber,
@@ -145,4 +146,8 @@ export class CreateMotorCaptureDto {
   @IsOptional()
   @IsObject()
   previousPolicyDetails?: Record<string, any>;
+
+  @IsOptional()
+  @IsBoolean()
+  isOldCustomer?: boolean;
 }

@@ -53,6 +53,7 @@ export class ContactMapper {
           ? `${contact.createdBy.firstName || ''} ${contact.createdBy.lastName || ''}`.trim()
           : null,
       status: contact.deletedAt ? 'INACTIVE' : contact.status || 'ACTIVE',
+      isOldCustomer: Boolean(contact.isOldCustomer),
       createdAt: contact.createdAt,
       updatedAt: contact.updatedAt,
     };

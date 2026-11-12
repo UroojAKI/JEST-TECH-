@@ -185,6 +185,30 @@ describe('CustomersService', () => {
       );
     });
 
+    it('passes isOldCustomer flag when creating customer', async () => {
+      prisma.customer.findMany.mockResolvedValue([]);
+
+      await service.create(
+        {
+          firstName: 'Old',
+          mobile: '9876543211',
+          addressLine1: '123 MG Road',
+          pincode: '400001',
+          isOldCustomer: true,
+        },
+        { id: 'user-uuid-1', role: RoleType.BACK_OFFICE, companyId: 'org-1' } as any,
+      );
+
+      expect(crmIdentityService.ensureLinkedContactAndCustomer).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          firstName: 'Old',
+          isOldCustomer: true,
+          createCustomerIfMissing: true,
+        }),
+      );
+    });
+
     it('stores canonical Agent and external-code attribution on customer creation', async () => {
       prisma.customer.findMany.mockResolvedValue([]);
       crmIdentityService.ensureLinkedContactAndCustomer.mockResolvedValue({

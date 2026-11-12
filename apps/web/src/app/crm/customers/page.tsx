@@ -46,6 +46,7 @@ export default function CustomersPage() {
     city: '',
     state: '',
     isVip: false,
+    isOldCustomer: false,
     agentId: '',
     externalAgentCode: '',
     agentCodeSystem: '',
@@ -156,6 +157,7 @@ export default function CustomersPage() {
           city: '',
           state: '',
           isVip: false,
+          isOldCustomer: false,
           agentId: '',
           externalAgentCode: '',
           agentCodeSystem: '',
@@ -552,6 +554,24 @@ export default function CustomersPage() {
                 <label htmlFor="isVip" className="text-xs font-bold text-muted-foreground cursor-pointer">
                   Mark as High-Priority / VIP Customer
                 </label>
+              </div>
+
+              <div className="space-y-0.5 pt-1">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="isOldCustomer"
+                    checked={formData.isOldCustomer}
+                    onChange={(e) => setFormData({ ...formData, isOldCustomer: e.target.checked })}
+                    className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                  />
+                  <label htmlFor="isOldCustomer" className="text-xs font-bold text-muted-foreground cursor-pointer">
+                    Old Customer
+                  </label>
+                </div>
+                <p className="pl-6 text-[11px] text-muted-foreground">
+                  Marks this customer as an existing / old customer on their profile (tick Old Customer on Motor Quotation Step 1 to skip expired-policy inspection).
+                </p>
               </div>
 
               {/* Duplicate Error Warning Card */}

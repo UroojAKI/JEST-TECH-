@@ -18,6 +18,7 @@ export interface CustomerContact {
   agentCode?: string | null;
   tags?: string[];
   status?: string;
+  isOldCustomer?: boolean;
   createdAt: string;
 }
 
@@ -36,6 +37,7 @@ export interface Customer {
   state?: string | null;
   pincode?: string | null;
   isVip: boolean;
+  isOldCustomer?: boolean;
   contactId?: string | null;
   agentId?: string | null;
   externalAgentCode?: string | null;

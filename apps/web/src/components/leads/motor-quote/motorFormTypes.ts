@@ -48,6 +48,7 @@ export interface ProposerDetails {
   pincode: string;               // Y
   panNumber: string;             // Y — KYC mandatory
   relationshipManager: string;   // Y — Auto-mapped to logged-in user
+  isOldCustomer?: boolean;
 }
 
 // ------------------------------------------------------------------

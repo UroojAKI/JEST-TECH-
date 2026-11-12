@@ -35,5 +35,6 @@ export interface EnsureIdentityParams extends ResolveIdentityParams {
   state?: string | null;
   pincode?: string | null;
   isVip?: boolean;
+  isOldCustomer?: boolean;
   createCustomerIfMissing?: boolean;
 }

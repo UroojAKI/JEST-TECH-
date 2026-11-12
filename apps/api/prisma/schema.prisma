@@ -628,6 +628,8 @@ model Contact {
 
   status ContactStatus @default(ACTIVE)
 
+  isOldCustomer Boolean @default(false)
+
   firstName String
 
   middleName String?
@@ -4621,6 +4623,7 @@ model Customer {
   state         String?
   pincode       String?
   isVip         Boolean @default(false)
+  isOldCustomer Boolean @default(false)
 
   companyId                  String
   company                    Company                @relation("CompanyCustomers", fields: [companyId], references: [id], onDelete: Restrict)

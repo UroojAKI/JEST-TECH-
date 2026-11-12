@@ -595,6 +595,10 @@ export class CreateMotorQuotationCommand {
       );
     }
 
+    const isOldCustomer = Boolean(
+      dto.isOldCustomer ?? (dto.proposerDetails as any)?.isOldCustomer,
+    );
+
     const ruleResult = this.motorRuleEngineService.evaluateQuotation({
       vehicleStatus: isVehicleNew ? 'NEW' : 'EXISTING',
       newPolicyType: dto.policyType as any,
@@ -606,6 +610,7 @@ export class CreateMotorQuotationCommand {
       eligibleNcbPercentage: declaredNcb,
       tpExpiryDate: saodVerification.tpExpiryDate ? new Date(saodVerification.tpExpiryDate) : null,
       odExpiryDate: saodVerification.odExpiryDate ? new Date(saodVerification.odExpiryDate) : null,
+      isOldCustomer,
     });
 
     const authoritativeNcb = ruleResult.ncb;
@@ -849,6 +854,7 @@ export class CreateMotorQuotationCommand {
       vehicleCategory: dto.vehicleCategory,
       policyType: dto.policyType,
       registrationNumber: dto.registrationNumber,
+      isOldCustomer,
       proposerDetails: dto.proposerDetails,
       vehicleDetails: dto.vehicleDetails,
       policyDetails: dto.policyDetails,
