@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { LedgerService, CreateJournalEntryDto } from './ledger.service';
 import { PrismaService } from '../../../../../database/prisma.service';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Decimal } from '@prisma/client/runtime/library';
 
 describe('LedgerService', () => {
@@ -52,9 +52,22 @@ describe('LedgerService', () => {
       await expect(service.postEntry(data, 'comp-1')).rejects.toThrow(
         BadRequestException,
       );
-      await expect(service.postEntry(data)).rejects.toThrow(
+      await expect(service.postEntry(data, 'comp-1')).rejects.toThrow(
         'Journal entry is unbalanced',
       );
+    });
+
+    it('should reject posting when company context is missing', async () => {
+      const data: CreateJournalEntryDto = {
+        date: new Date(),
+        description: 'Unscoped Entry',
+        lines: [
+          { accountId: 'acc-1', debit: 100, credit: 0 },
+          { accountId: 'acc-2', debit: 0, credit: 100 },
+        ],
+      };
+
+      await expect(service.postEntry(data)).rejects.toThrow(ForbiddenException);
     });
 
     it('should throw if less than 2 lines provided', async () => {
@@ -64,7 +77,7 @@ describe('LedgerService', () => {
         lines: [{ accountId: 'acc-1', debit: 100, credit: 0 }],
       };
 
-      await expect(service.postEntry(data)).rejects.toThrow(
+      await expect(service.postEntry(data, 'comp-1')).rejects.toThrow(
         BadRequestException,
       );
     });
@@ -79,7 +92,7 @@ describe('LedgerService', () => {
         ],
       };
 
-      await expect(service.postEntry(data)).rejects.toThrow(
+      await expect(service.postEntry(data, 'comp-1')).rejects.toThrow(
         BadRequestException,
       );
     });
@@ -98,7 +111,7 @@ describe('LedgerService', () => {
         .spyOn(prisma.journalEntry, 'create')
         .mockResolvedValue({ id: 'je-1' } as any);
 
-      const result = await service.postEntry(data);
+      const result = await service.postEntry(data, 'comp-1');
 
       expect(result.id).toBe('je-1');
       expect(prisma.journalEntry.create).toHaveBeenCalled();

@@ -393,21 +393,20 @@ export class BiService {
           },
         },
       }),
-      this.prisma.policy
-        ? this.prisma.policy.findMany({
-            where: {
-              companyId: cleanCompanyId,
-              status: { in: [PolicyStatus.ACTIVE, PolicyStatus.ISSUED] },
-              deletedAt: null,
-            },
-            select: {
-              actualPremium: true,
-              premiumAmount: true,
-              quotation: {
-                select: { productType: true },
-              },
-            },
-          }),
+      this.prisma.policy.findMany({
+        where: {
+          companyId: cleanCompanyId,
+          status: { in: [PolicyStatus.ACTIVE, PolicyStatus.ISSUED] },
+          deletedAt: null,
+        },
+        select: {
+          actualPremium: true,
+          premiumAmount: true,
+          quotation: {
+            select: { productType: true },
+          },
+        },
+      }),
     ]);
 
     // Also include motor insurance revenue from MotorPaymentRecord (PAID status)
