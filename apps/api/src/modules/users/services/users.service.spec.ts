@@ -2,8 +2,16 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { UsersService } from './users.service';
 import { UserRepository } from '../repositories/user.repository';
 import { PrismaService } from '../../../database/prisma.service';
-import { NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  BadRequestException,
+  NotFoundException,
+  ForbiddenException,
+  ValidationPipe,
+} from '@nestjs/common';
 import { RoleType, UserStatus } from '@prisma/client';
+import { CreateUserDto } from '../dto/create-user.dto';
+import { InviteUserDto } from '../dto/invite-user.dto';
+import { UpdateUserDto } from '../dto/update-user.dto';
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -607,6 +615,150 @@ describe('UsersService', () => {
       await expect(
         service.getUserPermissions('user-uuid-1', actor),
       ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('user mobile number validation, search, and updates', () => {
+    const validationPipe = new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+      transformOptions: { enableImplicitConversion: true },
+    });
+
+    it('accepts optional 10-digit numbers (including 1234567890) on CreateUserDto and InviteUserDto', async () => {
+      const created = await validationPipe.transform(
+        {
+          firstName: 'Test',
+          lastName: 'Agent',
+          email: 'test@example.com',
+          role: 'AGENT',
+          phone: ' 1234567890 ',
+        },
+        { type: 'body', metatype: CreateUserDto },
+      );
+      expect(created.phone).toBe('1234567890');
+
+      const invitedBlank = await validationPipe.transform(
+        {
+          firstName: 'Test',
+          lastName: 'Agent',
+          email: 'invite@example.com',
+          role: 'AGENT',
+          phone: '   ',
+        },
+        { type: 'body', metatype: InviteUserDto },
+      );
+      expect(invitedBlank.phone).toBeUndefined();
+    });
+
+    it('rejects non-10-digit phone numbers on CreateUserDto, InviteUserDto, and UpdateUserDto', async () => {
+      await expect(
+        validationPipe.transform(
+          {
+            firstName: 'Test',
+            lastName: 'Agent',
+            email: 'test@example.com',
+            role: 'AGENT',
+            phone: '12345',
+          },
+          { type: 'body', metatype: CreateUserDto },
+        ),
+      ).rejects.toThrow(BadRequestException);
+
+      await expect(
+        validationPipe.transform(
+          {
+            firstName: 'Test',
+            lastName: 'Agent',
+            email: 'invite@example.com',
+            role: 'AGENT',
+            phone: '987654321a',
+          },
+          { type: 'body', metatype: InviteUserDto },
+        ),
+      ).rejects.toThrow(BadRequestException);
+
+      const cleared = await validationPipe.transform(
+        { phone: '' },
+        { type: 'body', metatype: UpdateUserDto },
+      );
+      expect(cleared.phone).toBeNull();
+    });
+
+    it('persists 10-digit phone on create and rejects invalid phone in service calls', async () => {
+      await expect(
+        service.create(
+          {
+            firstName: 'New',
+            lastName: 'Agent',
+            email: 'new@example.com',
+            role: 'AGENT',
+            phone: '999',
+          } as any,
+          { companyId: 'company-uuid-1' },
+        ),
+      ).rejects.toThrow(BadRequestException);
+
+      await service.create(
+        {
+          firstName: 'New',
+          lastName: 'Agent',
+          email: 'new@example.com',
+          role: 'BACK_OFFICE',
+          employeeCode: 'EMP-009997',
+          phone: '1234567890',
+        } as any,
+        { companyId: 'company-uuid-1' },
+      );
+
+      expect(userRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ phone: '1234567890' }),
+        expect.anything(),
+      );
+    });
+
+    it('updates and clears user phone cleanly via update()', async () => {
+      userRepository.update = jest.fn().mockResolvedValue({ ...mockUser, phone: '9876500000' });
+
+      await service.update(
+        'user-uuid-1',
+        { phone: '9876500000' },
+        { companyId: 'company-uuid-1' },
+      );
+      expect(userRepository.update).toHaveBeenCalledWith('user-uuid-1', {
+        phone: '9876500000',
+      });
+
+      await service.update(
+        'user-uuid-1',
+        { phone: '' } as any,
+        { companyId: 'company-uuid-1' },
+      );
+      expect(userRepository.update).toHaveBeenLastCalledWith('user-uuid-1', {
+        phone: null,
+      });
+    });
+
+    it('includes phone in findAll search filter', async () => {
+      prisma.user.findMany = jest.fn().mockResolvedValue([mockUser]);
+      prisma.user.count = jest.fn().mockResolvedValue(1);
+
+      await service.findAll(
+        { page: 1, limit: 25, search: '98765' } as any,
+        undefined,
+        { companyId: 'company-uuid-1' },
+      );
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            OR: expect.arrayContaining([
+              { phone: { contains: '98765', mode: 'insensitive' } },
+            ]),
+          }),
+        }),
+      );
     });
   });
 });

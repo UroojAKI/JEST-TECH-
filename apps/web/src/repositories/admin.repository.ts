@@ -28,6 +28,7 @@ export interface UserItem {
   firstName: string;
   lastName: string;
   email: string;
+  phone?: string | null;
   password?: string;
   role: string | { id?: string; name?: string; code?: string };
   status: 'ACTIVE' | 'LOCKED' | 'DISABLED';

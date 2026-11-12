@@ -30,6 +30,7 @@ import { CreateUserDto } from '../dto/create-user.dto';
 import { UserRepository } from '../repositories/user.repository';
 import { PrismaService } from '../../../database/prisma.service';
 import { PlatformPrivilegeResolver } from '../../../common/services/platform-privilege.resolver';
+import { normalizeOptionalUserPhone } from '../utils/user-phone.util';
 
 @Injectable()
 export class UsersService {
@@ -62,6 +63,7 @@ export class UsersService {
     }
 
     const email = dto.email.trim().toLowerCase();
+    const normalizedPhone = normalizeOptionalUserPhone(dto.phone);
     const existing = await this.prisma.user.findUnique({
       where: { email },
       select: { id: true, companyId: true, status: true },
@@ -81,7 +83,7 @@ export class UsersService {
         firstName: dto.firstName.trim(),
         lastName: dto.lastName.trim(),
         email,
-        phone: dto.phone,
+        phone: normalizedPhone ?? undefined,
         role,
         branchId: dto.branchId,
         department: dto.departmentId,
@@ -91,6 +93,10 @@ export class UsersService {
         status: UserStatus.PENDING_VERIFICATION,
       } as any, { companyId, userId: actor?.id, id: actor?.id });
       invitedUserId = created.id;
+    } else if (dto.phone !== undefined) {
+      await this.userRepository.update(invitedUserId, {
+        phone: normalizedPhone ?? null,
+      });
     }
 
     const rawToken = crypto.randomBytes(32).toString('base64url');
@@ -237,6 +243,8 @@ export class UsersService {
       );
     }
 
+    const normalizedPhone = normalizeOptionalUserPhone(dto.phone);
+
     let canonicalRole: RoleType = RoleType.AGENT;
     const rawRole = String(dto.role || '').toUpperCase();
     if (rawRole === 'ADMIN' || rawRole === 'SUPER_ADMIN') {
@@ -367,7 +375,7 @@ export class UsersService {
           passwordHash,
           firstName: dto.firstName,
           lastName: dto.lastName,
-          phone: dto.phone,
+          phone: normalizedPhone ?? undefined,
           collectContacts: canonicalRole === RoleType.AGENT && dto.collectContacts === true,
           employeeCode: empCode,
           designation: (dto as any).designation,
@@ -476,6 +484,7 @@ export class UsersService {
         { firstName: { contains: pagination.search, mode: 'insensitive' } },
         { lastName: { contains: pagination.search, mode: 'insensitive' } },
         { email: { contains: pagination.search, mode: 'insensitive' } },
+        { phone: { contains: pagination.search, mode: 'insensitive' } },
         { employeeCode: { contains: pagination.search, mode: 'insensitive' } },
       ];
     }
@@ -1343,7 +1352,9 @@ export class UsersService {
     const updateData: any = {};
     if (dto.firstName) updateData.firstName = dto.firstName;
     if (dto.lastName) updateData.lastName = dto.lastName;
-    if (dto.phone) updateData.phone = dto.phone;
+    if (dto.phone !== undefined) {
+      updateData.phone = normalizeOptionalUserPhone(dto.phone, { emptyAsNull: true });
+    }
     if (dto.email) updateData.email = dto.email;
     if (dto.status) updateData.status = dto.status;
     if (dto.collectContacts !== undefined) {

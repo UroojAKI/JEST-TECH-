@@ -9,6 +9,7 @@ import { AppShell } from '../../../../components/layout/app-shell';
 import { StatusBadge } from '../../../../components/ui/status-badge';
 import { adminRepository, UserWorkspaceData } from '../../../../repositories/admin.repository';
 import { apiClient } from '../../../../lib/api-client';
+import { sanitizeTenDigitPhone, validateOptionalTenDigitPhone } from '../../../../lib/user-phone';
 import { toast } from 'sonner';
 import { useAuthStore } from '../../../../store/auth-store';
 import {
@@ -36,6 +37,9 @@ import {
   Copy,
   Fingerprint,
   Plus,
+  Pencil,
+  Check,
+  X,
 } from 'lucide-react';
 
 export default function User360Page() {
@@ -60,6 +64,8 @@ export default function User360Page() {
   const [resetModalOpen, setResetModalOpen] = useState(false);
   const [customPassword, setCustomPassword] = useState('');
   const [resetResult, setResetResult] = useState<string | null>(null);
+  const [isEditingPhone, setIsEditingPhone] = useState(false);
+  const [phoneDraft, setPhoneDraft] = useState('');
 
   const { data: workspace, isLoading, error, refetch } = useQuery<UserWorkspaceData>({
     queryKey: ['admin', 'users', 'workspace', userId],
@@ -181,6 +187,7 @@ export default function User360Page() {
     },
     onSuccess: (_, newValue) => {
       toast.success(`Customer contact collection set to ${newValue ? 'REQUIRED' : 'OPTIONAL'}`);
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
       queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
       refetch();
     },
@@ -188,6 +195,32 @@ export default function User360Page() {
       toast.error(err.response?.data?.message || 'Failed to update contact collection rule');
     },
   });
+
+  const updatePhoneMutation = useMutation({
+    mutationFn: async (phone: string | null) => {
+      return adminRepository.updateUser(userId, { phone });
+    },
+    onSuccess: (_, phone) => {
+      toast.success(phone ? 'Mobile number updated successfully' : 'Mobile number cleared');
+      setIsEditingPhone(false);
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+      refetch();
+    },
+    onError: (err: any) => {
+      const rawMessage = err?.response?.data?.message || err?.message;
+      toast.error(Array.isArray(rawMessage) ? rawMessage.join(', ') : (rawMessage || 'Failed to update mobile number'));
+    },
+  });
+
+  const handleSavePhone = (e: React.FormEvent) => {
+    e.preventDefault();
+    const phoneCheck = validateOptionalTenDigitPhone(phoneDraft);
+    if (!phoneCheck.valid) {
+      return void toast.error(phoneCheck.error);
+    }
+    updatePhoneMutation.mutate(phoneCheck.normalized || null);
+  };
 
   const resetPasswordMutation = useMutation({
     mutationFn: async (newPassword?: string) => {
@@ -601,9 +634,64 @@ export default function User360Page() {
                   <span className="text-muted-foreground">Email Address</span>
                   <span className="font-mono">{profile.email}</span>
                 </div>
-                <div className="py-2.5 flex justify-between">
-                  <span className="text-muted-foreground">Mobile Phone</span>
-                  <span className="font-mono">{profile.phone || 'N/A'}</span>
+                <div className="py-2.5 flex justify-between items-center gap-3">
+                  <span className="text-muted-foreground shrink-0">Mobile Phone</span>
+                  {isEditingPhone ? (
+                    <form onSubmit={handleSavePhone} className="flex items-center gap-1.5">
+                      <input
+                        type="tel"
+                        inputMode="numeric"
+                        maxLength={10}
+                        value={phoneDraft}
+                        onChange={(e) => setPhoneDraft(sanitizeTenDigitPhone(e.target.value))}
+                        placeholder="10-digit mobile"
+                        aria-label="Mobile Phone"
+                        className="w-36 px-2 py-1 rounded border bg-background text-foreground text-xs font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                      <button
+                        type="submit"
+                        disabled={updatePhoneMutation.isPending}
+                        title="Save Mobile Number"
+                        className="p-1.5 rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                      >
+                        {updatePhoneMutation.isPending ? (
+                          <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Check className="h-3.5 w-3.5" />
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={updatePhoneMutation.isPending}
+                        onClick={() => {
+                          setIsEditingPhone(false);
+                          setPhoneDraft(sanitizeTenDigitPhone(profile.phone || ''));
+                        }}
+                        title="Cancel"
+                        className="p-1.5 rounded border hover:bg-accent text-muted-foreground"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </form>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono">{profile.phone || 'N/A'}</span>
+                      {currentRole === 'ADMIN' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPhoneDraft(sanitizeTenDigitPhone(profile.phone || ''));
+                            setIsEditingPhone(true);
+                          }}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[11px] font-semibold text-muted-foreground hover:text-foreground hover:bg-accent"
+                          title="Edit Mobile Number"
+                        >
+                          <Pencil className="h-3 w-3" />
+                          <span>Edit</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="py-2.5 flex justify-between">
                   <span className="text-muted-foreground">Designation</span>

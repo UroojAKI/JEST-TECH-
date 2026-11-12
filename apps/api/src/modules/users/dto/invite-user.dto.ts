@@ -1,4 +1,17 @@
-import { IsBoolean, IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
+import { Transform } from 'class-transformer';
+import {
+  IsBoolean,
+  IsEmail,
+  IsOptional,
+  IsString,
+  Matches,
+  MinLength,
+} from 'class-validator';
+import {
+  transformOptionalUserPhone,
+  USER_PHONE_ERROR_MESSAGE,
+  USER_PHONE_REGEX,
+} from '../utils/user-phone.util';
 
 export class InviteUserDto {
   @IsString()
@@ -16,7 +29,9 @@ export class InviteUserDto {
   role: string;
 
   @IsOptional()
+  @Transform(({ value }) => transformOptionalUserPhone(value))
   @IsString()
+  @Matches(USER_PHONE_REGEX, { message: USER_PHONE_ERROR_MESSAGE })
   phone?: string;
 
   @IsOptional()

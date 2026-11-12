@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import {
   IsBoolean,
   IsEmail,
@@ -5,10 +6,16 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  Matches,
   MinLength,
 } from 'class-validator';
 
 import { RoleType } from '@prisma/client';
+import {
+  transformOptionalUserPhone,
+  USER_PHONE_ERROR_MESSAGE,
+  USER_PHONE_REGEX,
+} from '../utils/user-phone.util';
 
 export class CreateUserDto {
   @IsString()
@@ -23,7 +30,9 @@ export class CreateUserDto {
   email: string;
 
   @IsOptional()
+  @Transform(({ value }) => transformOptionalUserPhone(value))
   @IsString()
+  @Matches(USER_PHONE_REGEX, { message: USER_PHONE_ERROR_MESSAGE })
   phone?: string;
 
   @IsOptional()
