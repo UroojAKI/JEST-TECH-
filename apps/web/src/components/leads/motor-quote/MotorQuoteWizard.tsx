@@ -1236,15 +1236,24 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
         {/* Insurer Selector — persistent bar */}
         {step >= 4 && (
           <div className="px-6 py-3 border-b bg-card flex items-center gap-4">
-            <label className="text-xs font-bold text-foreground">Partner Insurer</label>
+            <label className="text-xs font-bold text-foreground">Partner Insurer <span className="text-rose-500">*</span></label>
             <select
               value={insurerName}
               onChange={(e) => setInsurerName(e.target.value)}
               className="flex-1 max-w-sm px-3 py-1.5 rounded-md border text-sm font-medium bg-background border-border focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
             >
-              <option value="">— Select Insurer —</option>
+              <option value="">
+                {insurersLoading
+                  ? 'Loading partner insurers...'
+                  : insurerOptions.length > 0
+                  ? `— Select Insurer (${insurerOptions.length} available) —`
+                  : '— No active insurers found —'}
+              </option>
               {insurerOptions.map((i) => <option key={i} value={i}>{i}</option>)}
             </select>
+            {insurersError && (
+              <span className="text-xs text-rose-500 font-medium">Failed to load insurers from API</span>
+            )}
           </div>
         )}
 

@@ -2,6 +2,7 @@ import { PrismaClient, PermissionCategory, RoleType, AccessScope, NotificationTy
 import * as argon2 from 'argon2';
 import { seedKarnatakaRtos } from './seed-karnataka-rtos';
 import { seedMotorConfig } from './seed-motor-config';
+import { seedInsurers } from './seed-insurers';
 
 const prisma = new PrismaClient();
 
@@ -928,6 +929,11 @@ async function main() {
     // 10. SEED STATUTORY MOTOR TARIFFS & CONFIGURATION (WP-01)
     // -------------------------------------------------------------------------
     await seedMotorConfig(tx as any);
+
+    // -------------------------------------------------------------------------
+    // 11. SEED AUTHORITATIVE PARTNER INSURERS & PRODUCTS (MOTOR MASTER)
+    // -------------------------------------------------------------------------
+    await seedInsurers(tx as any);
   }, { timeout: 60000 });
   
   console.log("✅ Database seeded successfully.");

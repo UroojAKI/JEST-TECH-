@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 import { ProductType, RatingRuleType, VehicleType } from '@prisma/client';
+import { seedInsurers } from '../../../common/seeds/seed-insurers';
 
 @Injectable()
 export class InsurerProductService {
@@ -8,7 +9,7 @@ export class InsurerProductService {
 
   // Insurers CRUD
   async getInsurers() {
-    return this.prisma.insurer.findMany({
+    let insurers = await this.prisma.insurer.findMany({
       orderBy: { name: 'asc' },
       include: {
         products: true,
@@ -18,6 +19,20 @@ export class InsurerProductService {
         addonRules: true,
       },
     });
+    if (insurers.length === 0) {
+      await seedInsurers(this.prisma);
+      insurers = await this.prisma.insurer.findMany({
+        orderBy: { name: 'asc' },
+        include: {
+          products: true,
+          discountRules: true,
+          commissionMatrices: true,
+          underwritingQuestions: true,
+          addonRules: true,
+        },
+      });
+    }
+    return insurers;
   }
 
   async getInsurerById(id: string) {

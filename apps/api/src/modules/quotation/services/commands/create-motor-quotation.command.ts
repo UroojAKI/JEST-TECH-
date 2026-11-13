@@ -45,23 +45,37 @@ export class CreateMotorQuotationCommand {
     if (!selectedInsurer || selectedInsurer.toLowerCase() === 'partner insurer') {
       throw new BadRequestException('Select a valid insurer before generating a Motor quotation');
     }
-    const matchingInsurers = await this.prisma.insurer.findMany({
-      where: {
-        isActive: true,
-        ...(dto.insurerId ? { id: dto.insurerId } : {}),
-        name: { equals: selectedInsurer, mode: 'insensitive' },
-      },
-      select: { id: true, name: true },
-      take: 2,
-    });
-    if (matchingInsurers.length !== 1) {
-      throw new BadRequestException(
-        matchingInsurers.length === 0
-          ? 'The selected insurer is not active in Insurer Master. Refresh the insurer list and select an active insurer.'
-          : 'The selected insurer name is ambiguous in Insurer Master. Contact an administrator to resolve duplicate insurer names.',
-      );
+
+    let insurer: { id: string; name: string } | null = null;
+    if (dto.insurerId) {
+      insurer = await this.prisma.insurer.findFirst({
+        where: { id: dto.insurerId, isActive: true },
+        select: { id: true, name: true },
+      });
     }
-    const insurer = matchingInsurers[0];
+
+    if (!insurer) {
+      const matchingInsurers = await this.prisma.insurer.findMany({
+        where: {
+          isActive: true,
+          OR: [
+            { name: { equals: selectedInsurer, mode: 'insensitive' } },
+            { name: { startsWith: selectedInsurer, mode: 'insensitive' } },
+            { code: { equals: selectedInsurer.replace(/\s+/g, '_').toUpperCase() } },
+          ],
+        },
+        select: { id: true, name: true },
+        take: 2,
+      });
+      if (matchingInsurers.length !== 1) {
+        throw new BadRequestException(
+          matchingInsurers.length === 0
+            ? 'The selected insurer is not active in Insurer Master. Refresh the insurer list and select an active insurer.'
+            : 'The selected insurer name is ambiguous in Insurer Master. Contact an administrator to resolve duplicate insurer names.',
+        );
+      }
+      insurer = matchingInsurers[0];
+    }
 
     // ── 0. Vehicle Duplicate Policy & Quotation Prevention ──
     // Existing cases may contain alternative insurer quotes for the same vehicle.

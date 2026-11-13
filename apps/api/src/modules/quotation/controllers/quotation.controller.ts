@@ -33,6 +33,7 @@ import {
 import { CustomerAcceptanceDto } from '../dto/customer-acceptance.dto';
 import { ContactsService } from '../../contacts/services/contacts.service';
 import { NumberingEngineService } from '../../administration/services/numbering-engine/numbering-engine.service';
+import { seedInsurers } from '../../../common/seeds/seed-insurers';
 import { GenerateQuotationService } from '../services/commands/generate-quotation.service';
 import { ApproveQuotationService } from '../services/commands/approve-quotation.service';
 import { RejectQuotationService } from '../services/commands/reject-quotation.service';
@@ -122,10 +123,18 @@ export class QuotationController {
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({ summary: 'Get active partner insurers for quotation forms' })
   async getActiveInsurers() {
-    return this.prisma.insurer.findMany({
+    let insurers = await this.prisma.insurer.findMany({
       where: { isActive: true },
       orderBy: { name: 'asc' },
     });
+    if (insurers.length === 0) {
+      await seedInsurers(this.prisma);
+      insurers = await this.prisma.insurer.findMany({
+        where: { isActive: true },
+        orderBy: { name: 'asc' },
+      });
+    }
+    return insurers;
   }
 
   @SkipThrottle()
