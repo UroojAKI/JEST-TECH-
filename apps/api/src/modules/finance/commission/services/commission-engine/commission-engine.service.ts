@@ -10,6 +10,106 @@ export class CommissionEngineService {
 
   constructor(private readonly prisma: PrismaService) {}
 
+  private validatePlanRules(rules: any) {
+    const agentPercent = Number(rules?.agentPercent);
+    if (!Number.isFinite(agentPercent) || agentPercent < 0 || agentPercent > 15) {
+      throw new BadRequestException('Agent commission percentage must be between 0 and 15');
+    }
+    const overrides = Array.isArray(rules?.overrides) ? rules.overrides : [];
+    let total = agentPercent;
+    for (const override of overrides) {
+      const percent = Number(override?.percent);
+      if (!override?.userId || !override?.roleTier || !Number.isFinite(percent) || percent < 0 || percent > 100) {
+        throw new BadRequestException('Each commission override requires a userId, roleTier and a valid percentage');
+      }
+      total += percent;
+    }
+    if (total > 20) {
+      throw new BadRequestException('Combined commission percentage cannot exceed 20');
+    }
+    const expenseAccountId = rules?.accounting?.expenseAccountId;
+    const payableAccountId = rules?.accounting?.payableAccountId;
+    if (!expenseAccountId || !payableAccountId || expenseAccountId === payableAccountId) {
+      throw new BadRequestException('Commission plan requires distinct commission expense and commission payable ledger accounts');
+    }
+    return { agentPercent, overrides, accounting: { expenseAccountId, payableAccountId } };
+  }
+
+  private async assertPlanRecipients(companyId: string, rules: any, tx: any = this.prisma) {
+    const ids = [...new Set((rules.overrides || []).map((entry: any) => entry.userId))];
+    if (!ids.length) return;
+    const recipients = await tx.user.findMany({
+      where: { id: { in: ids }, companyId, status: 'ACTIVE' },
+      select: { id: true },
+    });
+    if (recipients.length !== ids.length) {
+      throw new BadRequestException('Every commission override recipient must be an active user in this company');
+    }
+  }
+
+  private async assertPlanAccountingAccounts(rules: any) {
+    const accounts = await this.prisma.chartOfAccount.findMany({
+      where: {
+        id: { in: [rules.accounting.expenseAccountId, rules.accounting.payableAccountId] },
+        isActive: true,
+      },
+      select: { id: true, type: true },
+    });
+    const expense = accounts.find((account) => account.id === rules.accounting.expenseAccountId);
+    const payable = accounts.find((account) => account.id === rules.accounting.payableAccountId);
+    if (!expense || expense.type !== 'EXPENSE' || !payable || payable.type !== 'LIABILITY') {
+      throw new BadRequestException('Select an active EXPENSE account and an active LIABILITY account for commission accrual posting');
+    }
+  }
+
+  async listCommissionPlans(companyId: string) {
+    if (!companyId) throw new ForbiddenException('Company context is required');
+    const plans = await this.prisma.commissionPlan.findMany({
+      where: { companyId },
+      orderBy: [{ isActive: 'desc' }, { name: 'asc' }],
+    });
+    return plans.map((plan) => ({ ...plan, rules: JSON.parse(plan.rules) }));
+  }
+
+  async createCommissionPlan(companyId: string, input: { name: string; description?: string; rules: any }) {
+    if (!companyId) throw new ForbiddenException('Company context is required');
+    if (!input.name?.trim()) throw new BadRequestException('Commission plan name is required');
+    const rules = this.validatePlanRules(input.rules);
+    await this.assertPlanRecipients(companyId, rules);
+    await this.assertPlanAccountingAccounts(rules);
+    return this.prisma.commissionPlan.create({
+      data: {
+        companyId,
+        name: input.name.trim(),
+        description: input.description?.trim() || null,
+        rules: JSON.stringify(rules),
+        isActive: true,
+      },
+    });
+  }
+
+  async updateCommissionPlan(companyId: string, planId: string, input: { name?: string; description?: string; rules?: any; isActive?: boolean }) {
+    if (!companyId) throw new ForbiddenException('Company context is required');
+    const existing = await this.prisma.commissionPlan.findFirst({ where: { id: planId, companyId } });
+    if (!existing) throw new NotFoundException('Commission plan not found');
+    let serializedRules = existing.rules;
+    if (input.rules !== undefined) {
+      const rules = this.validatePlanRules(input.rules);
+      await this.assertPlanRecipients(companyId, rules);
+      await this.assertPlanAccountingAccounts(rules);
+      serializedRules = JSON.stringify(rules);
+    }
+    return this.prisma.commissionPlan.update({
+      where: { id: planId },
+      data: {
+        ...(input.name !== undefined ? { name: input.name.trim() } : {}),
+        ...(input.description !== undefined ? { description: input.description.trim() || null } : {}),
+        ...(input.rules !== undefined ? { rules: serializedRules } : {}),
+        ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
+      },
+    });
+  }
+
   /**
    * Calculates and accrues commissions for a policy based on the agent's commission plan.
    * The operation is idempotent per policy: a retry cannot create a second commission set.
@@ -19,15 +119,35 @@ export class CommissionEngineService {
     agentId: string,
     premiumAmountStr: string,
     planId: string,
+    actorCompanyId?: string,
   ) {
+    const policy = await this.prisma.policy.findFirst({
+      where: { id: policyId, deletedAt: null },
+      select: { id: true, companyId: true, premiumAmount: true, quotation: { select: { totalPremium: true, gstAmount: true } } },
+    });
+    if (!policy?.companyId) {
+      throw new NotFoundException('Policy not found or tenant ownership is unavailable');
+    }
+    if (actorCompanyId && policy.companyId !== actorCompanyId) {
+      throw new ForbiddenException('Policy does not belong to the authenticated company');
+    }
+
+    const agent = await this.prisma.user.findFirst({
+      where: { id: agentId, companyId: policy.companyId, status: 'ACTIVE' },
+      select: { id: true, status: true },
+    });
+    if (!agent) {
+      throw new ForbiddenException('Commission recipient must be an active user in the policy tenant');
+    }
+
     const premiumAmount = new Decimal(premiumAmountStr);
 
     if (premiumAmount.lte(0)) {
       throw new BadRequestException('Premium amount must be greater than zero');
     }
 
-    const plan = await this.prisma.commissionPlan.findUnique({
-      where: { id: planId },
+    const plan = await this.prisma.commissionPlan.findFirst({
+      where: { id: planId, companyId: policy.companyId, isActive: true },
     });
 
     if (!plan || !plan.isActive) {
@@ -42,17 +162,15 @@ export class CommissionEngineService {
     }
 
     let rules: {
-      agentPercent?: number;
-      overrides?: Array<{
-        roleTier?: string;
-        percent?: number;
-        userId?: string;
-      }>;
+      agentPercent: number;
+      overrides: Array<{ roleTier: string; percent: number; userId: string }>;
+      accounting: { expenseAccountId: string; payableAccountId: string };
     };
 
     try {
-      rules = JSON.parse(plan.rules);
-    } catch {
+      rules = this.validatePlanRules(JSON.parse(plan.rules));
+    } catch (error) {
+      if (error instanceof BadRequestException) throw error;
       throw new BadRequestException('Invalid Commission Plan rules format');
     }
 
@@ -91,34 +209,15 @@ export class CommissionEngineService {
       );
     }
 
-    const agent = await this.prisma.user.findUnique({
-      where: { id: agentId },
-      select: { id: true, status: true },
-    });
-
-    if (!agent || agent.status !== 'ACTIVE') {
-      throw new BadRequestException(
-        'Commission recipient is not an active user',
-      );
-    }
-
-    // Authoritative Server-side Net Commission Base (Excluding GST)
-    // IRDAI Statutory Mandate: Commissions can only be calculated on net premium (base + addons - discounts), NEVER on GST
+    // The policy's stored premium/quotation snapshot is authoritative; caller input
+    // is retained only as a consistency check, never as a cross-tenant lookup key.
     let commissionableBase = premiumAmount;
-    if (typeof this.prisma?.policy?.findUnique === 'function') {
-      const policy = await this.prisma.policy.findUnique({
-        where: { id: policyId },
-        include: { quotation: true },
-      });
-
-      if (policy?.quotation) {
-        const q = policy.quotation;
-        const total = new Decimal(q.totalPremium || policy.premiumAmount);
-        const gst = new Decimal(q.gstAmount || 0);
-        const netWithoutGst = total.sub(gst);
-        if (netWithoutGst.gt(0)) {
-          commissionableBase = netWithoutGst;
-        }
+    if (policy.quotation) {
+      const total = new Decimal(policy.quotation.totalPremium || policy.premiumAmount);
+      const gst = new Decimal(policy.quotation.gstAmount || 0);
+      const netWithoutGst = total.sub(gst);
+      if (netWithoutGst.gt(0)) {
+        commissionableBase = netWithoutGst;
       }
     }
 
@@ -129,6 +228,7 @@ export class CommissionEngineService {
 
     commissionsData.push({
       policyId,
+      companyId: policy.companyId,
       userId: agentId,
       roleTier: 'AGENT',
       amount: agentCommissionAmt,
@@ -150,8 +250,8 @@ export class CommissionEngineService {
           );
         }
 
-        const recipient = await this.prisma.user.findUnique({
-          where: { id: override.userId },
+        const recipient = await this.prisma.user.findFirst({
+          where: { id: override.userId, companyId: policy.companyId, status: 'ACTIVE' },
           select: { id: true, status: true },
         });
 
@@ -165,6 +265,7 @@ export class CommissionEngineService {
 
         commissionsData.push({
           policyId,
+          companyId: policy.companyId,
           userId: override.userId,
           roleTier: override.roleTier,
           amount: overrideAmt,
@@ -178,21 +279,71 @@ export class CommissionEngineService {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${policyId}))`;
 
       const existing = await tx.commission.findMany({
-        where: { policyId },
+        where: { policyId, companyId: policy.companyId },
         orderBy: { createdAt: 'asc' },
       });
 
-      if (existing.length > 0) {
-        this.logger.warn(
-          `Commission accrual skipped for policy ${policyId}: commissions already exist`,
-        );
-        return existing;
+      if (existing.length === 0) {
+        await tx.commission.createMany({ data: commissionsData });
       }
 
-      await tx.commission.createMany({ data: commissionsData });
+      const ledgerReference = await tx.journalEntry.findFirst({
+        where: {
+          companyId: policy.companyId,
+          referenceId: policyId,
+          referenceType: 'COMMISSION_ACCRUAL',
+        },
+        select: { id: true },
+      });
+      if (!ledgerReference) {
+        const accounts = await tx.chartOfAccount.findMany({
+          where: {
+            id: { in: [rules.accounting.expenseAccountId, rules.accounting.payableAccountId] },
+            isActive: true,
+          },
+          select: { id: true, type: true },
+        });
+        const expenseAccount = accounts.find((account: any) => account.id === rules.accounting.expenseAccountId);
+        const payableAccount = accounts.find((account: any) => account.id === rules.accounting.payableAccountId);
+        if (!expenseAccount || expenseAccount.type !== 'EXPENSE' || !payableAccount || payableAccount.type !== 'LIABILITY') {
+          throw new BadRequestException('Commission plan ledger mappings must reference active EXPENSE and LIABILITY accounts');
+        }
+
+        const commissionAmounts = existing.length > 0
+          ? existing.map((commission: any) => commission.amount)
+          : commissionsData.map((commission) => commission.amount);
+        const totalCommission = commissionAmounts.reduce(
+          (sum: Decimal, amount: any) => sum.add(new Decimal(amount)),
+          new Decimal(0),
+        );
+        if (totalCommission.gt(0)) {
+          const sequenceRows = await tx.$queryRaw<Array<{ nextval: bigint }>>`
+            SELECT nextval('journal_entry_number_seq')
+          `;
+          const sequenceNumber = sequenceRows[0]?.nextval;
+          if (sequenceNumber === undefined) throw new BadRequestException('Unable to allocate commission journal number');
+          await tx.journalEntry.create({
+            data: {
+              entryNumber: `JE-${sequenceNumber.toString().padStart(8, '0')}`,
+              date: new Date(),
+              description: `Commission accrual for policy ${policyId}`,
+              referenceId: policyId,
+              referenceType: 'COMMISSION_ACCRUAL',
+              companyId: policy.companyId,
+              status: 'POSTED',
+              lines: {
+                create: [
+                  { accountId: expenseAccount.id, debit: totalCommission, credit: 0, description: 'Commission expense accrued' },
+                  { accountId: payableAccount.id, debit: 0, credit: totalCommission, description: 'Commission payable accrued' },
+                ],
+              },
+            },
+          });
+        }
+      }
 
       return tx.commission.findMany({
-        where: { policyId },
+        where: { policyId, companyId: policy.companyId },
         orderBy: { createdAt: 'asc' },
       });
     });
@@ -207,30 +358,29 @@ export class CommissionEngineService {
    * Called when a policy is fully paid. Only approved commissions can become realized.
    */
   async realizeCommissions(policyId: string, companyId?: string) {
-    let effectiveCompanyId = companyId;
-    if (!effectiveCompanyId && typeof this.prisma?.policy?.findUnique === 'function') {
-      const policy = await this.prisma.policy.findUnique({
-        where: { id: policyId },
-        select: { companyId: true },
-      });
-      effectiveCompanyId = policy?.companyId;
+    if (!companyId) {
+      throw new ForbiddenException('Company context is required to realize commissions');
     }
 
-    const result = await this.prisma.commission.updateMany({
-      where: {
-        policyId,
-        status: 'APPROVED',
-        ...(effectiveCompanyId ? { companyId: effectiveCompanyId } : {}),
-      },
-      data: {
-        status: 'REALIZED',
-      },
-    });
+    return this.prisma.$transaction(async (tx) => {
+      const policy = await tx.policy.findFirst({
+        where: { id: policyId, companyId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!policy) {
+        throw new NotFoundException('Policy not found in the current company workspace');
+      }
 
-    this.logger.log(
-      `Realized ${result.count} approved commissions for policy ${policyId}`,
-    );
-    return result.count;
+      const result = await tx.commission.updateMany({
+        where: { policyId, companyId, status: 'APPROVED' },
+        data: { status: 'REALIZED' },
+      });
+
+      this.logger.log(
+        `Realized ${result.count} approved commissions for policy ${policyId} in company ${companyId}`,
+      );
+      return result.count;
+    });
   }
 
   /**
@@ -252,9 +402,21 @@ export class CommissionEngineService {
         throw new NotFoundException('Commission record not found');
       }
 
-      const recordCompanyId = commission.companyId || commission.user?.companyId;
-      if (recordCompanyId && recordCompanyId !== companyId) {
-        throw new ForbiddenException('Commission belongs to another organization');
+      let recordCompanyId =
+        commission.companyId ||
+        commission.user?.companyId ||
+        (commission as any).policy?.companyId;
+      if (!recordCompanyId && commission.policyId && tx.policy?.findUnique) {
+        const policy = await tx.policy.findUnique({
+          where: { id: commission.policyId },
+          select: { companyId: true },
+        });
+        recordCompanyId = policy?.companyId ?? null;
+      }
+      if (!recordCompanyId || recordCompanyId !== companyId) {
+        throw new ForbiddenException(
+          'Commission tenant could not be verified for this organization',
+        );
       }
 
       if (commission.status === 'APPROVED') {

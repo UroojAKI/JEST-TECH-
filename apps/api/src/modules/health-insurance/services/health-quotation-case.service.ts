@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   HealthCaseStatus,
   HealthPlanCategory,
@@ -408,6 +408,29 @@ export class HealthQuotationCaseService {
       throw new BadRequestException('waitingPeriod is required for New Policy quotes');
     }
 
+    const previousPolicySnapshot = (healthCase.previousPolicySnapshot || {}) as Record<string, any>;
+    const renewalSourcePolicyId = typeof previousPolicySnapshot.sourcePolicyId === 'string'
+      ? previousPolicySnapshot.sourcePolicyId
+      : null;
+    if (renewalSourcePolicyId && healthCase.policyForm !== HealthPolicyForm.RENEWAL_PORTABILITY) {
+      throw new BadRequestException('A predecessor policy can only be linked to a Renewal / Portability health case');
+    }
+    if (healthCase.policyForm === HealthPolicyForm.RENEWAL_PORTABILITY && renewalSourcePolicyId) {
+      const sourcePolicy = await this.prisma.policy.findFirst({
+        where: {
+          id: renewalSourcePolicyId,
+          companyId: user.companyId,
+          contactId: healthCase.contactId,
+          deletedAt: null,
+          status: { notIn: ['CANCELLED', 'DRAFT'] },
+        },
+        select: { id: true },
+      });
+      if (!sourcePolicy) {
+        throw new NotFoundException('Predecessor health policy was not found for this customer and company');
+      }
+    }
+
     const riders = dto.riders ?? [];
     if (healthCase.policyForm === HealthPolicyForm.RENEWAL_PORTABILITY && riders.length) {
       throw new BadRequestException('Renewal / Portability quotes do not carry riders (Policy Form ii)');
@@ -456,6 +479,7 @@ export class HealthQuotationCaseService {
           expiryDate,
           policyTenure: dto.policyTenureYears,
           healthCaseId: healthCase.id,
+          renewalOfPolicyId: renewalSourcePolicyId,
           healthPlanCategory: healthCase.planCategory,
           healthMetadata: {
             policyForm: healthCase.policyForm,
@@ -496,15 +520,44 @@ export class HealthQuotationCaseService {
     }
 
     const selectedCase = await this.prisma.$transaction(async (tx) => {
-      await tx.quotation.update({
-        where: { id: quotationId },
+      // Compare-and-set the case first. Only one concurrent request can move
+      // QUOTED + unselected to SELECTED.
+      const caseClaim = await tx.healthQuotationCase.updateMany({
+        where: {
+          ...this.caseWhereFor(user),
+          id: healthCase.id,
+          status: HealthCaseStatus.QUOTED,
+          selectedQuoteId: null,
+        },
+        data: {
+          status: HealthCaseStatus.SELECTED,
+          selectedQuoteId: quotationId,
+        },
+      });
+      if (caseClaim.count !== 1) {
+        throw new ConflictException('This health quotation case has already been selected or changed. Refresh and try again.');
+      }
+
+      const quoteClaim = await tx.quotation.updateMany({
+        where: {
+          id: quotationId,
+          companyId: user.companyId,
+          healthCaseId: healthCase.id,
+        },
         data: { status: QuotationStatus.ACCEPTED },
       });
-      return tx.healthQuotationCase.update({
-        where: { id: healthCase.id },
-        data: { status: HealthCaseStatus.SELECTED, selectedQuoteId: quotationId },
+      if (quoteClaim.count !== 1) {
+        throw new BadRequestException('The selected quotation is no longer available for this health case.');
+      }
+
+      const updatedCase = await tx.healthQuotationCase.findFirst({
+        where: { ...this.caseWhereFor(user), id: healthCase.id },
         include: caseInclude,
       });
+      if (!updatedCase) {
+        throw new NotFoundException('Health quotation case was not found after selection.');
+      }
+      return updatedCase;
     });
     return this.toSafeCase(selectedCase);
   }
@@ -543,6 +596,21 @@ export class HealthQuotationCaseService {
       if (!quotation) {
         throw new NotFoundException(`Selected quotation ${healthCase.selectedQuoteId} not found`);
       }
+      if (!quotation.backOfficeSubmittedAt) {
+        throw new BadRequestException(
+          'Quotation must be sent to Back Office before payment can be recorded',
+        );
+      }
+      const isBackOfficeApproved =
+        quotation.status === QuotationStatus.APPROVED ||
+        String(quotation.workflowState || '').toUpperCase() === 'PROPOSAL_APPROVED' ||
+        String(quotation.workflowState || '').toUpperCase() === 'PAYMENT_UNDER_PROCESS' ||
+        String(quotation.workflowState || '').toUpperCase() === 'PAYMENT_DONE';
+      if (!isBackOfficeApproved) {
+        throw new BadRequestException(
+          'Quotation must be approved by Back Office before payment can be recorded',
+        );
+      }
 
       const payableAmount = Number(quotation.totalPremium);
       const submittedAmount = amount ?? payableAmount;
@@ -568,9 +636,9 @@ export class HealthQuotationCaseService {
       );
 
       if (existingPayment?.status === PaymentTrackingStatus.PAID) {
-        if (targetStatus !== PaymentTrackingStatus.PAID || !samePayment) {
-          throw new BadRequestException('A verified payment cannot be downgraded or replaced');
-        }
+        throw new BadRequestException(
+          'Payment has already been recorded as PAID for this quotation and cannot be recorded again.',
+        );
       } else if (existingPayment?.status === PaymentTrackingStatus.UNDER_PROCESS && !samePayment) {
         throw new BadRequestException('An in-process payment cannot be replaced; reconcile it before resubmission');
       } else if (
@@ -752,7 +820,23 @@ export class HealthQuotationCaseService {
     if (dto.nomineeRelation) caseUpdates.nomineeRelation = dto.nomineeRelation;
     if (dto.occupation) caseUpdates.occupation = dto.occupation;
     if (dto.annualIncome !== undefined) caseUpdates.annualIncome = new Prisma.Decimal(dto.annualIncome);
-    if (dto.address) caseUpdates.addressSnapshot = { ...((healthCase.addressSnapshot as object) || {}), ...dto.address };
+    if (dto.address) {
+      const prevAddr = ((healthCase.addressSnapshot as object) || {}) as Record<string, any>;
+      const normalizedPrev: Record<string, any> = {
+        line1: prevAddr.line1 || prevAddr.addressLine1 || undefined,
+        line2: prevAddr.line2 || prevAddr.addressLine2 || undefined,
+        city: prevAddr.city || undefined,
+        state: prevAddr.state || undefined,
+        pincode: prevAddr.pincode || undefined,
+      };
+      const mergedAddress: Record<string, any> = { ...normalizedPrev };
+      for (const [key, val] of Object.entries(dto.address)) {
+        if (val !== undefined && val !== null) {
+          mergedAddress[key] = typeof val === 'string' ? val.trim() : val;
+        }
+      }
+      caseUpdates.addressSnapshot = mergedAddress;
+    }
 
     // Update customer snapshot to reflect current KYC presence
     const prevSnapshot = (healthCase.customerSnapshot as Record<string, any>) || {};

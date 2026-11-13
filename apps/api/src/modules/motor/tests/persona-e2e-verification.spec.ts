@@ -742,6 +742,7 @@ describe('Wave 6: End-to-End Persona Verification Suite (AGENT, BACK_OFFICE, FIN
       companyId: companyAId,
       productType: 'MOTOR',
       totalPremium: new Prisma.Decimal(exactPayable),
+      backOfficeSubmittedAt: new Date('2026-11-11T00:00:00.000Z'),
       proposal: { status: 'APPROVED' },
     };
 

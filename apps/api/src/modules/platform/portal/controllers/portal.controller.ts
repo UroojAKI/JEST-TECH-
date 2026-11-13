@@ -55,7 +55,15 @@ export class PortalController {
     const agent = isAgent
       ? await this.prisma.agent.findFirst({
           where: { userId: user.id, companyId, deletedAt: null },
-          select: { id: true, agentCode: true },
+          select: {
+            id: true,
+            agentCode: true,
+            externalCodes: {
+              where: { status: 'ACTIVE', verificationStatus: 'VERIFIED' },
+              orderBy: [{ isPrimary: 'desc' }, { codeSystem: 'asc' }],
+              select: { id: true, externalCode: true },
+            },
+          },
         })
       : null;
     const agentId = agent?.id || user.agentId;
@@ -76,6 +84,7 @@ export class PortalController {
     if (isAgent) {
       contactWhere.OR = [
         { createdById: user.id },
+        ...(agent?.id ? [{ assignedAgentId: agent.id }] : []),
         ...(agent?.agentCode ? [{ agentCode: agent.agentCode }] : []),
         { leads: { some: leadWhere } },
       ];
@@ -402,7 +411,8 @@ export class PortalController {
             phone: phone || `PROSPECT-${leadCode}`,
             email: email || undefined,
             createdById: user.id,
-            agentCode: agent?.agentCode,
+            assignedAgentId: agent?.id,
+            assignedExternalCodeId: agent?.externalCodes[0]?.id,
             companyId,
             status: 'ACTIVE',
           },

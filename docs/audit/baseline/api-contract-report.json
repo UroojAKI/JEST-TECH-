@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-03T19:27:00.327Z",
+  "generatedAt": "2026-11-06T09:58:01.011Z",
   "mismatches": [],
   "uncalledBackendRoutes": [
     {
@@ -91,6 +91,20 @@
       "path": "/admin/config/:param",
       "controller": "UpdateConfigDto",
       "file": "apps/api/src/modules/administration/controllers/system-config/system-config.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/agents/:param/external-codes/:param/reactivate",
+      "controller": "AgentsController",
+      "file": "apps/api/src/modules/agents/agents.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/agents/:param/external-codes/:param/history",
+      "controller": "AgentsController",
+      "file": "apps/api/src/modules/agents/agents.controller.ts",
       "classification": "UNUSED"
     },
     {
@@ -193,28 +207,7 @@
     },
     {
       "method": "GET",
-      "path": "/bi/conversion",
-      "controller": "BiController",
-      "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
-      "classification": "UNUSED"
-    },
-    {
-      "method": "GET",
-      "path": "/bi/revenue",
-      "controller": "BiController",
-      "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
-      "classification": "UNUSED"
-    },
-    {
-      "method": "GET",
       "path": "/bi/loss-ratio",
-      "controller": "BiController",
-      "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
-      "classification": "UNUSED"
-    },
-    {
-      "method": "GET",
-      "path": "/bi/renewal",
       "controller": "BiController",
       "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
       "classification": "UNUSED"
@@ -362,6 +355,13 @@
     {
       "method": "POST",
       "path": "/customers/:param/alerts",
+      "controller": "CustomersController",
+      "file": "apps/api/src/modules/customers/customers.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/customers/:param/vehicles",
       "controller": "CustomersController",
       "file": "apps/api/src/modules/customers/customers.controller.ts",
       "classification": "UNUSED"
@@ -1396,6 +1396,69 @@
       "classification": "UNUSED"
     },
     {
+      "method": "GET",
+      "path": "/pos-partners/:param",
+      "controller": "PosPartnersController",
+      "file": "apps/api/src/modules/pos-partners/controllers/pos-partners.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "PATCH",
+      "path": "/pos-partners/:param",
+      "controller": "PosPartnersController",
+      "file": "apps/api/src/modules/pos-partners/controllers/pos-partners.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/pos-partners/:param/history",
+      "controller": "PosPartnersController",
+      "file": "apps/api/src/modules/pos-partners/controllers/pos-partners.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/pos-partners/:param/insurer-mapping",
+      "controller": "PosPartnersController",
+      "file": "apps/api/src/modules/pos-partners/controllers/pos-partners.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/pos-partners/:param/insurer-mapping",
+      "controller": "PosPartnersController",
+      "file": "apps/api/src/modules/pos-partners/controllers/pos-partners.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/pos-partners/:param/documents",
+      "controller": "PosPartnersController",
+      "file": "apps/api/src/modules/pos-partners/controllers/pos-partners.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/pos-partners/:param/documents",
+      "controller": "PosPartnersController",
+      "file": "apps/api/src/modules/pos-partners/controllers/pos-partners.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/pos-partners/:param/commission-agreements",
+      "controller": "PosPartnersController",
+      "file": "apps/api/src/modules/pos-partners/controllers/pos-partners.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/pos-partners/:param/commission-agreements",
+      "controller": "PosPartnersController",
+      "file": "apps/api/src/modules/pos-partners/controllers/pos-partners.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
       "method": "POST",
       "path": "/quotations/wizard/issue-policy",
       "controller": "QuotationController",
@@ -1572,15 +1635,15 @@
     }
   ],
   "summary": {
-    "totalFrontendCalls": 358,
-    "matched": 358,
+    "totalFrontendCalls": 382,
+    "matched": 382,
     "unmatched": 0,
-    "uncalledBackend": 224,
+    "uncalledBackend": 233,
     "uncalledByClassification": {
       "WEBHOOK": 1,
       "CRON": 3,
       "INTERNAL": 13,
-      "UNUSED": 207
+      "UNUSED": 216
     }
   }
 }

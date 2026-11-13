@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsDateString,
   IsEmail,
   IsEnum,
@@ -108,4 +109,8 @@ export class CreateContactDto {
   @Length(1, 50)
   @Matches(/^[A-Za-z0-9][A-Za-z0-9._-]*$/)
   agentCodeSystem?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isOldCustomer?: boolean;
 }

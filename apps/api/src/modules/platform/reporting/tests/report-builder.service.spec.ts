@@ -163,6 +163,31 @@ describe('ReportBuilderService', () => {
     expect(result.rows).toHaveLength(1);
   });
 
+  it('passes the selected report code to the registered provider', async () => {
+    const execute = jest.fn().mockResolvedValue({
+      rows: [{ leadCode: 'LEAD-001' }],
+    });
+    mockRegistry.getProvider.mockReturnValueOnce({ execute } as any);
+
+    const reportMock: any = {
+      id: 'report-1',
+      code: 'LEAD_SUMMARY',
+      module: 'LEADS',
+      columns: [{ field: 'leadCode', label: 'Lead Code', type: 'STRING' }],
+      filters: [],
+    };
+
+    const result = await service.buildReportData(reportMock, {}, {}, 'company-1');
+
+    expect(execute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        companyId: 'company-1',
+        parameters: { reportCode: 'LEAD_SUMMARY' },
+      }),
+    );
+    expect(result.rows).toEqual([{ leadCode: 'LEAD-001' }]);
+  });
+
   it('should throw BadRequestException when reporting module is unsupported', async () => {
     const reportMock: any = {
       module: 'INVALID_MODULE',

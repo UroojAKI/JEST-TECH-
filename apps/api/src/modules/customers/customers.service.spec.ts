@@ -124,10 +124,18 @@ describe('CustomersService', () => {
   });
 
   describe('checkDuplicate', () => {
+    const actor = { id: 'user-uuid-1', role: RoleType.AGENT, companyId: 'org-1' } as any;
+
+    it('should throw ForbiddenException when company context is missing', async () => {
+      await expect(
+        service.checkDuplicate({ mobile: '9999999999' }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
     it('should return hasDuplicate false when no match exists', async () => {
       prisma.customer.findMany.mockResolvedValue([]);
 
-      const result = await service.checkDuplicate({ mobile: '9999999999' });
+      const result = await service.checkDuplicate({ mobile: '9999999999' }, actor);
       expect(result.hasDuplicate).toBe(false);
       expect(result.matchCount).toBe(0);
       expect(result.matches).toEqual([]);
@@ -136,7 +144,7 @@ describe('CustomersService', () => {
     it('should return soft duplicate signals without throwing 409', async () => {
       prisma.customer.findMany.mockResolvedValue([mockCustomer]);
 
-      const result = await service.checkDuplicate({ mobile: '9876543210' });
+      const result = await service.checkDuplicate({ mobile: '9876543210' }, actor);
       expect(result.hasDuplicate).toBe(true);
       expect(result.matchCount).toBe(1);
       expect(result.matches[0].customerCode).toBe('CUST-000001');
@@ -172,6 +180,30 @@ describe('CustomersService', () => {
           companyId: 'org-1',
           firstName: 'Amit',
           phone: '9876543210',
+          createCustomerIfMissing: true,
+        }),
+      );
+    });
+
+    it('passes isOldCustomer flag when creating customer', async () => {
+      prisma.customer.findMany.mockResolvedValue([]);
+
+      await service.create(
+        {
+          firstName: 'Old',
+          mobile: '9876543211',
+          addressLine1: '123 MG Road',
+          pincode: '400001',
+          isOldCustomer: true,
+        },
+        { id: 'user-uuid-1', role: RoleType.BACK_OFFICE, companyId: 'org-1' } as any,
+      );
+
+      expect(crmIdentityService.ensureLinkedContactAndCustomer).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          firstName: 'Old',
+          isOldCustomer: true,
           createCustomerIfMissing: true,
         }),
       );

@@ -48,6 +48,7 @@ export interface ProposerDetails {
   pincode: string;               // Y
   panNumber: string;             // Y — KYC mandatory
   relationshipManager: string;   // Y — Auto-mapped to logged-in user
+  isOldCustomer?: boolean;
 }
 
 // ------------------------------------------------------------------
@@ -387,15 +388,22 @@ export interface SavedMotorQuote {
   policyEndDate?: string;
   status: string;
   workflowState?: string;
+  motorWorkflowState?: string | null;
+  issuanceStatus?: string | null;
+  insurerId?: string | null;
   createdAt: string;
+  updatedAt?: string;
   customerName?: string;
   proposerDetails?: ProposerDetails;
   vehicleDetails?: Record<string, any>;
   policyDetails?: Record<string, any>;
   leadId?: string;
   caseId?: string;
+  renewalOfPolicyId?: string;
+  backOfficeSubmittedAt?: string | null;
   proposalStatus?: string;
   paymentRecord?: PaymentRecord;
+  motorPaymentRecord?: PaymentRecord | null;
   motorDocuments?: Array<{
     id: string;
     documentId: string;

@@ -29,6 +29,7 @@ export class ContactResponseDto {
   agent?: string | null;
   agentCode?: string | null;
   status: string;
+  isOldCustomer?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

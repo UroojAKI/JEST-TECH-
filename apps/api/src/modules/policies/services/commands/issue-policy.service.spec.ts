@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PolicyStatus, QuotationStatus, PaymentStatus } from '@prisma/client';
 import { IssuePolicyService } from './issue-policy.service';
 import { PolicyRepository } from '../../repositories/policy.repository';
@@ -65,6 +65,9 @@ describe('IssuePolicyService', () => {
     const mockPrisma = {
       policy: {
         findUnique: jest.fn().mockResolvedValue(null),
+      },
+      contact: {
+        update: jest.fn().mockResolvedValue({}),
       },
       motorPaymentRecord: {
         findUnique: jest.fn().mockResolvedValue({
@@ -143,6 +146,27 @@ describe('IssuePolicyService', () => {
     await expect(
       service.execute({ quotationId: 'quote-404' } as any, 'user-1'),
     ).rejects.toThrow(NotFoundException);
+  });
+
+  it('rejects cross-tenant issuance before applying supplied KYC changes', async () => {
+    quotationRepo.findById.mockResolvedValueOnce({
+      ...mockQuotation,
+      companyId: 'company-foreign',
+    });
+
+    await expect(
+      service.execute(
+        {
+          quotationId: 'quote-123',
+          customerPan: 'ABCDE1234F',
+        } as any,
+        'user-1',
+        { userId: 'user-1', companyId: 'company-own', role: 'BACK_OFFICE' } as any,
+      ),
+    ).rejects.toThrow(ForbiddenException);
+
+    expect((service as any).prisma.contact.update).not.toHaveBeenCalled();
+    expect((service as any).backOfficeQueueService.validateIssuanceGates).not.toHaveBeenCalled();
   });
 
   it('should throw BadRequestException if quotation is in DRAFT status', async () => {

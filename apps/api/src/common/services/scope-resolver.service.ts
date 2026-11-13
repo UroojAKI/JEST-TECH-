@@ -4,7 +4,10 @@ import { ActorContext } from '../interfaces/actor-context.interface';
 import { ResourceType } from './resource-authorization.service';
 
 const userInCompany = (companyId: string) => ({
-  companyId,
+  OR: [
+    { companyId },
+    { branch: { zone: { region: { company: { id: companyId } } } } },
+  ],
 });
 
 const orgScope = (

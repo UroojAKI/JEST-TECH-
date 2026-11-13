@@ -105,8 +105,19 @@ export function AppSidebar() {
   const currentSearch = searchParams?.toString() || '';
   const { canAccess } = usePermissions();
   const isSidebarOpen = useUIStore((s) => s.isSidebarOpen);
+  const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
+
+  useEffect(() => {
+    // On small screens, do not cover the page with an open navigation drawer at startup.
+    if (window.matchMedia('(max-width: 1023px)').matches) setSidebarOpen(false);
+  }, [setSidebarOpen]);
   const user = useAuthStore((s) => s.user);
-  const role = user?.roles?.[0] || user?.role || 'AGENT';
+  const assignedRoles = [...(user?.roles || []), user?.role]
+    .filter(Boolean)
+    .map((value) => String(value).toUpperCase());
+  const rolesForNavigation = assignedRoles.length ? assignedRoles : ['AGENT'];
+  const role = rolesForNavigation[0] || 'AGENT';
+  const rolesKey = rolesForNavigation.join('|');
 
   const { data: healthData } = useQuery({
     queryKey: ['system-health'],
@@ -120,10 +131,29 @@ export function AppSidebar() {
     retry: false,
   });
 
-  // Authoritative Role Navigation Source
+  // Merge navigation for every assigned workspace. A multi-role user must
+  // be able to reach each authorized workspace; array order must not silently
+  // hide either Sales, Back Office or Admin navigation.
   const filteredNav = React.useMemo(() => {
-    return getRoleNavigation(role);
-  }, [role]);
+    const merged = new Map<string, NavigationItem>();
+    for (const assignedRole of rolesKey.split('|')) {
+      for (const item of getRoleNavigation(assignedRole)) {
+        const existing = merged.get(item.href);
+        if (!existing) {
+          merged.set(item.href, item);
+          continue;
+        }
+        if (item.children?.length) {
+          const children = new Map<string, NonNullable<NavigationItem['children']>[number]>();
+          for (const child of [...(existing.children || []), ...item.children]) {
+            children.set(child.href, child);
+          }
+          merged.set(item.href, { ...existing, children: [...children.values()] });
+        }
+      }
+    }
+    return [...merged.values()];
+  }, [rolesKey]);
 
   // Auto-expand the section that matches the current URL, collapse others by default
   const [openChildren, setOpenChildren] = useState<Record<string, boolean>>(() => {
@@ -199,7 +229,9 @@ export function AppSidebar() {
     : 'Agent Workspace';
 
   return (
-    <aside className="w-64 border-r bg-card/50 backdrop-blur flex flex-col justify-between h-[calc(100vh-3.5rem)] sticky top-14">
+    <>
+      <button type="button" aria-label="Close navigation" onClick={() => setSidebarOpen(false)} className="fixed inset-0 z-40 bg-black/40 lg:hidden" />
+      <aside className="fixed inset-y-14 left-0 z-50 w-[min(18rem,85vw)] border-r bg-card shadow-xl flex flex-col justify-between lg:sticky lg:top-14 lg:left-auto lg:bottom-auto lg:z-auto lg:h-[calc(100vh-3.5rem)] lg:shadow-none">
       {/* Brand Header / Workspace identity */}
       <div className="p-4 border-b flex items-center space-x-2">
         <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-black text-sm">
@@ -264,6 +296,7 @@ export function AppSidebar() {
                 // Leaf item: navigates directly
                 <Link
                   href={item.href}
+                  onClick={() => { if (window.matchMedia("(max-width: 1023px)").matches) useUIStore.getState().setSidebarOpen(false); }}
                   className={`flex items-center space-x-2.5 px-3 py-2 text-xs font-medium rounded-md transition-colors ${
                     isLeafActive
                       ? 'bg-primary text-primary-foreground font-semibold shadow-sm'
@@ -288,6 +321,7 @@ export function AppSidebar() {
                       <Link
                         key={child.id}
                         href={child.href}
+                        onClick={() => { if (window.matchMedia("(max-width: 1023px)").matches) useUIStore.getState().setSidebarOpen(false); }}
                         className={`flex items-center gap-2 px-2.5 py-1.5 text-xs rounded-md transition-colors ${
                           isChildItemActive
                             ? 'bg-primary/15 text-primary font-semibold'
@@ -325,6 +359,7 @@ export function AppSidebar() {
           <span>{systemStatus}</span>
         </span>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }

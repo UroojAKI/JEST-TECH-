@@ -20,25 +20,52 @@ export class CompareQuotationService {
   ) {}
 
   async execute(ids: string[], actor: RequestUser) {
-    if (!ids || ids.length === 0) {
+    if (!Array.isArray(ids) || ids.length < 2 || ids.length > 10) {
       throw new BadRequestException(
-        'At least one quotation ID must be provided for comparison',
+        'Provide between 2 and 10 saved quotation IDs for comparison',
       );
+    }
+    if (new Set(ids).size !== ids.length) {
+      throw new BadRequestException('Duplicate quotation IDs are not allowed');
+    }
+    const companyId = actor.companyId || actor.organizationId;
+    if (!companyId) {
+      throw new ForbiddenException('Company context is required to compare quotations');
     }
 
     const quotationsVerify = await this.prisma.quotation.findMany({
       where: {
         id: { in: ids },
+        companyId,
         deletedAt: null,
-        ...(actor.organizationId
-          ? { createdBy: { companyId: actor.organizationId } }
-          : {}),
       },
     });
 
     if (quotationsVerify.length !== ids.length) {
       throw new ForbiddenException(
         'One or more quotations not found or access denied',
+      );
+    }
+
+    // Comparisons must represent alternatives for the same customer requirement.
+    // Case-backed products must stay within the same persisted case; legacy/non-case
+    // quotations are restricted to the same contact and product category.
+    const first = quotationsVerify[0];
+    const allMotorCase = Boolean(first.caseId);
+    const allHealthCase = Boolean(first.healthCaseId);
+    const sameComparisonContext = quotationsVerify.every((quotation) => {
+      if (allMotorCase) return quotation.caseId === first.caseId;
+      if (allHealthCase) return quotation.healthCaseId === first.healthCaseId;
+      return (
+        !quotation.caseId &&
+        !quotation.healthCaseId &&
+        quotation.contactId === first.contactId &&
+        quotation.productType === first.productType
+      );
+    });
+    if (!sameComparisonContext) {
+      throw new BadRequestException(
+        'Only quotations belonging to the same customer and renewal/quotation case can be compared',
       );
     }
 

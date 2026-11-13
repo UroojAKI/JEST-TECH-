@@ -13,7 +13,20 @@ import { checkOptimisticLock } from '../../../common/utils/optimistic-lock';
 export const quotationWithRelations =
   Prisma.validator<Prisma.QuotationDefaultArgs>()({
     include: {
-      contact: true,
+      contact: {
+        include: {
+          customer: {
+            select: {
+              id: true,
+              addressLine1: true,
+              addressLine2: true,
+              city: true,
+              state: true,
+              pincode: true,
+            },
+          },
+        },
+      },
       account: true,
       lead: true,
       vehicle: true,
@@ -43,6 +56,58 @@ export type QuotationWithRelations = Prisma.QuotationGetPayload<
   typeof quotationWithRelations
 >;
 
+export const quotationSummaryRelations =
+  Prisma.validator<Prisma.QuotationDefaultArgs>()({
+    include: {
+      contact: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          phone: true,
+          dateOfBirth: true,
+          panNumber: true,
+          aadhaarNumber: true,
+          customer: {
+            select: {
+              id: true,
+              addressLine1: true,
+              addressLine2: true,
+              city: true,
+              state: true,
+              pincode: true,
+            },
+          },
+        },
+      },
+      account: { select: { id: true, name: true } },
+      lead: { select: { id: true, leadCode: true, status: true } },
+      vehicle: {
+        select: {
+          id: true,
+          vehicleCode: true,
+          category: true,
+          registrationNumber: true,
+          engineNumber: true,
+          chassisNumber: true,
+          makeModel: true,
+          manufactureYearMonth: true,
+        },
+      },
+      case: { select: { id: true, caseCode: true, status: true, selectedQuoteId: true } },
+      proposal: { select: { id: true, status: true, proposalNumber: true } },
+      policy: { select: { id: true, policyNumber: true, status: true } },
+      motorPaymentRecord: {
+        select: { id: true, status: true, amount: true, paymentMethod: true, referenceNumber: true, paidAt: true },
+      },
+    },
+  });
+
+export type QuotationSummary = Prisma.QuotationGetPayload<
+  typeof quotationSummaryRelations
+>;
+
 @Injectable()
 export class QuotationRepository extends BaseRepository<
   Prisma.QuotationDelegate,
@@ -50,7 +115,7 @@ export class QuotationRepository extends BaseRepository<
   QuotationWithRelations
 > {
   protected get basicArgs() {
-    return { include: quotationWithRelations.include };
+    return { include: quotationSummaryRelations.include };
   }
   protected get detailArgs() {
     return { include: quotationWithRelations.include };
@@ -106,33 +171,19 @@ export class QuotationRepository extends BaseRepository<
       ...(companyId ? { companyId } : {}),
       deletedAt: null,
     };
-    try {
-      const data = await this.prisma.quotation.findMany({
+    const [data, total] = await Promise.all([
+      this.prisma.quotation.findMany({
         skip,
         take,
         where: finalWhere,
         orderBy,
-        include: quotationWithRelations.include,
-      });
-      const total = await this.prisma.quotation.count({ where: finalWhere });
-      return [data, total];
-    } catch (err: any) {
-      const fallbackData = await this.prisma.quotation.findMany({
-        skip,
-        take,
-        where: finalWhere,
-        orderBy,
-        include: {
-          contact: true,
-          lead: true,
-          vehicle: true,
-          policy: { select: { id: true, policyNumber: true, status: true } },
-          versions: { orderBy: { versionNumber: 'desc' } },
-        },
-      });
-      const total = await this.prisma.quotation.count({ where: finalWhere }).catch(() => fallbackData.length);
-      return [fallbackData as any, total];
-    }
+        include: quotationSummaryRelations.include,
+      }),
+      this.prisma.quotation.count({ where: finalWhere }),
+    ]);
+    // Never substitute the current page length for a failed COUNT query. That
+    // silently reports (for example) 20 total records when 20 is only page size.
+    return [data as unknown as QuotationWithRelations[], total];
   }
 
   async findByQuotationCode(

@@ -8,6 +8,9 @@ export class ContactMapper {
     options?: { unmaskSensitive?: boolean },
   ): ContactResponseDto {
     const shouldUnmask = options?.unmaskSensitive ?? false;
+    const displayAgentCode =
+      contact.assignedExternalCode?.externalCode ||
+      (contact.agentCode && !/^AGT-/i.test(contact.agentCode) ? contact.agentCode : null);
     return {
       id: contact.id,
       contactCode: contact.contactCode,
@@ -42,14 +45,15 @@ export class ContactMapper {
         null,
       companyId: contact.companyId ?? contact.company?.id ?? null,
       branch: contact.branch ?? contact.createdBy?.branch ?? null,
-      agentCode: contact.agentCode || contact.assignedAgent?.agentCode || null,
+      agentCode: displayAgentCode,
       agent: contact.assignedAgent
         ? `${contact.assignedAgent.user?.firstName || ''} ${contact.assignedAgent.user?.lastName || ''}`.trim() +
-          ` (${contact.agentCode || contact.assignedAgent.agentCode})`
+          (displayAgentCode ? ` (${displayAgentCode})` : '')
         : contact.createdBy
           ? `${contact.createdBy.firstName || ''} ${contact.createdBy.lastName || ''}`.trim()
           : null,
       status: contact.deletedAt ? 'INACTIVE' : contact.status || 'ACTIVE',
+      isOldCustomer: Boolean(contact.isOldCustomer),
       createdAt: contact.createdAt,
       updatedAt: contact.updatedAt,
     };

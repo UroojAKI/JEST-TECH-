@@ -44,9 +44,9 @@ export function AppHeader() {
   const { activeCustomerName, clearActiveCustomer } = useCustomerContext();
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-30 flex min-h-14 items-center justify-between gap-2 border-b bg-background/95 px-2 sm:px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       {/* Left section: Mobile menu + Workspace Switcher + Breadcrumbs */}
-      <div className="flex items-center space-x-2.5">
+      <div className="flex min-w-0 items-center space-x-1.5 sm:space-x-2.5">
         <button
           onClick={toggleSidebar}
           className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
@@ -75,15 +75,15 @@ export function AppHeader() {
       )}
 
       {/* Right section: Cmd+K Search, Theme, Notifications, User Profile */}
-      <div className="flex items-center space-x-2">
+      <div className="flex min-w-0 items-center space-x-1 sm:space-x-2">
         {/* Global Search Button */}
         <button
           onClick={() => setCommandPaletteOpen(true)}
-          className="hidden sm:flex items-center space-x-2 rounded-md border bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+          className="flex h-8 w-8 items-center justify-center space-x-2 rounded-md border bg-muted/40 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors sm:h-auto sm:w-auto sm:justify-start sm:px-3 sm:py-1.5" aria-label="Search"
         >
           <Search className="h-3.5 w-3.5" />
-          <span>Search...</span>
-          <kbd className="pointer-events-none inline-flex h-4 select-none items-center rounded border bg-background px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
+          <span className="hidden sm:inline">Search...</span>
+          <kbd className="hidden sm:inline-flex pointer-events-none inline-flex h-4 select-none items-center rounded border bg-background px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
             ⌘K
           </kbd>
         </button>

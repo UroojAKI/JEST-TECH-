@@ -1,5 +1,6 @@
 import {
   Injectable,
+  InternalServerErrorException,
   ConflictException,
   BadRequestException,
   ForbiddenException,
@@ -96,6 +97,79 @@ export class CrmIdentityService {
   }
 
   /**
+   * Retrieves summary of all vehicle assets associated with a contact or customer.
+   */
+  async getAssociatedVehicles(
+    client: any,
+    companyId: string,
+    contactId?: string | null,
+    customerId?: string | null,
+  ): Promise<any[]> {
+    if (!contactId && !customerId) return [];
+    try {
+      const orConditions: any[] = [];
+      if (contactId) orConditions.push({ contactId });
+      if (customerId) orConditions.push({ customerId });
+
+      const vehicles = await client.vehicle.findMany({
+        where: {
+          companyId,
+          deletedAt: null,
+          OR: orConditions,
+        },
+        include: {
+          policies: {
+            where: {
+              companyId,
+              deletedAt: null,
+            },
+            select: {
+              id: true,
+              policyNumber: true,
+              actualPolicyNumber: true,
+              insurerNameSnapshot: true,
+              status: true,
+              expiryDate: true,
+            },
+            orderBy: { expiryDate: 'desc' },
+            take: 1,
+          },
+          _count: {
+            select: {
+              quotations: true,
+              policies: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      return vehicles.map((v: any) => {
+        const latestPolicy = v.policies?.[0];
+        return {
+          id: v.id,
+          vehicleCode: v.vehicleCode,
+          category: v.category,
+          registrationNumber: v.registrationNumber,
+          makeModel: v.makeModel,
+          fuelType: v.fuelType,
+          manufactureYearMonth: v.manufactureYearMonth,
+          dateOfRegistration: v.dateOfRegistration,
+          activePolicyStatus: latestPolicy?.status || undefined,
+          activeInsurerName: latestPolicy?.insurerNameSnapshot || undefined,
+          expiryDate: latestPolicy?.expiryDate ? latestPolicy.expiryDate.toISOString() : undefined,
+          activePolicyNumber: latestPolicy?.actualPolicyNumber || latestPolicy?.policyNumber || undefined,
+          quotationCount: v._count?.quotations ?? 0,
+          policyCount: v._count?.policies ?? 0,
+        };
+      });
+    } catch (err: any) {
+      this.logger.error(`Associated vehicle/policy history lookup failed for company ${companyId}: ${err?.message || 'unknown error'}`);
+      throw new InternalServerErrorException('Customer identity was matched, but associated vehicle and policy history could not be loaded. Please retry.');
+    }
+  }
+
+  /**
    * Authoritative canonical identity resolution within the authenticated organization.
    * Enforces tenant isolation, exact matching, and never silently merges conflicting identities.
    */
@@ -131,6 +205,7 @@ export class CrmIdentityService {
             matchedBy: 'CONTACT_ID',
             normalizedPhone: normPhone,
             normalizedEmail: normEmail,
+            vehicles: await this.getAssociatedVehicles(client, companyId, contact.id, contact.customer?.id),
           };
         }
       }
@@ -154,6 +229,7 @@ export class CrmIdentityService {
             matchedBy: 'CUSTOMER_ID',
             normalizedPhone: normPhone,
             normalizedEmail: normEmail,
+            vehicles: await this.getAssociatedVehicles(client, companyId, customer.contact?.id, customer.id),
           };
         }
       }
@@ -289,6 +365,7 @@ export class CrmIdentityService {
         matchedBy,
         normalizedPhone: normPhone,
         normalizedEmail: normEmail,
+        vehicles: await this.getAssociatedVehicles(client, companyId, primaryContact.id, linkedCustomer?.id),
       };
     }
 
@@ -389,6 +466,7 @@ export class CrmIdentityService {
         matchedBy,
         normalizedPhone: normPhone,
         normalizedEmail: normEmail,
+        vehicles: await this.getAssociatedVehicles(client, companyId, primaryCustomer.contact?.id, primaryCustomer.id),
       };
     }
 
@@ -481,6 +559,7 @@ export class CrmIdentityService {
               email: normEmail,
               panNumber: params.panNumber ? params.panNumber.trim().toUpperCase() : null,
               aadhaarNumber: params.aadhaarNumber || null,
+              isOldCustomer: params.isOldCustomer || false,
               type: 'INDIVIDUAL',
               status: 'ACTIVE',
               createdById: params.createdById || null,
@@ -527,6 +606,7 @@ export class CrmIdentityService {
               state: params.state || null,
               pincode: params.pincode || null,
               isVip: params.isVip || false,
+              isOldCustomer: params.isOldCustomer || false,
               primaryAgentId: params.primaryAgentId || null,
               primaryAgentExternalCodeId: params.primaryAgentExternalCodeId || null,
               contactId: contact.id,

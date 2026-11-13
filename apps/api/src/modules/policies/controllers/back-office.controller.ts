@@ -8,7 +8,6 @@ import {
   UseGuards,
   ParseUUIDPipe,
   NotFoundException,
-  Logger,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { RoleType } from '@prisma/client';
@@ -30,8 +29,6 @@ import { PrismaService } from '../../../database/prisma.service';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('back-office')
 export class BackOfficeController {
-  private readonly logger = new Logger(BackOfficeController.name);
-
   constructor(
     private readonly backOfficeQueueService: BackOfficeQueueService,
     private readonly issuePolicyService: IssuePolicyService,
@@ -49,21 +46,17 @@ export class BackOfficeController {
     @CurrentUser() user: RequestUser,
     @Query('search') search?: string,
     @Query('status') status?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('productType') productType?: 'MOTOR' | 'HEALTH',
   ) {
-    try {
-      return await this.backOfficeQueueService.getBackOfficeQueue(user, { search, status });
-    } catch (err: any) {
-      this.logger.error(`Error in getQueue: ${err?.message || err}`, err?.stack);
-      return {
-        data: [],
-        summary: {
-          totalPending: 0,
-          readyCount: 0,
-          blockedCount: 0,
-          issuedCount: 0,
-        },
-      };
-    }
+    return this.backOfficeQueueService.getBackOfficeQueue(user, {
+      search,
+      status,
+      page: page ? Number(page) : undefined,
+      limit: limit ? Number(limit) : undefined,
+      productType,
+    });
   }
 
   @Post('issue/:quotationId')

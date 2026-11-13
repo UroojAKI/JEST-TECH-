@@ -19,6 +19,24 @@ enum UserStatus {
   PENDING_VERIFICATION
 }
 
+
+enum PosPartnerType {
+  INDIVIDUAL
+  CORPORATE
+}
+
+enum PosPartnerStatus {
+  ACTIVE
+  SUSPENDED
+  INACTIVE
+}
+
+enum PosVerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
 enum RoleType {
   ADMIN
   BACK_OFFICE
@@ -84,6 +102,18 @@ enum AuditAction {
   APPROVE
   REJECT
   SAOD_TP_VERIFICATION_RECORDED
+  POS_PARTNER_CREATED
+  POS_PARTNER_UPDATED
+  POS_PARTNER_SUSPENDED
+  POS_PARTNER_REACTIVATED
+  POS_INSURER_MAPPED
+  POS_INSURER_REMAPPED
+  POS_DOCUMENT_UPLOADED
+  POS_DOCUMENT_VERIFIED
+  POS_COMMISSION_AGREEMENT_CREATED
+  POS_COMMISSION_AGREEMENT_UPDATED
+  POLICY_POS_ATTRIBUTED
+  POLICY_ADDRESS_UPDATED
 }
 
 enum ContactType {
@@ -312,6 +342,24 @@ model RolePermission {
 // USERS
 //////////////////////////////////////////////////////////
 
+model UserInvitation {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email       String
+  companyId   String
+  invitedById String
+  tokenHash   String   @unique
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([companyId, email])
+  @@index([expiresAt, consumedAt])
+  @@map("user_invitations")
+}
+
 model User {
   id String @id @default(uuid())
 
@@ -338,6 +386,14 @@ model User {
   isEmailVerified Boolean @default(false)
 
   isPhoneVerified Boolean @default(false)
+
+  invitations UserInvitation[]
+
+  failedLoginAttempts Int @default(0)
+
+  failedLoginWindowStartedAt DateTime?
+
+  lockedUntil DateTime?
 
   lastLoginAt DateTime?
 
@@ -437,6 +493,7 @@ model User {
   quotationHistoriesCreated QuotationHistory[] @relation("QuotationHistoryCreatedBy")
 
   policiesCreated Policy[] @relation("PolicyCreatedBy")
+  legacyPoliciesCreated LegacyPolicyRecord[] @relation("LegacyPolicyCreatedBy")
 
   policiesUpdated Policy[] @relation("PolicyUpdatedBy")
 
@@ -489,6 +546,9 @@ model User {
   @@index([companyId])
   @@index([jobRoleId])
   @@index([managerId])
+  posPartnersCreated PosPartner[] @relation("PosPartnerCreatedBy")
+  posPartnersUpdated PosPartner[] @relation("PosPartnerUpdatedBy")
+
   @@map("users")
 }
 
@@ -582,6 +642,8 @@ model Contact {
 
   status ContactStatus @default(ACTIVE)
 
+  isOldCustomer Boolean @default(false)
+
   firstName String
 
   middleName String?
@@ -605,6 +667,8 @@ model Contact {
   occupation String?
 
   panNumber String?
+
+  panNumberHash String? @db.VarChar(64)
 
   aadhaarNumber String?
 
@@ -636,6 +700,7 @@ model Contact {
   loanCases            LoanApplicationCase[]   @relation("ContactLoanCases")
 
   policies  Policy[]
+  legacyPolicies LegacyPolicyRecord[] @relation("ContactLegacyPolicies")
   claims    Claim[]
   proposals Proposal[]
 
@@ -674,6 +739,7 @@ model Contact {
   @@index([status])
   @@index([companyId, phone])
   @@index([companyId, email])
+  @@index([companyId, panNumberHash])
   @@map("contacts")
 }
 
@@ -701,6 +767,8 @@ model Account {
   gstNumber String?
 
   panNumber String?
+
+  panNumberHash String? @db.VarChar(64)
 
   annualRevenue Decimal?
 
@@ -744,6 +812,7 @@ model Account {
   @@index([name])
   @@index([phone])
   @@index([email])
+  @@index([panNumberHash])
   @@index([accountCode])
   @@index([deletedAt])
   @@index([createdById])
@@ -1058,6 +1127,16 @@ model Activity {
 }
 
 enum MotorWorkflowState {
+  LEAD_CREATED
+  CUSTOMER_CAPTURED
+  VEHICLE_CAPTURED
+  PREVIOUS_POLICY_CAPTURED
+  POLICY_TYPE_SELECTED
+  RULES_EVALUATED
+  QUOTE_FINALIZED
+  DOCUMENT_CHECK
+  POLICY_CREATED
+  RENEWAL
   DRAFT
   READY_FOR_PROPOSAL
   PROPOSAL_IN_PROGRESS
@@ -1232,6 +1311,11 @@ model Quotation {
   calculationVersion       String?
   rateConfigurationVersion Int?
   issuanceStatus           IssuanceStatus @default(DRAFT)
+  // Explicit agent-controlled handoff: quotations remain in sales until selected and submitted.
+  backOfficeSubmittedAt   DateTime?
+  backOfficeSubmittedById String?
+  renewalOfPolicyId       String?
+  renewalOfPolicy         Policy? @relation("PolicyRenewalQuotes", fields: [renewalOfPolicyId], references: [id], onDelete: SetNull)
 
   createdById String?
   updatedById String?
@@ -1307,6 +1391,8 @@ model Quotation {
   @@index([caseId])
   @@index([healthCaseId])
   @@index([lifeCaseId])
+  @@index([companyId, backOfficeSubmittedAt])
+  @@index([renewalOfPolicyId])
   @@map("quotations")
 }
 
@@ -1408,6 +1494,70 @@ model QuotationDocument {
 // POLICIES
 //////////////////////////////////////////////////////////
 
+
+enum LegacyPolicyStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+enum LegacyRenewalReminderStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+model LegacyPolicyRecord {
+  id                    String   @id @default(uuid())
+  legacyPolicyNumber    String   @unique
+  insurerName           String
+  insurerPolicyNumber   String
+  productType           String
+  coverageDescription   String?
+  premiumAmount         Decimal
+  policyStartDate       DateTime
+  policyExpiryDate      DateTime
+  issueDate             DateTime?
+  status                LegacyPolicyStatus
+  customerId            String?
+  customer              Customer? @relation("CustomerLegacyPolicies", fields: [customerId], references: [id], onDelete: Restrict)
+  contactId             String?
+  contact               Contact? @relation("ContactLegacyPolicies", fields: [contactId], references: [id], onDelete: Restrict)
+  companyId             String
+  company               Company @relation("CompanyLegacyPolicies", fields: [companyId], references: [id], onDelete: Restrict)
+  evidenceDocumentId    String
+  agentDeclaration      Boolean
+  declarationText       String
+  createdById           String
+  createdBy             User @relation("LegacyPolicyCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  reminders             LegacyPolicyRenewalReminder[]
+
+  @@unique([companyId, insurerName, insurerPolicyNumber])
+  @@index([companyId, customerId])
+  @@index([companyId, contactId])
+  @@index([companyId, policyExpiryDate, status])
+  @@index([createdById])
+  @@map("legacy_policy_records")
+}
+
+model LegacyPolicyRenewalReminder {
+  id             String   @id @default(uuid())
+  legacyPolicyId String
+  legacyPolicy   LegacyPolicyRecord @relation(fields: [legacyPolicyId], references: [id], onDelete: Cascade)
+  dueDate        DateTime
+  offsetDays     Int
+  status         LegacyRenewalReminderStatus @default(PENDING)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([legacyPolicyId, offsetDays])
+  @@index([dueDate, status])
+  @@index([legacyPolicyId])
+  @@map("legacy_policy_renewal_reminders")
+}
+
 model Policy {
   id           String       @id @default(uuid())
   policyNumber String       @unique
@@ -1474,6 +1624,10 @@ model Policy {
   members        PolicyMember[]
   nominees       PolicyNominee[]
   renewals       PolicyRenewal[]
+  renewalQuotes  Quotation[] @relation("PolicyRenewalQuotes")
+  renewedFromPolicyId String?
+  renewedFromPolicy Policy? @relation("PolicyRenewalLineage", fields: [renewedFromPolicyId], references: [id], onDelete: SetNull)
+  renewedPolicies Policy[] @relation("PolicyRenewalLineage")
   payments       PolicyPayment[]
   documents      PolicyDocument[]
   histories      PolicyHistory[]
@@ -1488,12 +1642,40 @@ model Policy {
   tasks          Task[]               @relation("PolicyTasks")
   inspections    Inspection[]         @relation("PolicyInspections")
 
+  // ── POS Partner Attribution ──
+  posPartnerId        String?
+  posPartner          PosPartner?         @relation(fields: [posPartnerId], references: [id], onDelete: SetNull)
+  posInsurerMappingId String?
+  distributionChannel String?             @default("POS")
+  posCodeSnapshot     String?
+  posNameSnapshot     String?
+  insurerCodeSnapshot String?
+  insurerNameSnapshot String?
+  insurerPartnerCodeSnapshot String?
+  insurerPospIdSnapshot String?
+
+  // ── Structured Address Snapshot at Issuance ──
+  addressLine1        String?
+  addressLine2        String?
+  landmark            String?
+  locality            String?
+  city                String?
+  district            String?
+  state               String?
+  stateCode           String?
+  pincode             String?
+  country             String?             @default("India")
+  addressSource       String?
+  addressCapturedAt   DateTime?
+  addressSnapshot     Json?
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
   version   Int       @default(1)
 
   @@index([policyNumber])
+  @@index([posPartnerId])
   @@index([status])
   @@index([contactId])
   @@index([customerId])
@@ -2201,6 +2383,9 @@ model Insurer {
   commissionMatrices    CommissionMatrix[]
   underwritingQuestions UnderwritingQuestion[]
   addonRules            AddOnRule[]
+
+  posMappings             PosInsurerMapping[]       @relation("InsurerPosMappings")
+  posCommissionAgreements PosCommissionAgreement[] @relation("InsurerPosCommissionAgreements")
 
   @@map("insurers")
 }
@@ -3007,6 +3192,7 @@ model Company {
   quotations               Quotation[]                @relation("CompanyQuotations")
   motorQuotations          MotorQuotation[]           @relation("CompanyMotorQuotations")
   policies                 Policy[]                   @relation("CompanyPolicies")
+  legacyPolicies           LegacyPolicyRecord[]        @relation("CompanyLegacyPolicies")
   claims                   Claim[]                    @relation("CompanyClaims")
   customerAgentHistories   CustomerAgentHistory[]     @relation("CompanyAgentHistories")
   backOfficeTasks          BackOfficeTask[]           @relation("CompanyBackOfficeTasks")
@@ -3025,6 +3211,8 @@ model Company {
   loanDocuments            LoanDocument[]             @relation("CompanyLoanDocuments")
   commissions              Commission[]               @relation("CompanyCommissions")
   settlements              Settlement[]               @relation("CompanySettlements")
+  posPartners              PosPartner[]               @relation("CompanyPosPartners")
+  commissionPlans          CommissionPlan[]           @relation("CompanyCommissionPlans")
 
   @@index([taxId])
 }
@@ -3494,9 +3682,13 @@ model CommissionPlan {
   name        String
   description String?
   rules       String // JSON containing slab, product, tier logic
+  companyId   String?
+  company     Company? @relation("CompanyCommissionPlans", fields: [companyId], references: [id], onDelete: Cascade)
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([companyId, isActive])
 }
 
 model Commission {
@@ -4336,7 +4528,7 @@ model Agent {
   id             String  @id @default(uuid())
   userId         String  @unique
   user           User    @relation("UserAgentProfile", fields: [userId], references: [id], onDelete: Cascade)
-  agentCode      String
+  agentCode      String?
   agencyName     String?
   licenseNumber  String?
   commissionTier String? @default("STANDARD")
@@ -4476,6 +4668,7 @@ model Customer {
   mobile        String
   email         String?
   panNumber     String?
+  panNumberHash String? @db.VarChar(64)
   aadhaarNumber String?
   addressLine1  String?
   addressLine2  String?
@@ -4483,6 +4676,7 @@ model Customer {
   state         String?
   pincode       String?
   isVip         Boolean @default(false)
+  isOldCustomer Boolean @default(false)
 
   companyId                  String
   company                    Company                @relation("CompanyCustomers", fields: [companyId], references: [id], onDelete: Restrict)
@@ -4502,6 +4696,7 @@ model Customer {
   vehicles   Vehicle[]        @relation("CustomerVehicles")
   quotations MotorQuotation[] @relation("CustomerMotorQuotations")
   policies   Policy[]         @relation("CustomerPolicies")
+  legacyPolicies LegacyPolicyRecord[] @relation("CustomerLegacyPolicies")
   claims     Claim[]          @relation("CustomerClaims")
   tasks      Task[]           @relation("CustomerTasks")
   alerts     CustomerAlert[]  @relation("CustomerAlerts")
@@ -4516,6 +4711,7 @@ model Customer {
   // Soft deduplication: index mobile & email, NO @unique constraint
   @@index([companyId, mobile])
   @@index([companyId, email])
+  @@index([companyId, panNumberHash])
   @@index([companyId])
   @@index([primaryAgentId])
   @@index([primaryAgentExternalCodeId])
@@ -5592,4 +5788,114 @@ model LoanDocument {
   @@index([loanCaseId])
   @@index([documentId])
   @@map("loan_documents")
+}
+
+//////////////////////////////////////////////////////////
+// POS PARTNER MANAGEMENT (DEC-01 to DEC-06)
+//////////////////////////////////////////////////////////
+
+model PosPartner {
+  id                 String                @id @default(uuid())
+  companyId          String
+  company            Company               @relation("CompanyPosPartners", fields: [companyId], references: [id], onDelete: Restrict)
+  posCode            String
+  partnerType        PosPartnerType
+  name               String
+  displayName        String?
+  mobile             String
+  email              String?
+  registrationNumber String?
+  panNumberEncrypted String?
+  status             PosPartnerStatus      @default(ACTIVE)
+  verificationStatus PosVerificationStatus @default(PENDING)
+
+  effectiveFrom  DateTime?
+  effectiveUntil DateTime?
+
+  address     Json?
+  createdById String
+  createdBy   User?     @relation("PosPartnerCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById String?
+  updatedBy   User?     @relation("PosPartnerUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  insurerMappings      PosInsurerMapping[]
+  documents            PosPartnerDocument[]
+  commissionAgreements PosCommissionAgreement[]
+  policies             Policy[]
+
+  @@unique([companyId, posCode])
+  @@index([companyId, status])
+  @@index([companyId, name])
+  @@map("pos_partners")
+}
+
+model PosInsurerMapping {
+  id                 String    @id @default(uuid())
+  companyId          String
+  posPartnerId       String
+  insurerId          String
+  insurerPartnerCode String?
+  insurerPospId      String?
+  effectiveFrom      DateTime  @default(now())
+  effectiveUntil     DateTime?
+  isActive           Boolean   @default(true)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  posPartner PosPartner @relation(fields: [posPartnerId], references: [id], onDelete: Restrict)
+  insurer    Insurer    @relation("InsurerPosMappings", fields: [insurerId], references: [id], onDelete: Restrict)
+
+  @@unique([posPartnerId, insurerId])
+  @@index([companyId, insurerId, isActive])
+  @@index([posPartnerId, isActive])
+  @@map("pos_insurer_mappings")
+}
+
+model PosPartnerDocument {
+  id                 String                @id @default(uuid())
+  posPartnerId       String
+  documentType       String
+  storageKey         String
+  fileName           String
+  mimeType           String?
+  fileSize           Int?
+  verificationStatus PosVerificationStatus @default(PENDING)
+  verifiedById       String?
+  verifiedAt         DateTime?
+  rejectionReason    String?
+  expiryDate         DateTime?
+  createdAt          DateTime              @default(now())
+
+  posPartner PosPartner @relation(fields: [posPartnerId], references: [id], onDelete: Cascade)
+
+  @@index([posPartnerId])
+  @@map("pos_partner_documents")
+}
+
+model PosCommissionAgreement {
+  id                  String    @id @default(uuid())
+  companyId           String
+  posPartnerId        String
+  insurerId           String
+  productType         String
+  insuranceProductId  String?
+  commissionType      String    @default("PERCENTAGE")
+  commissionRate      Decimal?
+  fixedAmount         Decimal?
+  effectiveFrom       DateTime  @default(now())
+  effectiveUntil      DateTime?
+  approvalStatus      String    @default("APPROVED")
+  approvedById        String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  posPartner PosPartner @relation(fields: [posPartnerId], references: [id], onDelete: Restrict)
+  insurer    Insurer    @relation("InsurerPosCommissionAgreements", fields: [insurerId], references: [id], onDelete: Restrict)
+
+  @@index([companyId, posPartnerId])
+  @@index([companyId, insurerId])
+  @@map("pos_commission_agreements")
 }

@@ -5,9 +5,10 @@ import {
   BadRequestException,
   ConflictException,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
-import { AgentAssignmentEntityType, AuditAction, RoleType, Prisma } from '@prisma/client';
+import { AgentAssignmentEntityType, AuditAction, RoleType, PolicyStatus, Prisma } from '@prisma/client';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { CustomerQueryDto } from './dto/customer-query.dto';
@@ -25,7 +26,7 @@ export class CustomersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly crmIdentityService: CrmIdentityService,
-    private readonly agentIdentityResolver: AgentIdentityResolverService,
+    @Optional() private readonly agentIdentityResolver: AgentIdentityResolverService = {} as any,
   ) {}
 
   private normalizePhone(phone?: string): string | undefined {
@@ -52,15 +53,17 @@ export class CustomersService {
     }
 
     const companyId =
-      (dto as any)?.companyId ||
       user?.companyId ||
-      (user as any)?.organizationId ||
-      (user as any)?.user?.companyId;
+      user?.organizationId ||
+      user?.user?.companyId;
+    if (!companyId) {
+      throw new ForbiddenException('Company context is required for duplicate customer checks');
+    }
 
     const matches = await this.prisma.customer.findMany({
       where: {
         deletedAt: null,
-        ...(companyId ? { companyId } : {}),
+        companyId,
         OR: conditions,
       },
       include: {
@@ -68,6 +71,11 @@ export class CustomersService {
           include: {
             user: {
               select: { firstName: true, lastName: true, email: true },
+            },
+            externalCodes: {
+              where: { status: 'ACTIVE', verificationStatus: 'VERIFIED' },
+              orderBy: [{ isPrimary: 'desc' }, { codeSystem: 'asc' }],
+              select: { externalCode: true },
             },
           },
         },
@@ -98,7 +106,7 @@ export class CustomersService {
         primaryAgent: m.primaryAgent
           ? {
               id: m.primaryAgent.id,
-              agentCode: m.primaryAgent.agentCode,
+              agentCode: m.primaryAgent.externalCodes[0]?.externalCode || null,
               name: `${m.primaryAgent.user?.firstName || ''} ${m.primaryAgent.user?.lastName || ''}`.trim(),
             }
           : null,
@@ -208,6 +216,7 @@ export class CustomersService {
           state: dto.state,
           pincode: dto.pincode,
           isVip: dto.isVip || false,
+          isOldCustomer: dto.isOldCustomer || false,
           primaryAgentId: primaryAgentId || null,
           primaryAgentExternalCodeId,
           createdById: user.id,
@@ -646,58 +655,36 @@ export class CustomersService {
       }
     }
 
-    try {
-      const [customers, total] = await Promise.all([
-        this.prisma.customer.findMany({
-          where,
-          skip,
-          take: limit,
-          orderBy: { [sortBy]: sortOrder },
-          include: {
-            _count: {
-              select: {
-                leads: true,
-                policies: true,
-                vehicles: true,
-                quotations: true,
-                claims: true,
-              },
+    const [customers, total] = await Promise.all([
+      this.prisma.customer.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { [sortBy]: sortOrder },
+        include: {
+          _count: {
+            select: {
+              leads: true,
+              policies: true,
+              vehicles: true,
+              quotations: true,
+              claims: true,
             },
           },
-        }),
-        this.prisma.customer.count({ where }),
-      ]);
+        },
+      }),
+      this.prisma.customer.count({ where }),
+    ]);
 
-      return {
-        data: customers,
-        meta: {
-          page,
-          limit,
-          total,
-          totalPages: Math.ceil(total / limit),
-        },
-      };
-    } catch (err: any) {
-      this.logger.warn('Failed full customer query, falling back');
-      const [customers, total] = await Promise.all([
-        this.prisma.customer.findMany({
-          where,
-          skip,
-          take: limit,
-          orderBy: { [sortBy]: sortOrder },
-        }),
-        this.prisma.customer.count({ where }).catch(() => 0),
-      ]);
-      return {
-        data: customers,
-        meta: {
-          page,
-          limit,
-          total,
-          totalPages: Math.ceil(total / limit),
-        },
-      };
-    }
+    return {
+      data: customers,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 
   async findById(id: string, user: RequestUser) {
@@ -1018,9 +1005,288 @@ export class CustomersService {
   async markAlertRead(customerId: string, alertId: string, user: RequestUser) {
     await this.findById(customerId, user);
 
-    return this.prisma.customerAlert.update({
-      where: { id: alertId },
+    const result = await this.prisma.customerAlert.updateMany({
+      where: { id: alertId, customerId },
       data: { isRead: true },
     });
+    if (result.count !== 1) {
+      throw new NotFoundException('Customer alert not found');
+    }
+    return { success: true, id: alertId, isRead: true };
   }
+
+  async getCustomerVehicles(customerId: string, user: RequestUser) {
+    const companyId = user.companyId || (user as any).organizationId;
+    const customer = await this.prisma.customer.findFirst({
+      where: { id: customerId, companyId, deletedAt: null },
+      select: { id: true, contactId: true },
+    });
+    if (!customer) throw new NotFoundException(`Customer '${customerId}' not found`);
+
+    const vehicles = await this.prisma.vehicle.findMany({
+      where: {
+        companyId,
+        deletedAt: null,
+        OR: [
+          { customerId: customer.id },
+          ...(customer.contactId ? [{ contactId: customer.contactId }] : []),
+        ],
+      },
+      include: {
+        policies: {
+          where: { companyId, deletedAt: null },
+          select: {
+            id: true,
+            policyNumber: true,
+            actualPolicyNumber: true,
+            quotation: { select: { insurerName: true } },
+            status: true,
+            expiryDate: true,
+            premiumAmount: true,
+          },
+          orderBy: { expiryDate: 'desc' },
+        },
+        quotations: {
+          where: { companyId, deletedAt: null },
+          select: {
+            id: true,
+            quotationCode: true,
+            status: true,
+            totalPremium: true,
+            createdAt: true,
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return vehicles.map((v) => {
+      const activePolicy =
+        v.policies.find((p) => p.status === PolicyStatus.ACTIVE || p.status === PolicyStatus.ISSUED) ||
+        v.policies[0];
+      return {
+        id: v.id,
+        vehicleCode: v.vehicleCode,
+        category: v.category,
+        registrationNumber: v.registrationNumber || 'Unregistered / New',
+        makeModel: v.makeModel || '—',
+        fuelType: v.fuelType || '—',
+        manufactureYearMonth: v.manufactureYearMonth || '—',
+        dateOfRegistration: v.dateOfRegistration,
+        engineNumber: v.engineNumber,
+        chassisNumber: v.chassisNumber,
+        rtoLocation: v.rtoLocation,
+        categorySpecificData: v.categorySpecificData,
+        status: v.status,
+        policyNumber: activePolicy?.actualPolicyNumber || activePolicy?.policyNumber || null,
+        policyStatus: activePolicy?.status || null,
+        insurerName: (activePolicy as any)?.quotation?.insurerName || null,
+        expiryDate: activePolicy?.expiryDate || null,
+        quotationsCount: v.quotations.length,
+        policiesCount: v.policies.length,
+      };
+    });
+  }
+
+  async addCustomerVehicle(customerId: string, dto: any, user: RequestUser) {
+    const companyId = user.companyId || (user as any).organizationId;
+    const customer = await this.prisma.customer.findFirst({
+      where: { id: customerId, companyId, deletedAt: null },
+      include: { contact: true },
+    });
+    if (!customer) throw new NotFoundException(`Customer '${customerId}' not found`);
+
+    const contactId = customer.contactId || customer.contact?.id;
+    if (!contactId) throw new BadRequestException('Customer has no associated contact');
+
+    let normalizedPlate: string | null = null;
+    const rtoLoc = dto.rtoLocation;
+    if (dto.registrationNumber && dto.registrationNumber.trim() && dto.registrationNumber.trim().toUpperCase() !== 'NEW') {
+      const cleaned = dto.registrationNumber.toUpperCase().replace(/[\s\-\.]/g, '');
+      normalizedPlate = cleaned;
+
+      const existing = await this.prisma.vehicle.findFirst({
+        where: {
+          registrationNumber: { equals: cleaned, mode: 'insensitive' },
+          companyId,
+          deletedAt: null,
+        },
+        include: {
+          customer: { select: { id: true, firstName: true, lastName: true } },
+          contact: { select: { id: true, firstName: true, lastName: true } },
+        },
+      });
+
+      if (existing) {
+        if (existing.customerId === customer.id || existing.contactId === contactId) {
+          return this.prisma.vehicle.update({
+            where: { id: existing.id },
+            data: {
+              category: dto.category || existing.category,
+              makeModel: dto.makeModel || existing.makeModel,
+              fuelType: dto.fuelType || existing.fuelType,
+              manufactureYearMonth: dto.manufactureYearMonth || existing.manufactureYearMonth,
+              engineNumber: dto.engineNumber || existing.engineNumber,
+              chassisNumber: dto.chassisNumber || existing.chassisNumber,
+              rtoLocation: rtoLoc || existing.rtoLocation,
+              categorySpecificData: dto.categorySpecificData || existing.categorySpecificData,
+              customerId: customer.id,
+            },
+          });
+        }
+        const owner = existing.customer
+          ? `${existing.customer.firstName || ''} ${existing.customer.lastName || ''}`.trim()
+          : 'another customer';
+        throw new ConflictException(
+          `Vehicle registration ${cleaned} is already registered under ${owner} in this agency.`,
+        );
+      }
+    }
+
+    const year = new Date().getFullYear();
+    const count = await this.prisma.vehicle.count().catch(() => 0);
+    const vehicleCode = `VEH-${year}-${String(count + 1).padStart(6, '0')}`;
+
+    return this.prisma.vehicle.create({
+      data: {
+        vehicleCode,
+        company: { connect: { id: companyId } },
+        contact: { connect: { id: contactId } },
+        customer: { connect: { id: customer.id } },
+        category: dto.category,
+        registrationNumber: normalizedPlate,
+        makeModel: dto.makeModel || null,
+        fuelType: dto.fuelType || null,
+        manufactureYearMonth: dto.manufactureYearMonth || null,
+        dateOfRegistration: dto.dateOfRegistration ? new Date(dto.dateOfRegistration) : undefined,
+        engineNumber: dto.engineNumber || null,
+        chassisNumber: dto.chassisNumber || null,
+        rtoLocation: rtoLoc || null,
+        categorySpecificData: dto.categorySpecificData || {},
+        status: normalizedPlate ? 'EXISTING' : 'NEW',
+        createdBy: user?.id ? { connect: { id: user.id } } : undefined,
+      },
+    });
+  }
+
+  async updateCustomerVehicle(customerId: string, vehicleId: string, dto: any, user: RequestUser) {
+    const companyId = user.companyId || (user as any).organizationId;
+    const vehicle = await this.prisma.vehicle.findFirst({
+      where: {
+        id: vehicleId,
+        companyId,
+        deletedAt: null,
+        OR: [{ customerId }, { customer: { id: customerId } }],
+      },
+    });
+    if (!vehicle) throw new NotFoundException(`Vehicle '${vehicleId}' not found for customer '${customerId}'`);
+
+    return this.prisma.vehicle.update({
+      where: { id: vehicleId },
+      data: {
+        makeModel: dto.makeModel !== undefined ? dto.makeModel : vehicle.makeModel,
+        fuelType: dto.fuelType !== undefined ? dto.fuelType : vehicle.fuelType,
+        manufactureYearMonth: dto.manufactureYearMonth !== undefined ? dto.manufactureYearMonth : vehicle.manufactureYearMonth,
+        engineNumber: dto.engineNumber !== undefined ? dto.engineNumber : vehicle.engineNumber,
+        chassisNumber: dto.chassisNumber !== undefined ? dto.chassisNumber : vehicle.chassisNumber,
+        rtoLocation: dto.rtoLocation !== undefined ? dto.rtoLocation : vehicle.rtoLocation,
+        categorySpecificData: dto.categorySpecificData !== undefined ? dto.categorySpecificData : (vehicle.categorySpecificData as any),
+      },
+    });
+  }
+
+  async getVehicleHistory(customerId: string, vehicleId: string, user: RequestUser) {
+    const companyId = user.companyId || (user as any).organizationId;
+    const vehicle = await this.prisma.vehicle.findFirst({
+      where: {
+        id: vehicleId,
+        companyId,
+        deletedAt: null,
+        OR: [{ customerId }, { customer: { id: customerId } }],
+      },
+      include: {
+        quotations: {
+          where: { companyId, deletedAt: null },
+          select: {
+            id: true,
+            quotationCode: true,
+            title: true,
+            status: true,
+            totalPremium: true,
+            insurerName: true,
+            createdAt: true,
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+        policies: {
+          where: { companyId, deletedAt: null },
+          select: {
+            id: true,
+            policyNumber: true,
+            actualPolicyNumber: true,
+            quotation: { select: { insurerName: true } },
+            status: true,
+            premiumAmount: true,
+            effectiveDate: true,
+            expiryDate: true,
+            claims: {
+              where: { companyId, deletedAt: null },
+              select: {
+                id: true,
+                claimNumber: true,
+                status: true,
+                claimAmount: true,
+                approvedAmount: true,
+                incidentDate: true,
+                reportedDate: true,
+              },
+            },
+            renewals: {
+              select: {
+                id: true,
+                renewalNumber: true,
+                previousExpiry: true,
+                newExpiry: true,
+                premiumAmount: true,
+                createdAt: true,
+              },
+            },
+          },
+          orderBy: { expiryDate: 'desc' },
+        },
+      },
+    });
+
+    if (!vehicle) throw new NotFoundException(`Vehicle '${vehicleId}' not found for customer '${customerId}'`);
+
+    const policies = vehicle.policies || [];
+    const claims = policies.flatMap((p) => p.claims || []);
+    const renewals = (policies as any[]).flatMap((p) =>
+      (p.renewals || []).map((r: any) => ({
+        id: r.id,
+        renewalStatus: 'COMPLETED',
+        renewalPremium: Number(r.premiumAmount || 0),
+        renewalDueDate: r.newExpiry,
+        previousExpiry: r.previousExpiry,
+        renewalNumber: r.renewalNumber,
+      })),
+    );
+
+    return {
+      vehicle: {
+        id: vehicle.id,
+        vehicleCode: vehicle.vehicleCode,
+        category: vehicle.category,
+        registrationNumber: vehicle.registrationNumber,
+        makeModel: vehicle.makeModel,
+        fuelType: vehicle.fuelType,
+      },
+      quotations: vehicle.quotations || [],
+      policies,
+      claims,
+      renewals,
+    };
+  }
+
 }

@@ -66,6 +66,17 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Mandatory IRDAI tenure enforcement for new vehicles
+  React.useEffect(() => {
+    if (isNew) {
+      if (category === 'BIKE' && (!data.policyTenure || !data.policyTenure.startsWith('5'))) {
+        onChange({ ...data, policyTenure: '5-Year Long Term TP (IRDAI Mandatory for New Two-Wheelers)' });
+      } else if (category === 'PRIVATE_CAR' && (!data.policyTenure || !data.policyTenure.startsWith('3'))) {
+        onChange({ ...data, policyTenure: '3-Year Long Term TP (IRDAI Mandatory for New Private Cars)' });
+      }
+    }
+  }, [isNew, category]);
+
   const { result, loading, error } = useMotorCalculator({
     vehicleCategory: category,
     vehicleStatus: vehicleStatus,
@@ -157,7 +168,7 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [result]);
 
-  const tenureOptions = getPolicyTenureOptions(category, 'TP_ONLY');
+  const tenureOptions = getPolicyTenureOptions(category, 'TP_ONLY', isNew ? 'NEW' : 'EXISTING');
 
   return (
     <div className="space-y-4">
@@ -180,6 +191,26 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
           0% (Statutory)
         </span>
       </div>
+
+            {/* IRDAI Statutory Compliance Guidance for New Vehicles */}
+      {isNew && (category === 'BIKE' || category === 'PRIVATE_CAR') && (
+        <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs flex items-start gap-2.5">
+          <span className="text-base flex-shrink-0">⚖️</span>
+          <div>
+            <div className="font-bold flex items-center gap-1.5">
+              <span>IRDAI Mandatory Statutory Long-Term TP Rule</span>
+              <span className="bg-amber-200 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 text-[9px] px-1.5 py-0.5 rounded font-mono font-bold">
+                {category === 'BIKE' ? '5-Year TP' : '3-Year TP'}
+              </span>
+            </div>
+            <p className="text-[11px] text-amber-800/90 dark:text-amber-300/90 mt-0.5 leading-relaxed">
+              {category === 'BIKE'
+                ? 'Under Supreme Court guidelines and IRDAI regulations, all brand new Two-Wheelers must be issued with a 5-Year Long-Term Third Party (TP) policy.'
+                : 'Under Supreme Court guidelines and IRDAI regulations, all brand new Private Cars must be issued with a 3-Year Long-Term Third Party (TP) policy.'}
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {/* Policy Tenure */}

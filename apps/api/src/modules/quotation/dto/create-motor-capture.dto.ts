@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsString,
   IsOptional,
   IsNumber,
@@ -16,6 +17,10 @@ export class CreateMotorCaptureDto {
   @IsOptional()
   @IsString()
   registrationNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  insurerId?: string;
 
   @IsString()
   insurerName: string;
@@ -53,6 +58,10 @@ export class CreateMotorCaptureDto {
   caseId?: string;
 
   @IsOptional()
+  @IsString()
+  renewalOfPolicyId?: string;
+
+  @IsOptional()
   @IsObject()
   proposerDetails?: Record<string, any>;
 
@@ -71,6 +80,14 @@ export class CreateMotorCaptureDto {
   @IsOptional()
   @IsString()
   agentId?: string;
+
+  @IsOptional()
+  @IsString()
+  externalAgentCode?: string;
+
+  @IsOptional()
+  @IsString()
+  agentCodeSystem?: string;
 
   @IsOptional()
   @IsNumber()
@@ -129,4 +146,8 @@ export class CreateMotorCaptureDto {
   @IsOptional()
   @IsObject()
   previousPolicyDetails?: Record<string, any>;
+
+  @IsOptional()
+  @IsBoolean()
+  isOldCustomer?: boolean;
 }

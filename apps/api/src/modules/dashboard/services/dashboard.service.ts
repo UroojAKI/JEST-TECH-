@@ -50,8 +50,8 @@ export class DashboardService {
     };
   }
 
-  async getBranchGwpBreakdown(companyId?: string) {
-    return this.dashboardAnalytics.getBranchGwpBreakdown(companyId);
+  async getBranchGwpBreakdown(companyId?: string, period?: string) {
+    return this.dashboardAnalytics.getBranchGwpBreakdown(companyId, period);
   }
 
   async getInsurerMarketShare(companyId?: string) {

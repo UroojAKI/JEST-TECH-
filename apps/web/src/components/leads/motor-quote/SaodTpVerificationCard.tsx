@@ -43,11 +43,14 @@ export function SaodTpVerificationCard({
     verifiedByUserConfirmed: false,
   };
 
-  const isVerified =
-    verification.verificationStatus === 'VERIFIED' && verification.verifiedByUserConfirmed;
-  const tpExpired = verification.tpExpiryDate
-    ? new Date(verification.tpExpiryDate) <= new Date()
-    : false;
+  const documentVerified = verification.verificationStatus === 'VERIFIED' && verification.verifiedByUserConfirmed;
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  const validDateShape = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value || '');
+  const datesOrdered = validDateShape(verification.tpStartDate || '') && validDateShape(verification.tpExpiryDate || '') && verification.tpExpiryDate >= verification.tpStartDate;
+  const tpNotStarted = Boolean(verification.tpStartDate && verification.tpStartDate > today);
+  const tpExpired = Boolean(verification.tpExpiryDate && verification.tpExpiryDate < today);
+  const coverageValid = datesOrdered && !tpNotStarted && !tpExpired;
+  const isVerified = documentVerified && coverageValid;
 
   const inputBase =
     'w-full p-2 text-xs rounded-md border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition-colors';
@@ -91,16 +94,10 @@ export function SaodTpVerificationCard({
           >
             Active TP Policy Verification
           </span>
-          {isVerified && (
-            <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-500/20 text-emerald-700 uppercase">
-              VERIFIED
-            </span>
-          )}
-          {tpExpired && (
-            <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-rose-500/20 text-rose-700 uppercase">
-              TP EXPIRED
-            </span>
-          )}
+          {documentVerified && <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-500/20 text-emerald-700 uppercase">DOCUMENT VERIFIED</span>}
+          {tpExpired && <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-rose-500/20 text-rose-700 uppercase">COVERAGE EXPIRED</span>}
+          {tpNotStarted && <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-amber-500/20 text-amber-700 uppercase">NOT YET ACTIVE</span>}
+          {!datesOrdered && (verification.tpStartDate || verification.tpExpiryDate) && <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-rose-500/20 text-rose-700 uppercase">INVALID DATES</span>}
         </div>
         <div className="text-[9px] text-muted-foreground font-bold flex items-center gap-1">
           <ShieldCheck className="h-3 w-3" />
@@ -152,6 +149,7 @@ export function SaodTpVerificationCard({
           </label>
           <input
             type="date"
+            max={verification.tpExpiryDate || undefined}
             disabled={disabled}
             value={verification.tpStartDate || ''}
             onChange={(e) => setField('tpStartDate', e.target.value)}
@@ -166,6 +164,7 @@ export function SaodTpVerificationCard({
           </label>
           <input
             type="date"
+            min={verification.tpStartDate || undefined}
             disabled={disabled}
             value={verification.tpExpiryDate || ''}
             onChange={(e) => setField('tpExpiryDate', e.target.value)}

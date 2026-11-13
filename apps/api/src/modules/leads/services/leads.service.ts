@@ -1,3 +1,4 @@
+import { EncryptionUtil } from '../../../common/utils/encryption.util';
 import {
   BadRequestException,
   ForbiddenException,
@@ -70,9 +71,9 @@ export class LeadsService {
         'Cross-organization lead creation is strictly prohibited',
       );
     }
-    const companyId = effectiveCompanyId || dto.companyId;
+    const companyId = effectiveCompanyId;
     if (!companyId) {
-      throw new ForbiddenException('Tenant organizational context is required');
+      throw new ForbiddenException('Authenticated tenant context is required for lead creation');
     }
 
     let linkedCustomer: any = null;
@@ -909,7 +910,7 @@ export class LeadsService {
               `${lead.contact.firstName || ''} ${lead.contact.lastName || ''}`.trim(),
             email: lead.contact.email,
             phone: lead.contact.phone,
-            panNumber: lead.contact.panNumber,
+            panNumber: EncryptionUtil.maskPan(lead.contact.panNumber),
             gender: lead.contact.gender,
             dateOfBirth: lead.contact.dateOfBirth,
           }
@@ -920,7 +921,7 @@ export class LeadsService {
             accountCode: lead.account.accountCode,
             name: lead.account.name,
             gstNumber: lead.account.gstNumber,
-            panNumber: lead.account.panNumber,
+            panNumber: EncryptionUtil.maskPan(lead.account.panNumber),
           }
         : null,
       vehicle: vehicle

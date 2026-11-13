@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { X, ChevronRight, ChevronLeft, Save, Loader2, Car, Shield } from 'lucide-react';
+import { X, ChevronRight, ChevronLeft, Save, Loader2, Car, Shield, UserCheck, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiClient, getApiErrorMessage, showApiErrorToast } from '../../../lib/api-client';
 import { useQuery } from '@tanstack/react-query';
@@ -19,7 +19,7 @@ import { InspectionDialog } from './InspectionDialog';
 import { AgentSelector } from '../../agents/AgentSelector';
 import { SaodTpVerificationCard } from './SaodTpVerificationCard';
 
-import { INSURER_OPTIONS, CATEGORY_LABEL, POLICY_TYPE_LABEL, VEHICLE_FIELDS } from './motorFormConfig';
+import { CATEGORY_LABEL, POLICY_TYPE_LABEL, VEHICLE_FIELDS } from './motorFormConfig';
 import { useInsurers } from '../../../hooks/useInsurers';
 import type {
   VehicleCategory,
@@ -49,6 +49,7 @@ interface Props {
     policyType?: PolicyType;
     caseId?: string;
     policyDetails?: any;
+    renewalOfPolicyId?: string;
   } | null;
   leadContact?: {
     name?: string;
@@ -82,6 +83,7 @@ function emptyProposer(contact?: Props['leadContact']): ProposerDetails {
     pincode: (contact as any)?.pincode || '',
     panNumber: contact?.pan || '',
     relationshipManager: contact?.rm || '',
+    isOldCustomer: false,
   };
 }
 
@@ -202,7 +204,7 @@ function computeEligibilityContext(
 export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId, initialCategory, cloneQuoteData, leadContact, onClose, onSaved }: Props) {
   const [step, setStep] = useState(1);
   const [isSaving, setIsSaving] = useState(false);
-  const { insurerOptions } = useInsurers();
+  const { insurerOptions, activeInsurers, isLoading: insurersLoading, isError: insurersError } = useInsurers();
 
   const { data: currentUserPreference } = useQuery({
     queryKey: ['current-user-contact-preference'],
@@ -241,6 +243,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
   const [savedQuotationId, setSavedQuotationId] = useState<string | null>(null);
   const [selectedAgentId, setSelectedAgentId] = useState<string>('');
   const [selectedAgentCode, setSelectedAgentCode] = useState<string>('');
+  const [selectedAgentCodeSystem, setSelectedAgentCodeSystem] = useState<string>('');
   const selectedAgentPreferenceQuery = useQuery({
     queryKey: ['agent-contact-preference', selectedAgentId],
     queryFn: async () => (await apiClient.get(`/agents/${selectedAgentId}`)).data,
@@ -253,6 +256,107 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
 
   const [isManualAgent, setIsManualAgent] = useState(false);
   const [manualAgentDetails, setManualAgentDetails] = useState<{ name: string; code?: string; phone?: string } | null>(null);
+  // ── Identity Resolution & Multi-Vehicle Asset State ────────────────────────
+  const [identityStatus, setIdentityStatus] = useState<'IDLE' | 'LOADING' | 'MATCH' | 'AMBIGUOUS' | 'NEW'>('IDLE');
+  const [identityMatch, setIdentityMatch] = useState<any | null>(null);
+  const [matchedVehicles, setMatchedVehicles] = useState<any[]>([]);
+  const [resolvedCustomerId, setResolvedCustomerId] = useState<string | null>(customerId || null);
+  const [resolvedContactId, setResolvedContactId] = useState<string | null>(contactId || null);
+  const [vehicleSelectionMode, setVehicleSelectionMode] = useState<'EXISTING' | 'NEW'>('EXISTING');
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
+
+  // Reuse the saved case snapshot when generating an alternative insurer quote.
+  // This deliberately prefills customer/risk data while leaving insurer selection
+  // and insurer-specific pricing as a fresh, explicit decision.
+  useEffect(() => {
+    if (!isOpen || !cloneQuoteData) return;
+
+    if (cloneQuoteData.proposerDetails) {
+      setProposer((current) => ({
+        ...current,
+        ...cloneQuoteData.proposerDetails,
+      }));
+    }
+    if (cloneQuoteData.vehicleDetails) {
+      setVehicleDetails((current) => ({
+        ...current,
+        ...cloneQuoteData.vehicleDetails,
+      }));
+    }
+    if (cloneQuoteData.previousPolicyDetails) {
+      setPreviousPolicy((current) => ({
+        ...current,
+        ...cloneQuoteData.previousPolicyDetails,
+      }));
+    }
+    if (cloneQuoteData.category || initialCategory) {
+      setVehicleCategory(
+        (cloneQuoteData.category || initialCategory) as VehicleCategory,
+      );
+    }
+    if (cloneQuoteData.policyType) {
+      setPolicyType(cloneQuoteData.policyType);
+    }
+    if (cloneQuoteData.policyDetails) {
+      const details = cloneQuoteData.policyDetails as Record<string, any>;
+      if (details.policyType === 'TP_ONLY' || details.policyType === 'THIRD_PARTY_ONLY') {
+        setTpForm((current) => ({ ...current, ...details }));
+      } else if (details.policyType === 'SAOD' || details.policyType === 'STANDALONE_OD') {
+        setSaodForm((current) => ({ ...current, ...details }));
+      } else {
+        setPackageForm((current) => ({ ...current, ...details }));
+      }
+    }
+  }, [isOpen, cloneQuoteData, initialCategory]);
+
+  // Debounced Identity Resolution Lookup
+  useEffect(() => {
+    const mobile = (proposer.mobileNumber || '').replace(/\D/g, '').trim();
+    const email = (proposer.emailId || '').trim();
+
+    if (mobile.length !== 10 && !email.includes('@')) {
+      setIdentityStatus('IDLE');
+      setIdentityMatch(null);
+      setMatchedVehicles([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIdentityStatus('LOADING');
+      try {
+        const res = await apiClient.post('/contacts/resolve-identity', {
+          phone: mobile.length === 10 ? mobile : undefined,
+          email: email.includes('@') ? email : undefined,
+        });
+        const data = res.data;
+        if (data.status === 'MATCH') {
+          setIdentityStatus('MATCH');
+          setIdentityMatch(data);
+          setResolvedCustomerId(data.customer?.id || null);
+          setResolvedContactId(data.contact?.id || null);
+          if (Array.isArray(data.vehicles) && data.vehicles.length > 0) {
+            setMatchedVehicles(data.vehicles);
+            setVehicleSelectionMode('EXISTING');
+          } else {
+            setMatchedVehicles([]);
+            setVehicleSelectionMode('NEW');
+          }
+        } else if (data.status === 'AMBIGUOUS') {
+          setIdentityStatus('AMBIGUOUS');
+          setIdentityMatch(data);
+        } else {
+          setIdentityStatus('NEW');
+          setIdentityMatch(null);
+          setMatchedVehicles([]);
+          setVehicleSelectionMode('NEW');
+        }
+      } catch {
+        setIdentityStatus('IDLE');
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [proposer.mobileNumber, proposer.emailId]);
   const [journeyId, setJourneyId] = useState<string | null>(null);
   const [showInspectionDialog, setShowInspectionDialog] = useState(false);
   const [isContextLoading, setIsContextLoading] = useState(false);
@@ -439,7 +543,6 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
       apiClient
         .post('/motor/journeys', {
           leadId: leadId && leadId !== 'new' ? leadId : undefined,
-          contactId: contactId || undefined,
           vehicleCategory: initialCategory || undefined,
         })
         .then((res) => {
@@ -605,6 +708,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
     activeTpVerifiedByUserConfirmed: policyType === 'SAOD' ? saodForm.tpVerification?.verifiedByUserConfirmed : undefined,
     odExpiryDate: previousPolicy.odExpiryDate,
     newOwnerName: previousPolicy.newOwnerName,
+    isOldCustomer: Boolean(proposer.isOldCustomer),
   });
 
   const evaluateRules = async (): Promise<boolean> => {
@@ -685,6 +789,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
     policyType,
     step,
     journeyId,
+    proposer.isOldCustomer,
     vehicleDetails.vehicleStatus,
     previousPolicy.previousPolicyType,
     previousPolicy.policyExpiryDate,
@@ -832,6 +937,18 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
   };
 
   const handleSave = async () => {
+    const selectedInsurer = activeInsurers.find(
+      (insurer) => insurer.name.trim().toLowerCase() === insurerName.trim().toLowerCase(),
+    );
+    if (insurersLoading || insurersError || !selectedInsurer) {
+      toast.error(
+        insurersLoading
+          ? 'Wait for the active insurer list to load.'
+          : 'Select an active insurer from Insurer Master before generating a quotation.',
+      );
+      return;
+    }
+
     if (!vehicleCategory || !policyType) {
       toast.error('Vehicle category and policy type are required');
       return;
@@ -868,16 +985,10 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
       }
     }
 
-    // REQ-4: Address and PIN code validation
-    if (proposer.customerName || proposer.mobileNumber) {
-      if (!proposer.address || proposer.address.trim().length < 5) {
-        toast.error('Customer communication address is mandatory (minimum 5 characters)');
-        return;
-      }
-      if (!proposer.pincode || !/^[1-9][0-9]{5}$/.test(proposer.pincode.trim())) {
-        toast.error('Customer PIN code must be a valid 6-digit postal code');
-        return;
-      }
+    // Address and PIN code: Optional at quotation stage (DEC-06); validate format only if provided
+    if (proposer.pincode && proposer.pincode.trim() && !/^[1-9][0-9]{5}$/.test(proposer.pincode.trim())) {
+      toast.error('Customer PIN code must be a valid 6-digit postal code');
+      return;
     }
 
     // REQ-5: Renewal quotations allowed only from 45 days before expiry
@@ -907,7 +1018,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
       !Number.isFinite(authoritativeTotal) ||
       authoritativeTotal <= 0
     ) {
-      toast.error('Cannot save this quotation: a successful current server-side premium calculation is required. Resolve tariff, add-on, or discount errors and retry.');
+      toast.error('Quotation not saved: there is no successful calculation for the current form values. Review the specific calculation error shown in the Premium section, correct it, and wait for recalculation.');
       return;
     }
 
@@ -934,14 +1045,19 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
       const payload = {
         journeyId: journeyId || undefined,
         caseId: caseId || cloneQuoteData?.caseId || undefined,
+        renewalOfPolicyId: cloneQuoteData?.renewalOfPolicyId || undefined,
         vehicleCategory,
         policyType,
         registrationNumber: registrationNumber || '',
-        insurerName: insurerName || 'Partner Insurer',
+        insurerId: selectedInsurer.id,
+        insurerName: selectedInsurer.name,
         leadId: leadId && leadId !== 'new' ? leadId : undefined,
-        contactId: contactId || undefined,
-        customerId: customerId || undefined,
+        contactId: resolvedContactId || contactId || undefined,
+        customerId: resolvedCustomerId || customerId || undefined,
+        vehicleId: selectedVehicleId || undefined,
         agentId: isManualAgent ? undefined : (selectedAgentId || undefined),
+        externalAgentCode: !isManualAgent ? selectedAgentCode || undefined : undefined,
+        agentCodeSystem: !isManualAgent ? selectedAgentCodeSystem || undefined : undefined,
         manualAgent: isManualAgent ? {
           isManual: true,
           name: manualAgentDetails?.name,
@@ -959,6 +1075,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
         calculationSnapshot: calcResult,
         idv: getIDV(),
         ncbPercentage: getNCB(),
+        isOldCustomer: Boolean(proposer.isOldCustomer),
         proposerDetails: proposer,
         vehicleDetails,
         previousPolicyDetails: previousPolicy,
@@ -1136,7 +1253,70 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
           <div className="max-w-3xl mx-auto space-y-6">
             {step === 1 && (
               <div className="space-y-4">
-                <h3 className="text-sm font-bold text-foreground border-b pb-2">Customer Basic Information</h3>
+                <div className="flex items-center justify-between border-b pb-2">
+                  <h3 className="text-sm font-bold text-foreground">Customer Basic Information</h3>
+                  {identityStatus === 'LOADING' && (
+                    <span className="flex items-center gap-1.5 text-xs text-muted-foreground animate-pulse">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" /> Verifying identity…
+                    </span>
+                  )}
+                </div>
+
+                {/* Live Identity Resolution Feedback */}
+                {identityStatus === 'MATCH' && identityMatch && (
+                  <div className="p-3.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-xs space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 font-bold text-emerald-800 dark:text-emerald-300">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+                        <span>Existing Customer: {identityMatch.customer?.firstName || identityMatch.contact?.firstName} {identityMatch.customer?.lastName || identityMatch.contact?.lastName}</span>
+                        <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-emerald-200/50 dark:bg-emerald-800/40">
+                          {identityMatch.customer?.customerCode || identityMatch.contact?.contactCode}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const c = identityMatch.customer || identityMatch.contact;
+                          setProposer((prev) => ({
+                            ...prev,
+                            customerName: `${c.firstName || ''} ${c.lastName || ''}`.trim() || prev.customerName,
+                            address: c.addressLine1 || c.address || prev.address,
+                            pincode: c.pincode || prev.pincode,
+                            panNumber: c.panNumber || prev.panNumber,
+                          }));
+                          toast.success('Customer details auto-filled from verified record.');
+                        }}
+                        className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-xs"
+                      >
+                        Auto-Fill Details
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
+                      <span>Phone: <strong className="text-foreground">{identityMatch.customer?.mobile || identityMatch.contact?.phone || '—'}</strong></span>
+                      <span>Email: <strong className="text-foreground">{identityMatch.customer?.email || identityMatch.contact?.email || '—'}</strong></span>
+                      <span>Registered Assets: <strong className="text-foreground">{matchedVehicles.length} vehicle(s)</strong></span>
+                    </div>
+                  </div>
+                )}
+
+                {identityStatus === 'AMBIGUOUS' && identityMatch && (
+                  <div className="p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs space-y-1">
+                    <div className="flex items-center gap-2 font-bold text-amber-800 dark:text-amber-300">
+                      <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0" />
+                      <span>Identity Conflict Detected</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      {identityMatch.conflictReason || 'The phone and email correspond to different customers. Please verify details to prevent incorrect association.'}
+                    </p>
+                  </div>
+                )}
+
+                {identityStatus === 'NEW' && (
+                  <div className="p-2.5 rounded-lg border border-primary/20 bg-primary/5 text-xs text-primary font-medium flex items-center gap-2">
+                    <UserCheck className="h-4 w-4 flex-shrink-0" />
+                    <span>New Customer — Will be registered automatically in CRM when quotation is saved. No prior customer setup required.</span>
+                  </div>
+                )}
                 {selectedAgentId && selectedAgentPreferenceQuery.isLoading ? (
                   <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                     <Loader2 className="h-3 w-3 animate-spin" />
@@ -1195,7 +1375,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-muted-foreground">
-                      PIN Code <span className="text-red-500 ml-0.5">*</span>
+                      PIN Code <span className="text-muted-foreground/60">(Optional)</span>
                     </label>
                     <input
                       type="text"
@@ -1211,25 +1391,46 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
                   </div>
                   <div className="space-y-1.5 md:col-span-2">
                     <label className="text-xs font-semibold text-muted-foreground">
-                      Communication Address <span className="text-red-500 ml-0.5">*</span>
+                      Communication Address <span className="text-muted-foreground/60">(Optional)</span>
                     </label>
                     <textarea
                       rows={2}
                       value={proposer.address || ''}
                       onChange={(e) => setProposer({...proposer, address: e.target.value})}
-                      className={`w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none ${proposer.address && proposer.address.trim().length < 5 ? 'border-red-400' : ''}`}
-                      placeholder="Full communication street address, building, locality (minimum 5 characters)"
+                      className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                      placeholder="Full communication street address, building, locality (Optional for quotation; required at policy issuance)"
                     />
                     {proposer.address && proposer.address.trim().length > 0 && proposer.address.trim().length < 5 && (
                       <p className="text-[10px] text-red-500">Address must be at least 5 characters in length</p>
                     )}
                   </div>
+                  <div className="md:col-span-2 space-y-0.5 pt-1">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="motorProposerIsOldCustomer"
+                        checked={Boolean(proposer.isOldCustomer)}
+                        onChange={(e) => setProposer({ ...proposer, isOldCustomer: e.target.checked })}
+                        className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary/50"
+                      />
+                      <label
+                        htmlFor="motorProposerIsOldCustomer"
+                        className="text-xs font-semibold text-foreground cursor-pointer select-none"
+                      >
+                        Old Customer
+                      </label>
+                    </div>
+                    <p className="pl-6 text-[11px] text-muted-foreground">
+                      If checked, no vehicle inspection is required even if the previous policy is expired (non-expiry inspection rules still apply).
+                    </p>
+                  </div>
                   <div className="space-y-1.5 md:col-span-2 pt-2 border-t border-border">
                     <AgentSelector
                       value={selectedAgentId}
-                      onChange={(agentId, agentCode) => {
+                      onChange={(agentId, agentCode, codeSystem) => {
                         setSelectedAgentId(agentId);
                         setSelectedAgentCode(agentCode);
+                        setSelectedAgentCodeSystem(codeSystem || '');
                       }}
                       isManualAgent={isManualAgent}
                       manualAgentName={manualAgentDetails?.name}
@@ -1245,25 +1446,121 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
             )}
 
             {step === 2 && (
-              vehicleCategory ? (
-                <div className="space-y-4">
-                  <h3 className="text-sm font-bold text-foreground border-b pb-2">Vehicle Details</h3>
-                  <VehicleDetailsForm
-                    category={vehicleCategory}
-                    data={vehicleDetails}
-                    onChange={setVehicleDetails}
-                  />
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <h3 className="text-sm font-bold text-foreground border-b pb-2">Select Vehicle Category</h3>
-                  <div className="text-sm text-muted-foreground mb-4">Please select the type of vehicle to correctly populate the underwriting fields.</div>
-                  <VehicleCategorySelector selected={vehicleCategory} onChange={(cat) => {
-                    setVehicleCategory(cat);
-                    setVehicleDetails({ vehicleStatus: 'EXISTING' });
-                  }} />
-                </div>
-              )
+              <div className="space-y-4">
+                {matchedVehicles.length > 0 && (
+                  <div className="flex items-center gap-2 p-1 bg-muted/40 rounded-lg border w-fit">
+                    <button
+                      type="button"
+                      onClick={() => setVehicleSelectionMode('EXISTING')}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${
+                        vehicleSelectionMode === 'EXISTING'
+                          ? 'bg-primary text-primary-foreground shadow'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      Select Existing Vehicle ({matchedVehicles.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVehicleSelectionMode('NEW');
+                        setSelectedVehicleId(null);
+                      }}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${
+                        vehicleSelectionMode === 'NEW'
+                          ? 'bg-primary text-primary-foreground shadow'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      + Add New Vehicle
+                    </button>
+                  </div>
+                )}
+
+                {matchedVehicles.length > 0 && vehicleSelectionMode === 'EXISTING' ? (
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-bold text-foreground border-b pb-2">Customer Registered Vehicles</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {matchedVehicles.map((v) => {
+                        const isSelected = selectedVehicleId === v.id;
+                        return (
+                          <div
+                            key={v.id}
+                            onClick={() => {
+                              setSelectedVehicleId(v.id);
+                              setVehicleCategory(v.category as VehicleCategory);
+                              setVehicleDetails({
+                                vehicleStatus: 'EXISTING',
+                                registrationNumber: v.registrationNumber || '',
+                                makeModel: v.makeModel || '',
+                                fuelType: v.fuelType || '',
+                                manufactureYearMonth: v.manufactureYearMonth || '',
+                                dateOfRegistration: v.dateOfRegistration ? new Date(v.dateOfRegistration).toISOString().slice(0, 10) : '',
+                                engineNumber: v.engineNumber || '',
+                                chassisNumber: v.chassisNumber || '',
+                                rtoLocation: v.rtoLocation || '',
+                              });
+                              if (v.activePolicyNumber || v.activeInsurerName) {
+                                setPreviousPolicy((prev) => ({
+                                  ...prev,
+                                  previousPolicyType: ((v.activePolicyType as any) || 'COMPREHENSIVE') as any,
+                                  previousInsurerName: v.activeInsurerName || '',
+                                  previousPolicyNumber: v.activePolicyNumber || '',
+                                  policyExpiryDate: v.expiryDate ? v.expiryDate.slice(0, 10) : '',
+                                }));
+                              }
+                            }}
+                            className={`p-4 rounded-xl border cursor-pointer transition-all ${
+                              isSelected
+                                ? 'border-primary bg-primary/5 ring-2 ring-primary/20 shadow-sm'
+                                : 'hover:border-foreground/30 hover:bg-muted/20'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-mono font-bold text-sm text-foreground">
+                                {v.registrationNumber || 'Unregistered'}
+                              </span>
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-muted text-muted-foreground uppercase">
+                                {v.category}
+                              </span>
+                            </div>
+                            <p className="text-xs font-medium text-foreground mt-1">{v.makeModel || 'Standard Specs'}</p>
+                            <div className="flex items-center gap-3 mt-2 text-[11px] text-muted-foreground">
+                              <span>Fuel: <strong className="text-foreground">{v.fuelType || '—'}</strong></span>
+                              {v.activePolicyStatus && (
+                                <span>Policy: <strong className="text-emerald-600">{v.activePolicyStatus}</strong></span>
+                              )}
+                            </div>
+                            {isSelected && (
+                              <div className="mt-2.5 text-xs font-bold text-primary flex items-center gap-1">
+                                <CheckCircle2 className="h-3.5 w-3.5" /> Selected for Quotation
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : vehicleCategory ? (
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-bold text-foreground border-b pb-2">Vehicle Details</h3>
+                    <VehicleDetailsForm
+                      category={vehicleCategory}
+                      data={vehicleDetails}
+                      onChange={setVehicleDetails}
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-bold text-foreground border-b pb-2">Select Vehicle Category</h3>
+                    <div className="text-sm text-muted-foreground mb-4">Please select the type of vehicle to correctly populate the underwriting fields.</div>
+                    <VehicleCategorySelector selected={vehicleCategory} onChange={(cat) => {
+                      setVehicleCategory(cat);
+                      setVehicleDetails({ vehicleStatus: 'EXISTING' });
+                    }} />
+                  </div>
+                )}
+              </div>
             )}
 
             {step === 3 && (

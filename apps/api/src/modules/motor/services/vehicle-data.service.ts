@@ -1,6 +1,7 @@
 import {
   Injectable,
   BadRequestException,
+  ConflictException,
   NotFoundException,
   ForbiddenException,
   InternalServerErrorException,
@@ -31,6 +32,7 @@ export interface VehicleSpecValidationResult {
 
 export interface UpsertVehicleDto {
   contactId: string;
+  customerId?: string;
   category: VehicleCategory;
   registrationNumber?: string;
   makeModel?: string;
@@ -539,7 +541,7 @@ export class VehicleDataService {
   ) {
     const contact = await this.prisma.contact.findUnique({
       where: { id: dto.contactId },
-      select: { id: true, companyId: true },
+      select: { id: true, companyId: true, customer: { select: { id: true } } },
     });
     if (!contact) {
       throw new NotFoundException(`Contact with ID ${dto.contactId} not found`);
@@ -575,19 +577,57 @@ export class VehicleDataService {
       dto.categorySpecificData || {},
     );
 
-    // If existing vehicle under this contact with matching registration
+    const effectiveCompanyId = contact.companyId || actorCompanyId;
+    const effectiveCustomerId = dto.customerId || contact.customer?.id || null;
+
+    // Detect duplicate registration across agency or under current customer
     let existingVehicle: any = null;
     if (normalizedPlate) {
-      existingVehicle = await this.prisma.vehicle.findFirst({
+      const rawVehicles = await this.prisma.vehicle.findMany({
         where: {
-          contactId: dto.contactId,
-          registrationNumber: normalizedPlate,
+          registrationNumber: { equals: normalizedPlate, mode: 'insensitive' },
+          companyId: effectiveCompanyId,
           deletedAt: null,
         },
+        include: {
+          contact: {
+            select: { id: true, firstName: true, lastName: true, phone: true },
+          },
+          customer: {
+            select: { id: true, customerCode: true, firstName: true, lastName: true, mobile: true },
+          },
+        },
       });
-    }
+      const agencyVehicles = rawVehicles || [];
 
-    const effectiveCompanyId = contact.companyId || actorCompanyId;
+      if (agencyVehicles.length > 0) {
+        const ownedByCurrentCustomer = agencyVehicles.find(
+          (v) =>
+            v.contactId === dto.contactId ||
+            (effectiveCustomerId && v.customerId === effectiveCustomerId),
+        );
+
+        if (ownedByCurrentCustomer) {
+          existingVehicle = ownedByCurrentCustomer;
+        } else {
+          const conflicting = agencyVehicles[0];
+          const ownerName = conflicting.customer
+            ? `${conflicting.customer.firstName || ''} ${conflicting.customer.lastName || ''}`.trim()
+            : conflicting.contact
+            ? `${conflicting.contact.firstName || ''} ${conflicting.contact.lastName || ''}`.trim()
+            : 'another customer';
+
+          throw new ConflictException({
+            statusCode: 409,
+            error: 'Conflict',
+            errorCode: 'VEHICLE_OWNERSHIP_CONFLICT',
+            message: `Vehicle registration ${normalizedPlate} is already registered under ${ownerName} in this agency. Transfer or re-assignment requires authorized resolution.`,
+            existingVehicleId: conflicting.id,
+            vehicleCode: conflicting.vehicleCode,
+          });
+        }
+      }
+    }
 
     if (existingVehicle) {
       return this.prisma.vehicle.update({
@@ -607,6 +647,7 @@ export class VehicleDataService {
           categorySpecificData: validation.sanitizedSpecs,
           status: VehicleStatus.EXISTING,
           ...(effectiveCompanyId ? { company: { connect: { id: effectiveCompanyId } } } : {}),
+          ...(effectiveCustomerId && !existingVehicle.customerId ? { customer: { connect: { id: effectiveCustomerId } } } : {}),
         },
       });
     }
@@ -632,6 +673,7 @@ export class VehicleDataService {
         rtoLocation: rtoLoc,
         categorySpecificData: validation.sanitizedSpecs,
         contact: { connect: { id: dto.contactId } },
+        ...(effectiveCustomerId ? { customer: { connect: { id: effectiveCustomerId } } } : {}),
         createdBy: actorId ? { connect: { id: actorId } } : undefined,
       },
     });

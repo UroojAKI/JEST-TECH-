@@ -3,11 +3,15 @@
 import React from 'react';
 import { CATEGORY_LABEL, POLICY_TYPE_LABEL } from './motorFormConfig';
 import type { SavedMotorQuote } from './motorFormTypes';
-import { Car, Upload, Clock, CheckCircle2, XCircle, AlertCircle, Shield, Wrench, ShieldCheck, FileText, Copy, Download, RefreshCw, Loader2 } from 'lucide-react';
+import { Car, Upload, Clock, CheckCircle2, XCircle, AlertCircle, Shield, Wrench, ShieldCheck, FileText, Copy, Download, RefreshCw, Loader2, Send } from 'lucide-react';
 import { QuotationCompletionView } from './QuotationCompletionView';
 import { useAuthStore } from '../../../store/auth-store';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../../lib/api-client';
+import {
+  canUserSubmitToBackOffice,
+  canQuotationRecordPayment,
+} from '../../../repositories/quotations.repository';
 
 interface Props {
   quote: SavedMotorQuote;
@@ -16,6 +20,7 @@ interface Props {
   onCompleteProposal?: (quote: SavedMotorQuote) => void;
   onIssuePolicy?: (quote: SavedMotorQuote) => void;
   onAddComparisonQuote?: (quote: SavedMotorQuote) => void;
+  onSubmitToBackOffice?: (quotationId: string) => Promise<void>;
   userRole?: string;
 }
 
@@ -43,8 +48,10 @@ const CAT_ICONS: Record<string, string> = {
   AUTO: '🛺', TAXI: '🚕', BUS: '🚌', MISC: '🏗️',
 };
 
-export function QuoteCard({ quote, onUploadQuote, onConductInspection, onCompleteProposal, onIssuePolicy, onAddComparisonQuote, userRole }: Props) {
+export function QuoteCard({ quote, onUploadQuote, onConductInspection, onCompleteProposal, onIssuePolicy, onAddComparisonQuote, onSubmitToBackOffice, userRole }: Props) {
   const [isUploading, setIsUploading] = React.useState(false);
+  const [isSubmittingToBackOffice, setIsSubmittingToBackOffice] = React.useState(false);
+  const [submittedToBackOffice, setSubmittedToBackOffice] = React.useState(Boolean((quote as any).backOfficeSubmittedAt));
   const [isHovered, setIsHovered] = React.useState(false);
   const authUser = useAuthStore((s) => s.user);
   const userRoles = [
@@ -56,6 +63,14 @@ export function QuoteCard({ quote, onUploadQuote, onConductInspection, onComplet
     ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMINISTRATOR', 'BACK_OFFICE', 'OPERATIONS', 'UNDERWRITER'].includes(r)
   );
   const isAgent = !isBackOfficeOrAdmin;
+  const canSubmitToBackOffice = canUserSubmitToBackOffice(userRoles);
+  const isSubmittedToBackOffice =
+    submittedToBackOffice || Boolean((quote as any).backOfficeSubmittedAt);
+  const isTerminalQuoteStatus =
+    ['ISSUED', 'CONVERTED_TO_POLICY', 'REJECTED', 'EXPIRED'].includes(
+      String(quote.status || '').toUpperCase(),
+    ) ||
+    String((quote as any).issuanceStatus || '').toUpperCase() === 'ISSUED';
 
   const { data: projection } = useQuery({
     queryKey: ['quote-workflow-projection', quote.id],
@@ -266,14 +281,13 @@ export function QuoteCard({ quote, onUploadQuote, onConductInspection, onComplet
           )
         )}
 
-        {(quote.status === 'READY_FOR_PROPOSAL' ||
-          quote.status === 'APPROVED' ||
-          quote.status === 'PAYMENT_UNDER_PROCESS' ||
-          quote.status === 'PAYMENT_PENDING' ||
-          canonicalState === 'READY_FOR_PROPOSAL' ||
-          canonicalState === 'PROPOSAL_APPROVED' ||
-          canonicalState === 'APPROVED' ||
-          canonicalState === 'PAYMENT_UNDER_PROCESS') &&
+        {canQuotationRecordPayment({
+          ...quote,
+          motorWorkflowState:
+            projection?.canonicalState ||
+            (quote as any).motorWorkflowState ||
+            quote.workflowState,
+        }) &&
           onCompleteProposal && (
           <button
             onClick={() => onCompleteProposal(quote)}
@@ -321,6 +335,46 @@ export function QuoteCard({ quote, onUploadQuote, onConductInspection, onComplet
               Payment Verified · Ready to Issue
             </div>
           ))}
+
+        {canSubmitToBackOffice && onSubmitToBackOffice && !isTerminalQuoteStatus && (
+          <button
+            type="button"
+            disabled={isSubmittedToBackOffice || isSubmittingToBackOffice}
+            onClick={async () => {
+              setIsSubmittingToBackOffice(true);
+              try {
+                await onSubmitToBackOffice(quote.id);
+                setSubmittedToBackOffice(true);
+              } catch {
+                // Parent handler displays error toast via showApiErrorToast
+              } finally {
+                setIsSubmittingToBackOffice(false);
+              }
+            }}
+            className={`w-full flex cursor-pointer items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-bold shadow-xs transition-all active:scale-[0.98] disabled:cursor-not-allowed ${
+              isSubmittedToBackOffice
+                ? 'bg-emerald-600/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 opacity-90'
+                : 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 disabled:opacity-60'
+            }`}
+          >
+            {isSubmittingToBackOffice ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <span>Submitting…</span>
+              </>
+            ) : isSubmittedToBackOffice ? (
+              <>
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                <span>Sent to Back Office</span>
+              </>
+            ) : (
+              <>
+                <Send className="h-3.5 w-3.5" />
+                <span>Select &amp; Send to Back Office</span>
+              </>
+            )}
+          </button>
+        )}
 
         {onAddComparisonQuote && (
           <button

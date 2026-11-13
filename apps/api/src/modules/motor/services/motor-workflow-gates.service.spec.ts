@@ -263,4 +263,80 @@ describe('MotorWorkflowGatesService', () => {
     expect(projection.canIssue).toBe(false);
     expect(projection.allowedActions).not.toContain('ISSUE_POLICY');
   });
+
+  it('should allow calculationValid and issuance for TP_ONLY / THIRD_PARTY_ONLY policies when sumInsured (IDV) is 0', async () => {
+    for (const policyType of ['TP_ONLY', 'THIRD_PARTY_ONLY']) {
+      prisma.quotation.findUnique.mockResolvedValue({
+        id: `quote-tp-${policyType}`,
+        quotationCode: 'QT-2026-11-000044',
+        companyId: 'comp-1',
+        policyType,
+        sumInsured: new Prisma.Decimal(0),
+        totalPremium: new Prisma.Decimal(2094),
+        calculationSnapshot: { base: 1775, gst: 319, totalPremium: 2094 },
+        contact: { panNumber: 'ABCDE1234F' },
+        account: { kycStatus: 'VERIFIED' },
+        vehicle: { status: 'OLD' },
+        motorInspection: null,
+        motorPaymentRecord: {
+          status: 'PAID',
+          amount: new Prisma.Decimal(2094),
+        },
+        proposal: { status: 'APPROVED' },
+        motorDocuments: [{ verificationStatus: 'VERIFIED' }],
+        policy: null,
+        workflowState: 'PAYMENT_DONE',
+        issuanceStatus: 'ISSUANCE_PENDING',
+      });
+      prisma.motorRuleEvaluation.findUnique.mockResolvedValue({
+        inspectionRequired: false,
+      });
+
+      const projection = await service.getWorkflowProjection(
+        `quote-tp-${policyType}`,
+        'comp-1',
+        mockActorBO,
+      );
+
+      expect(projection.blockingGates.calculationValid).toBe(true);
+      expect(projection.canIssue).toBe(true);
+      expect(projection.blockingReasons).toHaveLength(0);
+    }
+  });
+
+  it('should still block calculationValid when sumInsured (IDV) is 0 for PACKAGE policies', async () => {
+    prisma.quotation.findUnique.mockResolvedValue({
+      id: 'quote-pkg-zero-idv',
+      quotationCode: 'QT-PKG-0',
+      companyId: 'comp-1',
+      policyType: 'PACKAGE',
+      sumInsured: new Prisma.Decimal(0),
+      totalPremium: new Prisma.Decimal(15000),
+      calculationSnapshot: { base: 12000 },
+      contact: { panNumber: 'ABCDE1234F' },
+      account: { kycStatus: 'VERIFIED' },
+      vehicle: { status: 'OLD' },
+      motorInspection: null,
+      motorPaymentRecord: null,
+      proposal: null,
+      motorDocuments: [],
+      policy: null,
+      workflowState: 'DRAFT',
+      issuanceStatus: 'DRAFT',
+    });
+    prisma.motorRuleEvaluation.findUnique.mockResolvedValue({
+      inspectionRequired: false,
+    });
+
+    const projection = await service.getWorkflowProjection(
+      'quote-pkg-zero-idv',
+      'comp-1',
+      mockActorBO,
+    );
+
+    expect(projection.blockingGates.calculationValid).toBe(false);
+    expect(projection.blockingReasons).toContain(
+      'Quotation premium calculation has not been finalized',
+    );
+  });
 });

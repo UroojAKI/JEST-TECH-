@@ -120,4 +120,47 @@ describe('MotorQuoteWizard Contact Collection Enforcement (Step 1)', () => {
     // Now valid -> Continue button enabled!
     expect(nextBtn).not.toBeDisabled();
   });
+
+  it('renders Old Customer checkbox unchecked by default on Step 1 even if resolved customer is an old customer, and toggles independently', async () => {
+    vi.mocked(apiClient.post).mockImplementation(async (url: string) => {
+      if (url === '/contacts/resolve-identity') {
+        return {
+          data: {
+            status: 'MATCH',
+            customer: { id: 'cust-1', isOldCustomer: true },
+            contact: { id: 'cont-1', isOldCustomer: true },
+            vehicles: [],
+          },
+        } as any;
+      }
+      return { data: { journeyId: 'j-1' } } as any;
+    });
+
+    render(
+      <MotorQuoteWizard
+        isOpen={true}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />
+    );
+
+    const checkbox = screen.getByLabelText(/Old Customer/i) as HTMLInputElement;
+    expect(checkbox).toBeInTheDocument();
+    expect(checkbox.checked).toBe(false);
+
+    fireEvent.change(screen.getByPlaceholderText(/10-digit number/i), {
+      target: { value: '9876543210' },
+    });
+
+    await waitFor(() => {
+      expect(apiClient.post).toHaveBeenCalledWith(
+        '/contacts/resolve-identity',
+        expect.objectContaining({ phone: '9876543210' }),
+      );
+    });
+    expect(checkbox.checked).toBe(false);
+
+    fireEvent.click(checkbox);
+    expect(checkbox.checked).toBe(true);
+  });
 });

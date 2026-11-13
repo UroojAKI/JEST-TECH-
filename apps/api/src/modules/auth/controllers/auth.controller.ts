@@ -3,6 +3,7 @@ import { Throttle } from '@nestjs/throttler';
 import type { Response, Request } from 'express';
 
 import { LoginDto } from '../dto/login.dto';
+import { ActivateInvitationDto } from '../dto/activate-invitation.dto';
 import { AuthService } from '../services/auth.service';
 import { Public } from '../decorators/public.decorator';
 import * as crypto from 'crypto';
@@ -10,6 +11,13 @@ import * as crypto from 'crypto';
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  @Public()
+  @Post('activate-invitation')
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  async activateInvitation(@Body() dto: ActivateInvitationDto) {
+    return this.authService.activateInvitation(dto.token, dto.password);
+  }
 
   @Public()
   @Post('login')
@@ -40,17 +48,22 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const refreshToken = req.cookies?.['refresh_token'];
-    const result = await this.authService.refresh(refreshToken);
+    try {
+      const result = await this.authService.refresh(refreshToken);
+      this.setAuthCookies(res, result.accessToken, result.refreshToken);
 
-    this.setAuthCookies(res, result.accessToken, result.refreshToken);
-
-    return {
-      success: true,
-      expiresIn: result.expiresIn,
-      user: result.user,
-      workspaces: result.workspaces,
-      landingWorkspace: result.landingWorkspace,
-    };
+      return {
+        success: true,
+        expiresIn: result.expiresIn,
+        user: result.user,
+        workspaces: result.workspaces,
+        landingWorkspace: result.landingWorkspace,
+      };
+    } catch (error) {
+      // Clear stale cookies so invalid/revoked sessions do not trap the client in redirect loops
+      this.clearAuthCookies(res);
+      throw error;
+    }
   }
 
   @Post('logout')
@@ -66,10 +79,19 @@ export class AuthController {
     const userId = user?.userId || user?.id || user?.sub;
 
     await this.authService.logout(userId, refreshToken, accessToken);
+    this.clearAuthCookies(res);
+    return { success: true };
+  }
 
-    const isSecure =
+  private getCookieSecurityFlag(): boolean {
+    return (
       process.env.NODE_ENV === 'production' &&
-      process.env.SECURE_COOKIES !== 'false';
+      process.env.SECURE_COOKIES !== 'false'
+    );
+  }
+
+  private clearAuthCookies(res: Response) {
+    const isSecure = this.getCookieSecurityFlag();
 
     res.clearCookie('access_token', {
       path: '/',
@@ -88,7 +110,6 @@ export class AuthController {
       secure: isSecure,
       sameSite: 'lax',
     });
-    return { success: true };
   }
 
   private setAuthCookies(
@@ -96,9 +117,7 @@ export class AuthController {
     accessToken: string,
     refreshToken: string,
   ) {
-    const isSecure =
-      process.env.NODE_ENV === 'production' &&
-      process.env.SECURE_COOKIES !== 'false';
+    const isSecure = this.getCookieSecurityFlag();
     res.cookie('access_token', accessToken, {
       httpOnly: true,
       secure: isSecure,

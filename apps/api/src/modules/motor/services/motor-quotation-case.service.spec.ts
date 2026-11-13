@@ -151,6 +151,47 @@ describe('MotorQuotationCaseService', () => {
       expect(result.status).toBe('SELECTED');
     });
 
+    it('preserves PAYMENT_VERIFIED case status and PAYMENT_DONE workflowState when binding selectedQuoteId', async () => {
+      const mockCase = {
+        id: 'case-paid',
+        companyId: 'comp-1',
+        status: 'PAYMENT_VERIFIED',
+        selectedQuoteId: null,
+      };
+      const mockQuote = {
+        id: 'quote-paid',
+        caseId: 'case-paid',
+        companyId: 'comp-1',
+        workflowState: 'PAYMENT_DONE',
+      };
+
+      mockPrisma.motorQuotationCase.findFirst.mockResolvedValue(mockCase);
+      mockPrisma.quotation.findFirst.mockResolvedValue(mockQuote);
+      mockPrisma.motorQuotationCase.update.mockResolvedValue({
+        ...mockCase,
+        selectedQuoteId: 'quote-paid',
+      });
+
+      const result = await service.selectQuotation('case-paid', 'quote-paid', mockUser as any);
+
+      expect(mockPrisma.motorQuotationCase.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'case-paid' },
+          data: { selectedQuoteId: 'quote-paid', status: 'PAYMENT_VERIFIED' },
+        }),
+      );
+      expect(mockPrisma.quotation.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'quote-paid' },
+          data: expect.objectContaining({
+            workflowState: 'PAYMENT_DONE',
+          }),
+        }),
+      );
+      expect(result.status).toBe('PAYMENT_VERIFIED');
+      expect(result.selectedQuoteId).toBe('quote-paid');
+    });
+
     it('throws BadRequestException if quotation does not belong to case', async () => {
       mockPrisma.motorQuotationCase.findFirst.mockResolvedValue({ id: 'case-1', companyId: 'comp-1' });
       mockPrisma.quotation.findFirst.mockResolvedValue(null);

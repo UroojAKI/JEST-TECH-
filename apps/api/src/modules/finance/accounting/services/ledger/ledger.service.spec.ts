@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { LedgerService, CreateJournalEntryDto } from './ledger.service';
 import { PrismaService } from '../../../../../database/prisma.service';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Decimal } from '@prisma/client/runtime/library';
 
 describe('LedgerService', () => {
@@ -49,12 +49,25 @@ describe('LedgerService', () => {
         ],
       };
 
-      await expect(service.postEntry(data)).rejects.toThrow(
+      await expect(service.postEntry(data, 'comp-1')).rejects.toThrow(
         BadRequestException,
       );
-      await expect(service.postEntry(data)).rejects.toThrow(
+      await expect(service.postEntry(data, 'comp-1')).rejects.toThrow(
         'Journal entry is unbalanced',
       );
+    });
+
+    it('should reject posting when company context is missing', async () => {
+      const data: CreateJournalEntryDto = {
+        date: new Date(),
+        description: 'Unscoped Entry',
+        lines: [
+          { accountId: 'acc-1', debit: 100, credit: 0 },
+          { accountId: 'acc-2', debit: 0, credit: 100 },
+        ],
+      };
+
+      await expect(service.postEntry(data)).rejects.toThrow(ForbiddenException);
     });
 
     it('should throw if less than 2 lines provided', async () => {
@@ -64,7 +77,7 @@ describe('LedgerService', () => {
         lines: [{ accountId: 'acc-1', debit: 100, credit: 0 }],
       };
 
-      await expect(service.postEntry(data)).rejects.toThrow(
+      await expect(service.postEntry(data, 'comp-1')).rejects.toThrow(
         BadRequestException,
       );
     });
@@ -79,7 +92,7 @@ describe('LedgerService', () => {
         ],
       };
 
-      await expect(service.postEntry(data)).rejects.toThrow(
+      await expect(service.postEntry(data, 'comp-1')).rejects.toThrow(
         BadRequestException,
       );
     });
@@ -98,7 +111,7 @@ describe('LedgerService', () => {
         .spyOn(prisma.journalEntry, 'create')
         .mockResolvedValue({ id: 'je-1' } as any);
 
-      const result = await service.postEntry(data);
+      const result = await service.postEntry(data, 'comp-1');
 
       expect(result.id).toBe('je-1');
       expect(prisma.journalEntry.create).toHaveBeenCalled();
@@ -114,7 +127,7 @@ describe('LedgerService', () => {
         _sum: { debit: new Decimal(500), credit: new Decimal(100) },
       } as any);
 
-      const balance = await service.getAccountBalance('acc-asset');
+      const balance = await service.getAccountBalance('acc-asset', 'comp-1');
       expect(balance.toNumber()).toBe(400); // 500 - 100
     });
 
@@ -126,7 +139,7 @@ describe('LedgerService', () => {
         _sum: { debit: new Decimal(100), credit: new Decimal(500) },
       } as any);
 
-      const balance = await service.getAccountBalance('acc-liability');
+      const balance = await service.getAccountBalance('acc-liability', 'comp-1');
       expect(balance.toNumber()).toBe(400); // 500 - 100
     });
   });
@@ -187,7 +200,7 @@ describe('LedgerService', () => {
         },
       ]);
 
-      const result = await service.getLedgerEntries();
+      const result = await service.getLedgerEntries({ companyId: 'comp-1' });
 
       expect(result.data).toHaveLength(1);
       const entry = result.data[0];

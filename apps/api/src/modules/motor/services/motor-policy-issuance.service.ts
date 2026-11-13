@@ -1,3 +1,5 @@
+import { PolicyAddressResolverService } from '../../policies/services/policy-address-resolver.service';
+import { PosEligibilityService } from '../../pos-partners/services/pos-eligibility.service';
 import {
   BadRequestException,
   ConflictException,
@@ -29,6 +31,10 @@ export class MotorPolicyIssuanceService {
     private readonly numberingEngine: NumberingEngineService,
     @Optional()
     private readonly policyDateService: MotorPolicyDateService = new MotorPolicyDateService(),
+    @Optional()
+    private readonly addressResolver?: PolicyAddressResolverService,
+    @Optional()
+    private readonly posEligibilityService?: PosEligibilityService,
   ) {}
 
   async issuePolicy(
@@ -88,10 +94,7 @@ export class MotorPolicyIssuanceService {
       }
 
       // P0 INVARIANT: Policy issuance must be for the case-selected quotation.
-      if (
-        quote.case?.selectedQuoteId &&
-        quote.case.selectedQuoteId !== quotationId
-      ) {
+      if (quote.case && quote.case.selectedQuoteId !== quotationId) {
         throw new BadRequestException(
           `SELECTED_QUOTE_INVARIANT_VIOLATION: Policy issuance must be for the case-selected quotation (selectedQuoteId: ${quote.case.selectedQuoteId}). Cannot issue policy for an unselected quotation (${quotationId}).`,
         );
@@ -525,7 +528,7 @@ export class MotorPolicyIssuanceService {
               { vehicle: { registrationNumber: { equals: normalizedReg, mode: 'insensitive' } } },
             ],
           },
-          select: { policyNumber: true, actualPolicyNumber: true, expiryDate: true },
+          select: { id: true, policyNumber: true, actualPolicyNumber: true, expiryDate: true },
         });
 
         if (existingActivePolicy) {
@@ -535,9 +538,12 @@ export class MotorPolicyIssuanceService {
           const month = String(expDate.getMonth() + 1).padStart(2, '0');
           const year = expDate.getFullYear();
           const expStr = `${day}/${month}/${year}`;
-          throw new ConflictException(
-            `Vehicle ${normalizedReg} already has an active policy issued (${pNum}, expires ${expStr}). Cannot issue a duplicate policy.`,
-          );
+          throw new ConflictException({
+            code: 'VEHICLE_POLICY_ALREADY_RUNNING',
+            policyId: existingActivePolicy.id,
+            policyNumber: pNum,
+            message: `Vehicle ${normalizedReg} already has an active policy issued (${pNum}, expires ${expStr}). Cannot issue a duplicate policy.`,
+          });
         }
       }
 
@@ -609,6 +615,66 @@ export class MotorPolicyIssuanceService {
         }
       }
 
+      // ── Module A: Mandatory Structured Address Enforcement (DEC-06) ──
+      let addressSnapshotData: any = {};
+      if (this.addressResolver) {
+        const addressRes = await this.addressResolver.resolveAddress(
+          quote.id,
+          dto.structuredAddress || dto.address || dto.customerAddress,
+        );
+        if (!addressRes.isValid) {
+          throw new BadRequestException({
+            code: 'POLICY_ADDRESS_REQUIRED',
+            message: `Policy issuance requires a complete structured customer address. Missing: ${addressRes.missingFields.join(', ')}`,
+            missingFields: addressRes.missingFields,
+          });
+        }
+        addressSnapshotData = {
+          addressLine1: addressRes.address.addressLine1,
+          addressLine2: addressRes.address.addressLine2 || null,
+          landmark: addressRes.address.landmark || null,
+          locality: addressRes.address.locality || null,
+          city: addressRes.address.city,
+          district: addressRes.address.district || null,
+          state: addressRes.address.state,
+          stateCode: addressRes.address.stateCode || null,
+          pincode: addressRes.address.pincode,
+          country: addressRes.address.country || 'India',
+          addressSource: addressRes.addressSource,
+          addressCapturedAt: addressRes.addressCapturedAt,
+          addressSnapshot: addressRes.address as any,
+        };
+      }
+
+      // ── Module B: Optional Agent POS attribution with insurer-specific validation ──
+      let posSnapshotData: any = {};
+      const requestedPosId = dto.posPartnerId;
+      if (requestedPosId) {
+        if (!this.posEligibilityService) {
+          throw new BadRequestException('Agent POS validation is unavailable. Retry without POS attribution or contact an administrator.');
+        }
+        const posEligibility = await this.posEligibilityService.assertEligibleForIssuance({
+          posPartnerId: requestedPosId,
+          companyId: quote.companyId,
+          policyInsurerName: quote.insurerName,
+          productType: 'MOTOR',
+        });
+        posSnapshotData = {
+          posPartnerId: posEligibility.partner.id,
+          posInsurerMappingId: posEligibility.mapping?.id || null,
+          distributionChannel: 'POS',
+          posCodeSnapshot: posEligibility.partner.posCode,
+          posNameSnapshot: posEligibility.partner.name,
+          insurerCodeSnapshot: posEligibility.insurer?.code || null,
+          insurerNameSnapshot: posEligibility.insurer?.name || quote.insurerName || null,
+          insurerPartnerCodeSnapshot: posEligibility.mapping?.insurerPartnerCode || null,
+          insurerPospIdSnapshot: posEligibility.mapping?.insurerPospId || null,
+        };
+      }
+      if (!requestedPosId) {
+        posSnapshotData = { distributionChannel: 'DIRECT' };
+      }
+
       // ─── Create Policy with Concurrency Handling (P2002 -> 409) ───────────
       let policy: any;
       try {
@@ -618,6 +684,11 @@ export class MotorPolicyIssuanceService {
             policyNumber,
             actualPolicyNumber: policyNumber,
             quotationId: quote.id,
+            // Preserve the insurer chosen on the saved quotation as an immutable
+            // issuance-time snapshot; the Policy model does not have a direct
+            // insurer relation, so this field is the canonical displayed insurer.
+            insurerNameSnapshot: quote.insurerName,
+            renewedFromPolicyId: quote.renewalOfPolicyId || undefined,
             agentId: quote.agentId || null,
             agentExternalCodeId: quote.agentExternalCodeId || null,
             contactId: quote.contactId,
@@ -647,6 +718,8 @@ export class MotorPolicyIssuanceService {
             activeTpExpiryDate: quote.activeTpExpiryDate || undefined,
             createdById: actorId,
             updatedById: actorId,
+            ...addressSnapshotData,
+            ...posSnapshotData,
           },
         });
 
@@ -684,9 +757,20 @@ export class MotorPolicyIssuanceService {
           err instanceof Prisma.PrismaClientKnownRequestError &&
           err.code === 'P2002'
         ) {
-          throw new ConflictException(
-            `Policy already issued for quotation ${quote.id} or policy number collision: ${policyNumber}`,
-          );
+          const existing = await tx.policy.findFirst({
+            where: {
+              OR: [
+                { quotationId: quote.id },
+                { policyNumber },
+              ],
+            },
+          });
+          throw new ConflictException({
+            code: 'POLICY_ALREADY_EXISTS',
+            policyId: existing?.id,
+            policyNumber: existing?.policyNumber || policyNumber,
+            message: `Policy already issued for quotation ${quote.id} or policy number collision: ${policyNumber}`,
+          });
         }
         throw err;
       }

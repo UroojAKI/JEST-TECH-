@@ -1,6 +1,125 @@
 import { apiClient } from '../lib/api-client';
 import { PaginatedResult, PaginationParams } from '../types';
 
+const CUSTOMER_PORTAL_ROLES = new Set(['CUSTOMER', 'CLIENT']);
+
+/**
+ * Returns true when at least one assigned role represents internal agency staff
+ * (Agent, Back Office, or Admin) permitted to hand off quotations to Back Office.
+ */
+export function canUserSubmitToBackOffice(
+  roles: Array<string | null | undefined>,
+): boolean {
+  const normalized = roles
+    .filter((r): r is string => Boolean(r))
+    .map((r) => String(r).toUpperCase());
+  if (normalized.length === 0) return true;
+  return normalized.some((r) => !CUSTOMER_PORTAL_ROLES.has(r));
+}
+
+const TERMINAL_QUOTATION_STATUSES = new Set([
+  'REJECTED',
+  'EXPIRED',
+  'CONVERTED_TO_POLICY',
+  'ISSUED',
+  'CANCELLED',
+  'POLICY_ISSUED',
+]);
+
+const UNDERWRITER_APPROVED_WORKFLOW_STATES = new Set([
+  'PROPOSAL_APPROVED',
+  'PAYMENT_PENDING',
+  'PAYMENT_UNDER_PROCESS',
+  'PAYMENT_DONE',
+  'ISSUANCE_PENDING',
+  'PROPOSAL_COMPLETED',
+  'POLICY_ISSUED',
+]);
+
+const UNAPPROVED_MOTOR_WORKFLOW_STATES = new Set([
+  'QUOTATION_DRAFT',
+  'DRAFT',
+  'READY_FOR_PROPOSAL',
+  'INSPECTION_REQUIRED',
+  'INSPECTION_IN_PROGRESS',
+  'INSPECTION_REJECTED',
+]);
+
+export function getQuotationWorkflowState(quote: any): string {
+  return String(
+    quote?.motorWorkflowState ||
+      (typeof quote?.workflowState === 'string' ? quote.workflowState : '') ||
+      quote?.motorMetadata?.workflowStatus ||
+      quote?.motorMetadata?.workflowState ||
+      '',
+  ).toUpperCase();
+}
+
+export function isQuotationSubmittedToBackOffice(quote: any): boolean {
+  return Boolean(quote?.backOfficeSubmittedAt);
+}
+
+export function isQuotationBackOfficeApproved(quote: any): boolean {
+  const wf = getQuotationWorkflowState(quote);
+  const proposalStatus = String(
+    quote?.proposalStatus || quote?.proposal?.status || '',
+  ).toUpperCase();
+  const status = String(quote?.status || '').toUpperCase();
+
+  if (proposalStatus === 'APPROVED') return true;
+  if (UNDERWRITER_APPROVED_WORKFLOW_STATES.has(wf)) return true;
+  if (status === 'APPROVED' && !UNAPPROVED_MOTOR_WORKFLOW_STATES.has(wf)) {
+    return true;
+  }
+  return false;
+}
+
+export function isQuotationPaymentPaid(quote: any): boolean {
+  const payStatus = String(
+    quote?.paymentRecord?.status ||
+      quote?.motorPaymentRecord?.status ||
+      quote?.paymentStatus ||
+      '',
+  ).toUpperCase();
+  const wf = getQuotationWorkflowState(quote);
+  const issuance = String(quote?.issuanceStatus || '').toUpperCase();
+  const status = String(quote?.status || '').toUpperCase();
+
+  return (
+    payStatus === 'PAID' ||
+    wf === 'PAYMENT_DONE' ||
+    wf === 'POLICY_ISSUED' ||
+    issuance === 'ISSUANCE_PENDING' ||
+    issuance === 'ISSUED' ||
+    status === 'PAYMENT_DONE' ||
+    status === 'PENDING_ISSUANCE' ||
+    status === 'ISSUED' ||
+    status === 'CONVERTED_TO_POLICY'
+  );
+}
+
+/**
+ * Payment recording is permitted only after the quotation has been handed off to
+ * Back Office, approved by Back Office / Underwriter, and has not already been marked PAID.
+ */
+export function canQuotationRecordPayment(quote: any): boolean {
+  const status = String(quote?.status || '').toUpperCase();
+  const issuance = String(quote?.issuanceStatus || '').toUpperCase();
+  if (
+    TERMINAL_QUOTATION_STATUSES.has(status) ||
+    issuance === 'ISSUED' ||
+    Boolean(quote?.policy) ||
+    Boolean(quote?.issuedPolicy)
+  ) {
+    return false;
+  }
+  return (
+    isQuotationSubmittedToBackOffice(quote) &&
+    isQuotationBackOfficeApproved(quote) &&
+    !isQuotationPaymentPaid(quote)
+  );
+}
+
 export interface QuotationItem {
   id: string;
   quotationNumber: string;
@@ -23,13 +142,8 @@ export interface QuotationItem {
 
 export const quotationsRepository = {
   async getQuotations(params?: Partial<PaginationParams> & { status?: string }): Promise<PaginatedResult<QuotationItem>> {
-    try {
-      const response = await apiClient.get('/quotations', { params });
-      return response.data;
-    } catch (err) {
-      console.warn('Failed to fetch quotations:', err);
-      return { data: [], items: [], meta: { page: 1, limit: params?.limit || 25, total: 0, totalPages: 0 } } as any;
-    }
+    const response = await apiClient.get('/quotations', { params });
+    return response.data;
   },
 
   async getQuotationById(id: string): Promise<QuotationItem> {
@@ -45,6 +159,22 @@ export const quotationsRepository = {
   async compareQuotations(ids: string[]): Promise<any> {
     const response = await apiClient.post('/quotations/compare', { ids });
     return response.data;
+  },
+
+  async submitToBackOffice(id: string): Promise<any> {
+    const response = await apiClient.post(`/quotations/${id}/submit-to-back-office`);
+    return response.data;
+  },
+
+  /**
+   * Binds the winning quotation to its Motor Quotation Case (when linked to a case)
+   * and submits it into the Back-Office Policy Issuance queue.
+   */
+  async selectAndSubmitMotorQuotation(quotationId: string, caseId?: string | null): Promise<any> {
+    if (caseId) {
+      await apiClient.post(`/motor/quotation-cases/${caseId}/select`, { quotationId });
+    }
+    return this.submitToBackOffice(quotationId);
   },
 
   async createQuotation(data: any): Promise<QuotationItem> {
@@ -67,8 +197,16 @@ export const quotationsRepository = {
     return response.data;
   },
 
-  async acceptQuotation(id: string, comments?: string): Promise<QuotationItem> {
-    const response = await apiClient.post(`/quotations/${id}/accept`, { comments });
+  async acceptQuotation(
+    id: string,
+    evidence: {
+      evidenceMethod: 'EMAIL' | 'SMS' | 'WHATSAPP' | 'PHYSICAL_SIGNATURE' | 'VERBAL_CALL_RECORDING' | 'PORTAL_CLICK';
+      evidenceReference?: string;
+      comments?: string;
+      selectedGstRate?: number;
+    },
+  ): Promise<QuotationItem> {
+    const response = await apiClient.post(`/quotations/${id}/accept`, evidence);
     return response.data;
   },
 

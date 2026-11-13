@@ -93,4 +93,24 @@ describe('MotorRulesEvaluateController SAOD TP verification', () => {
     expect(result.nextStep).toBe('QUOTATION');
     expect(result.saodTpValid).toBe(true);
   });
+
+  it('forwards isOldCustomer flag to ruleEngine.evaluateQuotation', async () => {
+    await controller.evaluateRules(
+      {
+        newPolicyType: 'PACKAGE',
+        vehicleStatus: 'EXISTING',
+        previousPolicyType: 'COMPREHENSIVE',
+        policyExpiryDate: '2025-01-01',
+        isOldCustomer: true,
+      },
+      { id: 'user-1', companyId: 'company-1' } as any,
+    );
+
+    expect(ruleEngine.evaluateQuotation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        newPolicyType: 'PACKAGE',
+        isOldCustomer: true,
+      }),
+    );
+  });
 });

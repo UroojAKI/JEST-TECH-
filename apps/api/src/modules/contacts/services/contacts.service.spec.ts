@@ -108,6 +108,56 @@ describe('ContactsService', () => {
     expect(repository.create).toHaveBeenCalledTimes(1);
   });
 
+  it('persists and maps isOldCustomer when creating a contact', async () => {
+    repository.findByPhone.mockResolvedValue(null);
+    repository.findByEmail.mockResolvedValue(null);
+    repository.generateContactCode.mockResolvedValue('CONT-000002');
+    repository.create.mockResolvedValue({
+      id: 'contact-2',
+      contactCode: 'CONT-000002',
+      type: 'INDIVIDUAL',
+      firstName: 'Old',
+      middleName: null,
+      lastName: 'Client',
+      gender: null,
+      dateOfBirth: null,
+      companyName: null,
+      email: null,
+      phone: '9876543219',
+      alternatePhone: null,
+      whatsappNumber: null,
+      occupation: null,
+      panNumber: null,
+      aadhaarNumber: null,
+      gstNumber: null,
+      isOldCustomer: true,
+      createdById: 'user-1',
+      updatedById: 'user-1',
+      accountId: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const created = await service.create(
+      {
+        type: 'INDIVIDUAL' as any,
+        firstName: 'Old',
+        lastName: 'Client',
+        phone: '9876543219',
+        isOldCustomer: true,
+      },
+      'user-1',
+    );
+
+    expect(repository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        isOldCustomer: true,
+      }),
+      expect.anything(),
+    );
+    expect(created.isOldCustomer).toBe(true);
+  });
+
   it('rejects duplicate phone numbers with a conflict', async () => {
     repository.findByPhone.mockResolvedValue({ id: 'existing' });
 

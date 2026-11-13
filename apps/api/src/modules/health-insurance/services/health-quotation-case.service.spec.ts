@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import { HealthQuotationCaseService } from './health-quotation-case.service';
 
 const makeService = (prisma: any, tenantAuth: any = {}) =>
@@ -142,6 +142,85 @@ describe('HealthQuotationCaseService access and integrity', () => {
     expect(safeResponse.selectedQuote.healthMetadata.proposerAadhaar).toBe('XXXX-XXXX-9012');
   });
 
+  it('selects a health quotation using an atomic compare-and-set transition', async () => {
+    const healthCase = {
+      id: 'case-1',
+      caseCode: 'HC-001',
+      companyId: 'company-1',
+      status: 'QUOTED',
+      selectedQuoteId: null,
+      quotations: [{ id: 'quote-1' }],
+    };
+    const tx = {
+      healthQuotationCase: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        findFirst: jest.fn().mockResolvedValue({ ...healthCase, status: 'SELECTED', selectedQuoteId: 'quote-1' }),
+      },
+      quotation: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+    };
+    const prisma = { $transaction: jest.fn((work: (client: any) => Promise<any>) => work(tx)) };
+    const service = makeService(prisma);
+    jest.spyOn(service, 'getCase').mockResolvedValue(healthCase as any);
+
+    await service.selectQuote('case-1', 'quote-1', {
+      id: 'ops-1',
+      userId: 'ops-1',
+      companyId: 'company-1',
+      role: 'BACK_OFFICE',
+    } as any);
+
+    expect(tx.healthQuotationCase.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: 'case-1',
+          status: 'QUOTED',
+          selectedQuoteId: null,
+        }),
+      }),
+    );
+    expect(tx.quotation.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'quote-1', companyId: 'company-1', healthCaseId: 'case-1' },
+      }),
+    );
+  });
+
+  it('rejects a second concurrent quote selection without changing the quotation', async () => {
+    const healthCase = {
+      id: 'case-1',
+      caseCode: 'HC-001',
+      companyId: 'company-1',
+      status: 'QUOTED',
+      selectedQuoteId: null,
+      quotations: [{ id: 'quote-1' }],
+    };
+    const tx = {
+      healthQuotationCase: {
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        findFirst: jest.fn(),
+      },
+      quotation: {
+        updateMany: jest.fn(),
+      },
+    };
+    const prisma = { $transaction: jest.fn((work: (client: any) => Promise<any>) => work(tx)) };
+    const service = makeService(prisma);
+    jest.spyOn(service, 'getCase').mockResolvedValue(healthCase as any);
+
+    await expect(
+      service.selectQuote('case-1', 'quote-1', {
+        id: 'ops-1',
+        userId: 'ops-1',
+        companyId: 'company-1',
+        role: 'BACK_OFFICE',
+      } as any),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    expect(tx.quotation.updateMany).not.toHaveBeenCalled();
+  });
+
   it('writes payment evidence and quotation workflow inside one transaction', async () => {
     const tx = {
       healthQuotationCase: {
@@ -153,7 +232,9 @@ describe('HealthQuotationCaseService access and integrity', () => {
           companyId: 'company-1',
           healthCaseId: 'case-1',
           totalPremium: 1000,
-          status: 'ACCEPTED',
+          status: 'APPROVED',
+          workflowState: 'PROPOSAL_APPROVED',
+          backOfficeSubmittedAt: new Date('2026-11-11T00:00:00.000Z'),
         }),
         update: jest.fn().mockResolvedValue(undefined),
       },
@@ -199,7 +280,13 @@ describe('HealthQuotationCaseService access and integrity', () => {
         findFirst: jest.fn().mockResolvedValue({ id: 'case-1', selectedQuoteId: 'quote-1' }),
       },
       quotation: {
-        findFirst: jest.fn().mockResolvedValue({ id: 'quote-1', totalPremium: 1000 }),
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'quote-1',
+          totalPremium: 1000,
+          status: 'APPROVED',
+          workflowState: 'PROPOSAL_APPROVED',
+          backOfficeSubmittedAt: new Date('2026-11-11T00:00:00.000Z'),
+        }),
         update: jest.fn(),
       },
       motorPaymentRecord: {
@@ -228,5 +315,75 @@ describe('HealthQuotationCaseService access and integrity', () => {
 
     expect(tx.motorPaymentRecord.update).not.toHaveBeenCalled();
     expect(tx.quotation.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects re-recording payment once payment is already PAID even with matching details', async () => {
+    const tx = {
+      healthQuotationCase: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'case-1', selectedQuoteId: 'quote-1' }),
+      },
+      quotation: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'quote-1',
+          totalPremium: 1000,
+          status: 'APPROVED',
+          workflowState: 'PROPOSAL_APPROVED',
+          backOfficeSubmittedAt: new Date('2026-11-11T00:00:00.000Z'),
+        }),
+        update: jest.fn(),
+      },
+      motorPaymentRecord: {
+        findUnique: jest.fn().mockResolvedValue({
+          status: 'PAID',
+          amount: 1000,
+          paymentMethod: 'UPI',
+          referenceNumber: 'UTR-1',
+        }),
+        update: jest.fn(),
+        create: jest.fn(),
+      },
+    };
+    const prisma = {
+      $transaction: jest.fn((work: (client: any) => Promise<any>) => work(tx)),
+    };
+    const service = makeService(prisma);
+
+    await expect(
+      service.recordPayment(
+        'case-1',
+        { amount: 1000, paymentMethod: 'UPI', referenceNumber: 'UTR-1', status: 'PAID' } as any,
+        { id: 'ops-1', userId: 'ops-1', companyId: 'company-1', role: 'BACK_OFFICE' } as any,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(tx.motorPaymentRecord.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects health payment when quotation has not been submitted to Back Office', async () => {
+    const tx = {
+      healthQuotationCase: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'case-1', selectedQuoteId: 'quote-1' }),
+      },
+      quotation: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'quote-1',
+          totalPremium: 1000,
+          status: 'ACCEPTED',
+          backOfficeSubmittedAt: null,
+        }),
+      },
+    };
+    const prisma = {
+      $transaction: jest.fn((work: (client: any) => Promise<any>) => work(tx)),
+    };
+    const service = makeService(prisma);
+
+    await expect(
+      service.recordPayment(
+        'case-1',
+        { amount: 1000, paymentMethod: 'UPI', referenceNumber: 'UTR-1', status: 'PAID' } as any,
+        { id: 'ops-1', userId: 'ops-1', companyId: 'company-1', role: 'BACK_OFFICE' } as any,
+      ),
+    ).rejects.toThrow('sent to Back Office');
   });
 });

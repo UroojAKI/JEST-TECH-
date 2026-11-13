@@ -219,6 +219,136 @@ export class QuotationController {
     return this.compareQuotationService.execute(ids, user);
   }
 
+  @Post(':id/submit-to-back-office')
+  @HttpCode(HttpStatus.OK)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
+  @ApiOperation({
+    summary: 'Explicitly hand off the selected quotation to the back-office workbench',
+  })
+  async submitToBackOffice(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    // Reuse the canonical quotation authorization path before performing a write.
+    await this.getQuotationService.executeOne(id, user);
+
+    const companyId = user.companyId || (user as any).organizationId;
+    if (!companyId) {
+      throw new ForbiddenException('Company context is required to submit a quotation to back office');
+    }
+
+    const quotation = await this.prisma.quotation.findFirst({
+      where: { id, companyId, deletedAt: null },
+      include: {
+        case: { select: { id: true, selectedQuoteId: true } },
+        healthCase: { select: { id: true, selectedQuoteId: true } },
+      },
+    });
+    if (!quotation) {
+      throw new ForbiddenException('Quotation not found in the current company workspace');
+    }
+    const normalizedInsurerName = String(quotation.insurerName || '').trim().toLowerCase();
+    if (!quotation.insurerId || !normalizedInsurerName || normalizedInsurerName === 'partner insurer') {
+      throw new BadRequestException('This quotation does not have a valid insurer master record. Correct the insurer identity before Back Office handoff.');
+    }
+    const activeInsurer = await this.prisma.insurer.findFirst({
+      where: { id: quotation.insurerId, isActive: true },
+      select: { id: true },
+    });
+    if (!activeInsurer) {
+      throw new BadRequestException('The selected insurer is not active in Insurer Master. Refresh the insurer selection before Back Office handoff.');
+    }
+    if (quotation.productType === 'MOTOR') {
+      const acceptance = (quotation.motorMetadata as any)?.customerAcceptance;
+      if (!acceptance?.evidenceMethod || !acceptance?.timestamp) {
+        throw new BadRequestException('Record customer acceptance with its evidence method before submitting this Motor quotation to Back Office.');
+      }
+    }
+    if (quotation.status === 'REJECTED' || quotation.status === 'EXPIRED' || quotation.status === 'CONVERTED_TO_POLICY') {
+      throw new BadRequestException(`A quotation in ${quotation.status} status cannot be submitted to back office`);
+    }
+    if (quotation.case && quotation.case.selectedQuoteId !== id) {
+      throw new BadRequestException('Select this quotation in its motor quotation case before submitting it to back office');
+    }
+    if (quotation.healthCase && quotation.healthCase.selectedQuoteId !== id) {
+      throw new BadRequestException('Select this quotation in its health quotation case before submitting it to back office');
+    }
+
+    const completion = await this.quotationCompletionService.getCompletion(id, user);
+    if (!completion.canApprove) {
+      const coverageSection = completion.sections?.find((s) => s.section === 'coverage');
+      const customerSection = completion.sections?.find((s) => s.section === 'customer');
+      const reasons: string[] = [];
+      if (coverageSection?.missing?.length) {
+        reasons.push(
+          `Missing coverage details: ${coverageSection.missing.map((m) => m.label).join(', ')}`,
+        );
+      }
+      if ((customerSection?.completedCount ?? 0) < 2) {
+        const missingLabels = (customerSection?.missing || []).map((m) => m.label);
+        reasons.push(
+          `Provide at least 2 customer details (currently ${customerSection?.completedCount ?? 0}/2${missingLabels.length ? `; missing: ${missingLabels.join(', ')}` : ''})`,
+        );
+      }
+      const message =
+        reasons.length > 0
+          ? `Quotation is incomplete and cannot be submitted to back office. ${reasons.join('. ')}.`
+          : 'Quotation is incomplete and cannot be submitted to back office.';
+      throw new BadRequestException({
+        message,
+        errorCode: 'QUOTATION_INCOMPLETE_FOR_SUBMISSION',
+        completion,
+      });
+    }
+
+    const submittedAt = new Date();
+    const result = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.quotation.updateMany({
+        where: {
+          id,
+          companyId,
+          deletedAt: null,
+          backOfficeSubmittedAt: null,
+        },
+        data: {
+          backOfficeSubmittedAt: submittedAt,
+          backOfficeSubmittedById: user.id,
+          version: { increment: 1 },
+        },
+      });
+
+      if (updated.count === 1) {
+        await tx.quotationHistory.create({
+          data: {
+            quotationId: id,
+            status: 'BACK_OFFICE_SUBMITTED',
+            comments: 'Selected quotation explicitly submitted to the back-office workbench.',
+            createdById: user.id,
+          },
+        });
+      }
+
+      const current = await tx.quotation.findFirst({
+        where: { id, companyId, deletedAt: null },
+        select: {
+          id: true,
+          quotationCode: true,
+          backOfficeSubmittedAt: true,
+          backOfficeSubmittedById: true,
+        },
+      });
+      return { alreadySubmitted: updated.count === 0, quotation: current };
+    });
+
+    return {
+      success: true,
+      ...result,
+      message: result.alreadySubmitted
+        ? 'This quotation was already submitted to back office; no duplicate handoff was created.'
+        : 'Selected quotation submitted to back office successfully.',
+    };
+  }
+
   @Post(':id/approve')
   @HttpCode(HttpStatus.OK)
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
@@ -268,7 +398,7 @@ export class QuotationController {
     @Body() dto: CustomerAcceptanceDto,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.acceptQuotationService.execute(id, user.id, dto);
+    return this.acceptQuotationService.execute(id, user.id, dto, user);
   }
 
   @Post(':id/versions')

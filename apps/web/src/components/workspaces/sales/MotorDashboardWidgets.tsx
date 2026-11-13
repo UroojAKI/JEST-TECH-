@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import {
   TrendingUp,
@@ -19,30 +19,38 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { apiClient } from '../../../lib/api-client';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface MotorDashboardWidgetsProps {
   data?: any;
 }
 
 export function MotorDashboardWidgets({ data }: MotorDashboardWidgetsProps) {
-  const pipelineSteps: any[] = data?.pipelineSteps || [
-    { label: 'Lead', count: 0, color: 'bg-blue-500' },
-    { label: 'Need Analysis', count: 0, color: 'bg-cyan-500' },
-    { label: 'Quotation', count: 0, color: 'bg-amber-500' },
-    { label: 'Proposal', count: 0, color: 'bg-indigo-500' },
-    { label: 'Negotiation', count: 0, color: 'bg-purple-500' },
-    { label: 'Payment', count: 0, color: 'bg-emerald-500' },
-    { label: 'Issued', count: 0, color: 'bg-emerald-700' },
-  ];
+  const queryClient = useQueryClient();
+  const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  const [taskTitle, setTaskTitle] = useState('');
+  const [taskDueDate, setTaskDueDate] = useState('');
+  const [taskSaving, setTaskSaving] = useState(false);
+  const createTask = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!taskTitle.trim()) return;
+    setTaskSaving(true);
+    try {
+      await apiClient.post('/tasks', { title: taskTitle.trim(), type: 'FOLLOW_UP', priority: 'MEDIUM', ...(taskDueDate ? { dueDate: new Date(taskDueDate).toISOString() } : {}) });
+      await queryClient.invalidateQueries({ queryKey: ['sales-workspace-dashboard'] });
+      await queryClient.invalidateQueries({ queryKey: ['sales-workspace-analytics'] });
+      toast.success('Task created and assigned to you');
+      setTaskTitle(''); setTaskDueDate(''); setTaskDialogOpen(false);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Could not create task');
+    } finally { setTaskSaving(false); }
+  };
+  const hasPipelineMetrics = Array.isArray(data?.pipelineSteps);
+  const pipelineSteps: any[] = hasPipelineMetrics ? data.pipelineSteps : [];
 
-  const renewals: any[] = data?.renewals || [
-    { label: 'Today', count: 0, color: 'bg-rose-500 text-white font-black' },
-    { label: 'Next 7 Days', count: 0, color: 'bg-amber-500/10 text-amber-600' },
-    { label: 'Next 30 Days', count: 0, color: 'bg-sky-500/10 text-sky-600' },
-    { label: 'Overdue', count: 0, color: 'bg-red-500/10 text-red-600' },
-    { label: 'Lost', count: 0, color: 'bg-muted/40 text-muted-foreground' },
-    { label: 'Completed', count: 0, color: 'bg-emerald-500/10 text-emerald-600' },
-  ];
+  const hasRenewalMetrics = Array.isArray(data?.renewals);
+  const renewals: any[] = hasRenewalMetrics ? data.renewals : [];
 
   const todayTasks: any[] = data?.todayTasks || [];
   const followups: any[] = data?.followups || [];
@@ -51,6 +59,16 @@ export function MotorDashboardWidgets({ data }: MotorDashboardWidgetsProps) {
 
   return (
     <div className="space-y-6">
+      {taskDialogOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-3" role="dialog" aria-modal="true" aria-label="Create task">
+          <form onSubmit={createTask} className="w-full max-w-md space-y-4 rounded-xl border bg-card p-5 shadow-2xl">
+            <h3 className="font-bold">Add task</h3>
+            <label className="block text-xs font-semibold">Task title<input autoFocus required value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm" placeholder="Call customer about renewal" /></label>
+            <label className="block text-xs font-semibold">Due date<input type="datetime-local" value={taskDueDate} onChange={(e) => setTaskDueDate(e.target.value)} className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm" /></label>
+            <div className="flex justify-end gap-2"><button type="button" onClick={() => setTaskDialogOpen(false)} className="rounded-lg border px-3 py-2 text-sm">Cancel</button><button disabled={taskSaving || !taskTitle.trim()} className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">{taskSaving ? 'Creating…' : 'Create task'}</button></div>
+          </form>
+        </div>
+      )}
       {/* Row 1: Real-Time Sales Pipeline & Renewals Queue Widget */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Sales Pipeline */}
@@ -69,7 +87,7 @@ export function MotorDashboardWidgets({ data }: MotorDashboardWidgetsProps) {
             </Link>
           </div>
 
-          <div className="space-y-3">
+          {!hasPipelineMetrics ? <p className="rounded-lg border border-dashed p-5 text-center text-xs text-muted-foreground">Pipeline analytics unavailable — metrics have not been returned.</p> : pipelineSteps.length === 0 ? <p className="rounded-lg border border-dashed p-5 text-center text-xs text-muted-foreground">No pipeline metrics are available.</p> : <div className="space-y-3">
             <div className="grid grid-cols-7 gap-1.5 text-center">
               {pipelineSteps.map((s: any, idx: number) => (
                 <div key={idx} className="space-y-1.5">
@@ -83,7 +101,7 @@ export function MotorDashboardWidgets({ data }: MotorDashboardWidgetsProps) {
                 </div>
               ))}
             </div>
-          </div>
+          </div>}
         </div>
 
         {/* Renewals Widget */}
@@ -102,14 +120,14 @@ export function MotorDashboardWidgets({ data }: MotorDashboardWidgetsProps) {
             </Link>
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
+          {!hasRenewalMetrics ? <p className="rounded-lg border border-dashed p-5 text-center text-xs text-muted-foreground">Renewal analytics unavailable.</p> : renewals.length === 0 ? <p className="rounded-lg border border-dashed p-5 text-center text-xs text-muted-foreground">No renewal metrics are available.</p> : <div className="grid grid-cols-3 gap-2">
             {renewals.map((r: any, idx: number) => (
               <div key={idx} className={`p-2.5 rounded-xl border text-center ${r.color}`}>
                 <div className="text-base font-black">{r.count ?? 0}</div>
                 <div className="text-[10px] font-bold opacity-80 mt-0.5 truncate">{r.label}</div>
               </div>
             ))}
-          </div>
+          </div>}
         </div>
       </div>
 
@@ -127,7 +145,7 @@ export function MotorDashboardWidgets({ data }: MotorDashboardWidgetsProps) {
               </h3>
             </div>
             <button
-              onClick={() => toast.info('New Task added to schedule')}
+              onClick={() => setTaskDialogOpen(true)}
               className="text-xs font-bold text-primary hover:underline"
             >
               + Add Task

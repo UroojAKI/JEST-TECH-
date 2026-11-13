@@ -79,6 +79,9 @@ export class QuotationResponseDto {
   updatedById: string | null;
   createdAt: Date;
   updatedAt: Date;
+  caseId?: string | null;
+  backOfficeSubmittedAt?: Date | null;
+  renewalOfPolicyId?: string | null;
 
   // Motor-specific workflow fields are intentionally exposed so clients cannot infer state from stale UI metadata.
   vehicleCategory?: string | null;
@@ -109,5 +112,9 @@ export class QuotationResponseDto {
   motorDocuments?: QuotationMotorDocumentResponseDto[];
   contact?: any;
   vehicle?: any;
+  insurerId?: string | null;
+  motorWorkflowState?: string | null;
+  proposalStatus?: string | null;
+  proposal?: { id: string; status: string; proposalNumber?: string | null } | null;
   motorPaymentRecord?: any;
 }

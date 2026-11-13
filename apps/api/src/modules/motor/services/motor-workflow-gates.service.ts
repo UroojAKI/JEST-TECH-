@@ -114,8 +114,12 @@ export class MotorWorkflowGatesService {
     // 1. Calculation Valid Gate
     const sumInsuredNum = Number(quotation.sumInsured ?? 0);
     const totalPremiumNum = Number(quotation.totalPremium ?? 0);
+    const normalizedPolicyType = String(quotation.policyType ?? '').toUpperCase();
+    const isThirdPartyOnly =
+      normalizedPolicyType === 'TP_ONLY' ||
+      normalizedPolicyType === 'THIRD_PARTY_ONLY';
     const calculationValid =
-      sumInsuredNum > 0 &&
+      (isThirdPartyOnly || sumInsuredNum > 0) &&
       totalPremiumNum > 0 &&
       quotation.calculationSnapshot !== null;
 

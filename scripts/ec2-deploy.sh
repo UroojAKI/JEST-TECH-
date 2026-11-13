@@ -40,6 +40,7 @@ echo "      ✅ API build complete."
 
 # ── Step 5: Build Frontend Web ─────────────────────────────
 echo "[5/8] Compiling Next.js Standalone Frontend..."
+rm -rf apps/web/.next
 NODE_OPTIONS="--max-old-space-size=1536" pnpm --filter web build
 echo "      ✅ Web build complete."
 

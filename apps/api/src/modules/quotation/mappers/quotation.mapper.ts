@@ -34,6 +34,7 @@ export class QuotationMapper {
     dto.leadId = q.leadId;
     dto.contactId = q.contactId;
     dto.accountId = q.accountId;
+    dto.insurerId = q.insurerId ?? null;
     dto.insurerName = q.insurerName;
     dto.productType = q.productType;
     dto.sumInsured = Number(q.sumInsured);
@@ -47,6 +48,9 @@ export class QuotationMapper {
     dto.updatedById = q.updatedById;
     dto.createdAt = q.createdAt;
     dto.updatedAt = q.updatedAt;
+    dto.caseId = q.caseId;
+    dto.backOfficeSubmittedAt = q.backOfficeSubmittedAt;
+    dto.renewalOfPolicyId = q.renewalOfPolicyId;
     dto.vehicleCategory = q.vehicleCategory;
     dto.policyType = q.policyType;
     dto.registrationNumber = q.registrationNumber;
@@ -96,7 +100,17 @@ export class QuotationMapper {
       lastTransitionAt: q.updatedAt,
     };
 
+    dto.motorWorkflowState = (q.workflowState as string | null) ?? null;
     dto.issuanceStatus = q.issuanceStatus;
+    const linkedProposal = (q as any).proposal;
+    dto.proposalStatus = linkedProposal?.status ?? null;
+    dto.proposal = linkedProposal
+      ? {
+          id: linkedProposal.id,
+          status: linkedProposal.status,
+          proposalNumber: linkedProposal.proposalNumber ?? null,
+        }
+      : null;
     dto.calculationSnapshot = this.maskPiiData(q.calculationSnapshot);
 
     if (q.versions)
@@ -160,16 +174,31 @@ export class QuotationMapper {
       }));
 
     if (q.contact) {
-      const c = q.contact;
+      const c = q.contact as any;
+      const proposer = (q.motorMetadata as any)?.proposerDetails || {};
+      const customer = c.customer || {};
+      const resolvedAddress =
+        proposer.address ||
+        proposer.communicationAddress ||
+        [customer.addressLine1, customer.addressLine2, customer.city, customer.state]
+          .filter(Boolean)
+          .join(', ') ||
+        c.address ||
+        undefined;
       dto.contact = {
         id: c.id,
         firstName: c.firstName,
         lastName: c.lastName,
         email: c.email,
         phone: c.phone,
+        dateOfBirth: c.dateOfBirth ?? null,
         panNumber: EncryptionUtil.maskPan(c.panNumber),
-        aadhaarNumber: EncryptionUtil.maskAadhaar((c as any).aadhaarNumber),
-        address: (c as any).address,
+        aadhaarNumber: EncryptionUtil.maskAadhaar(c.aadhaarNumber),
+        address: resolvedAddress,
+        addressLine1: customer.addressLine1 ?? proposer.address ?? undefined,
+        city: customer.city ?? proposer.city ?? undefined,
+        state: customer.state ?? proposer.state ?? undefined,
+        pincode: customer.pincode ?? proposer.pincode ?? proposer.pinCode ?? undefined,
       };
     }
 

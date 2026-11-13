@@ -8,6 +8,7 @@ export interface IdentityMatch {
   conflictReason?: string;
   normalizedPhone?: string | null;
   normalizedEmail?: string | null;
+  vehicles?: any[];
 }
 
 export interface ResolveIdentityParams {
@@ -34,5 +35,6 @@ export interface EnsureIdentityParams extends ResolveIdentityParams {
   state?: string | null;
   pincode?: string | null;
   isVip?: boolean;
+  isOldCustomer?: boolean;
   createCustomerIfMissing?: boolean;
 }

@@ -69,6 +69,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         teamId: true,
         departmentId: true,
         branchId: true,
+        workspacePreference: {
+          select: {
+            favoriteWidgets: true,
+          },
+        },
         role: {
           select: {
             type: true,
@@ -83,7 +88,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         agentProfile: {
           select: {
             id: true,
-            agentCode: true,
+            externalCodes: {
+              where: { status: 'ACTIVE', verificationStatus: 'VERIFIED' },
+              orderBy: [{ isPrimary: 'desc' }, { codeSystem: 'asc' }],
+              select: { externalCode: true },
+            },
           },
         },
         branch: {
@@ -141,10 +150,18 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       );
     }
 
-    const permissions =
+    const rawWidgets = (user.workspacePreference?.favoriteWidgets as any) || {};
+    const overrides = rawWidgets.permissionOverrides;
+    const granted: string[] = Array.isArray(overrides?.granted) ? overrides.granted : [];
+    const revoked: string[] = Array.isArray(overrides?.revoked) ? overrides.revoked : [];
+
+    const basePermissions =
       user.role?.permissions
         ?.map((entry) => entry.permission.code)
         .filter(Boolean) || [];
+
+    const permissions = Array.from(new Set([...basePermissions, ...granted]))
+      .filter((p) => !revoked.includes(p));
 
     const isPlatformAdmin =
       permissions.includes('*') ||
@@ -161,7 +178,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       organizationId: companyId,
       companyId,
       agentId: user.agentProfile?.id || undefined,
-      agentCode: user.agentProfile?.agentCode || undefined,
+      agentCode: user.agentProfile?.externalCodes[0]?.externalCode || undefined,
       branchId: user.branchId || undefined,
       branchCode: user.branch?.code || undefined,
       departmentId: user.departmentId || undefined,

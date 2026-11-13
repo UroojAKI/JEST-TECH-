@@ -24,6 +24,19 @@ describe('HealthDocumentRuleService', () => {
     expect(find(service.getRequirements('INDIVIDUAL', 'RENEWAL_PORTABILITY'), 'PREVIOUS_POLICY').required).toBe(true);
   });
 
+  it('requires the portability form only for the PORTABILITY subtype', () => {
+    const renewal = service.getRequirements('INDIVIDUAL', 'RENEWAL_PORTABILITY', 'RENEWAL');
+    const portability = service.getRequirements('INDIVIDUAL', 'RENEWAL_PORTABILITY', 'PORTABILITY');
+
+    expect(find(renewal, 'PORTABILITY_FORM').required).toBe(false);
+    expect(find(portability, 'PORTABILITY_FORM').required).toBe(true);
+  });
+
+  it('does not infer portability from policy form alone for legacy cases', () => {
+    const list = service.getRequirements('INDIVIDUAL', 'RENEWAL_PORTABILITY');
+    expect(find(list, 'PORTABILITY_FORM').required).toBe(false);
+  });
+
   it('adds relationship proof for family floater', () => {
     expect(types(service.getRequirements('FAMILY_FLOATER', 'NEW_POLICY'))).toContain('RELATIONSHIP_PROOF');
   });

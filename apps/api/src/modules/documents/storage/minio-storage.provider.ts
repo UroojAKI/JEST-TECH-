@@ -6,18 +6,44 @@ import { StorageProvider } from './storage-provider.interface';
 @Injectable()
 export class MinioStorageProvider implements StorageProvider, OnModuleInit {
   private readonly logger = new Logger(MinioStorageProvider.name);
-  private readonly client: Minio.Client;
+  private readonly client: Minio.Client | null = null;
   private readonly bucket: string;
+  private readonly isMinioEnabled: boolean;
 
   constructor(private readonly config: ConfigService) {
+    const production = this.config.get<string>('NODE_ENV') === 'production';
+    const provider = (
+      this.config.get<string>('STORAGE_PROVIDER', 'DUAL') || 'DUAL'
+    ).toUpperCase();
+    this.isMinioEnabled = provider === 'MINIO' || provider === 'DUAL';
     this.bucket = this.config.get<string>('MINIO_BUCKET', 'jest-documents');
+
+    if (!this.isMinioEnabled) {
+      return;
+    }
+
+    const host = this.config.get<string>('MINIO_HOST');
+    const accessKey = this.config.get<string>('MINIO_ROOT_USER');
+    const secretKey = this.config.get<string>('MINIO_ROOT_PASSWORD');
+    if (production && (!host || !accessKey || !secretKey)) {
+      throw new Error('Production object storage requires MINIO_HOST, MINIO_ROOT_USER and MINIO_ROOT_PASSWORD.');
+    }
     this.client = new Minio.Client({
-      endPoint: this.config.get<string>('MINIO_HOST', 'localhost'),
+      endPoint: host || 'localhost',
       port: this.config.get<number>('MINIO_PORT', 9000),
-      useSSL: this.config.get<string>('NODE_ENV') === 'production',
-      accessKey: this.config.get<string>('MINIO_ROOT_USER', 'minioadmin'),
-      secretKey: this.config.get<string>('MINIO_ROOT_PASSWORD', 'minioadmin'),
+      useSSL: production,
+      accessKey: accessKey || 'minioadmin',
+      secretKey: secretKey || 'minioadmin',
     });
+  }
+
+  private getClient(): Minio.Client {
+    if (!this.client) {
+      throw new Error(
+        'MinIO client is not initialized because STORAGE_PROVIDER does not use MinIO.',
+      );
+    }
+    return this.client;
   }
 
   getProviderName(): string {
@@ -25,6 +51,9 @@ export class MinioStorageProvider implements StorageProvider, OnModuleInit {
   }
 
   async isAvailable(): Promise<boolean> {
+    if (!this.client) {
+      return false;
+    }
     try {
       return await this.client.bucketExists(this.bucket);
     } catch {
@@ -33,6 +62,9 @@ export class MinioStorageProvider implements StorageProvider, OnModuleInit {
   }
 
   async onModuleInit() {
+    if (!this.isMinioEnabled || !this.client) {
+      return;
+    }
     try {
       const exists = await this.client.bucketExists(this.bucket);
       if (!exists) {
@@ -40,8 +72,8 @@ export class MinioStorageProvider implements StorageProvider, OnModuleInit {
         this.logger.log(`Created MinIO bucket: ${this.bucket}`);
       }
     } catch (error: any) {
-      this.logger.warn(
-        `MinIO initialization failed: ${error.message}. Falling back to local storage.`,
+      this.logger.error(
+        `MinIO initialization failed: ${error.message}. The configured storage strategy will determine whether upload failover is permitted.`,
       );
     }
   }
@@ -51,14 +83,14 @@ export class MinioStorageProvider implements StorageProvider, OnModuleInit {
     key: string,
     mimeType: string,
   ): Promise<string> {
-    await this.client.putObject(this.bucket, key, buffer, buffer.length, {
+    await this.getClient().putObject(this.bucket, key, buffer, buffer.length, {
       'Content-Type': mimeType,
     });
     return key;
   }
 
   async downloadFile(key: string): Promise<Buffer> {
-    const stream = await this.client.getObject(this.bucket, key);
+    const stream = await this.getClient().getObject(this.bucket, key);
     const chunks: Buffer[] = [];
     return new Promise((resolve, reject) => {
       stream.on('data', (chunk: Buffer) => chunks.push(chunk));
@@ -68,10 +100,14 @@ export class MinioStorageProvider implements StorageProvider, OnModuleInit {
   }
 
   async deleteFile(key: string): Promise<void> {
-    await this.client.removeObject(this.bucket, key);
+    await this.getClient().removeObject(this.bucket, key);
   }
 
   async getFileUrl(key: string, expiresInSeconds = 3600): Promise<string> {
-    return this.client.presignedGetObject(this.bucket, key, expiresInSeconds);
+    return this.getClient().presignedGetObject(
+      this.bucket,
+      key,
+      expiresInSeconds,
+    );
   }
 }

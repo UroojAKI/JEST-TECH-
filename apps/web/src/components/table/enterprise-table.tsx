@@ -13,7 +13,7 @@ import {
   SortingState,
   VisibilityState,
 } from '@tanstack/react-table';
-import { ChevronLeft, ChevronRight, Download, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, Search, Loader2 } from 'lucide-react';
 
 interface EnterpriseTableProps<TData> {
   data: TData[];
@@ -28,6 +28,7 @@ interface EnterpriseTableProps<TData> {
   manualFiltering?: boolean;
   searchValue?: string;
   onSearchChange?: (value: string) => void;
+  onExportAll?: () => void | Promise<void>;
   renderSubComponent?: (props: { row: TData }) => React.ReactNode;
 }
 
@@ -44,13 +45,17 @@ export function EnterpriseTable<TData>({
   manualFiltering = false,
   searchValue,
   onSearchChange,
+  onExportAll,
   renderSubComponent,
 }: EnterpriseTableProps<TData>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [internalFilter, setInternalFilter] = useState('');
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [expanded, setExpanded] = useState({});
+  const [isExporting, setIsExporting] = useState(false);
+  const [internalPageSize, setInternalPageSize] = useState(pageSize);
 
+  const effectivePageSize = onPageSizeChange ? pageSize : internalPageSize;
   const globalFilter = searchValue ?? internalFilter;
 
   const handleSearchChange = (value: string) => {
@@ -58,6 +63,25 @@ export function EnterpriseTable<TData>({
       onSearchChange(value);
     } else {
       setInternalFilter(value);
+    }
+    if (onPageChange) {
+      onPageChange(0);
+    } else {
+      table.setPageIndex(0);
+    }
+  };
+
+  const handlePageSizeChange = (newSize: number) => {
+    if (onPageSizeChange) {
+      onPageSizeChange(newSize);
+    } else {
+      setInternalPageSize(newSize);
+      table.setPageSize(newSize);
+    }
+    if (onPageChange) {
+      onPageChange(0);
+    } else {
+      table.setPageIndex(0);
     }
   };
 
@@ -69,7 +93,7 @@ export function EnterpriseTable<TData>({
       globalFilter,
       columnVisibility,
       expanded,
-      pagination: { pageIndex, pageSize },
+      pagination: { pageIndex, pageSize: effectivePageSize },
     },
     onSortingChange: setSorting,
     onColumnVisibilityChange: setColumnVisibility,
@@ -81,17 +105,30 @@ export function EnterpriseTable<TData>({
     getExpandedRowModel: getExpandedRowModel(),
     manualPagination,
     manualFiltering,
-    pageCount: manualPagination ? pageCount ?? Math.ceil((totalRows ?? data.length) / pageSize) : undefined,
+    pageCount: manualPagination ? pageCount ?? Math.ceil((totalRows ?? data.length) / effectivePageSize) : undefined,
   });
 
   const currentPageCount = manualPagination
-    ? pageCount ?? Math.max(1, Math.ceil((totalRows ?? data.length) / pageSize))
+    ? pageCount ?? Math.max(1, Math.ceil((totalRows ?? data.length) / effectivePageSize))
     : table.getPageCount() || 1;
   const currentPage = manualPagination ? pageIndex : table.getState().pagination.pageIndex;
-  const visibleStart = (totalRows ?? data.length) === 0 ? 0 : currentPage * pageSize + 1;
+  const visibleStart = (totalRows ?? data.length) === 0 ? 0 : currentPage * effectivePageSize + 1;
   const visibleEnd = manualPagination
-    ? Math.min((currentPage + 1) * pageSize, totalRows ?? data.length)
-    : Math.min((currentPage + 1) * pageSize, data.length);
+    ? Math.min((currentPage + 1) * effectivePageSize, totalRows ?? data.length)
+    : Math.min((currentPage + 1) * effectivePageSize, data.length);
+
+  const handleExport = async () => {
+    if (onExportAll) {
+      try {
+        setIsExporting(true);
+        await onExportAll();
+      } finally {
+        setIsExporting(false);
+      }
+      return;
+    }
+    exportCSV();
+  };
 
   const exportCSV = () => {
     const headers = columns.map((c) => (c.header as string) || '').join(',');
@@ -122,7 +159,7 @@ export function EnterpriseTable<TData>({
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <input value={globalFilter ?? ''} onChange={(e) => handleSearchChange(e.target.value)} placeholder="Filter records..." className="w-full pl-9 pr-3 py-1.5 text-xs rounded-md border bg-background focus:outline-none focus:ring-1 focus:ring-primary" />
         </div>
-        <button onClick={exportCSV} className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border bg-muted/40 hover:bg-accent"><Download className="h-3.5 w-3.5" /><span>Export CSV</span></button>
+        <button onClick={handleExport} disabled={isExporting} className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border bg-muted/40 hover:bg-accent disabled:opacity-50">{isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}<span>{isExporting ? 'Exporting…' : 'Export CSV'}</span></button>
       </div>
 
       <div className="rounded-lg border bg-card overflow-hidden shadow-sm">
@@ -142,22 +179,20 @@ export function EnterpriseTable<TData>({
         <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 border-t bg-muted/20 text-xs text-muted-foreground gap-3">
           <div className="flex items-center gap-3">
             <div>Showing {visibleStart} to {visibleEnd} of {totalRows ?? data.length} entries</div>
-            {onPageSizeChange && (
-              <div className="flex items-center gap-1.5 pl-2 border-l border-border">
-                <span>Rows:</span>
-                <select
-                  value={pageSize}
-                  onChange={(e) => onPageSizeChange(Number(e.target.value))}
-                  className="px-1.5 py-0.5 rounded border bg-background text-foreground font-semibold"
-                >
-                  {[10, 25, 50, 100].map((size) => (
-                    <option key={size} value={size}>
-                      {size}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+            <div className="flex items-center gap-1.5 pl-2 border-l border-border">
+              <span>Rows:</span>
+              <select
+                value={effectivePageSize}
+                onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+                className="px-1.5 py-0.5 rounded border bg-background text-foreground font-semibold"
+              >
+                {[10, 20, 50, 100].map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
           <div className="flex items-center space-x-2">
             <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage <= 0} className="p-1 rounded border disabled:opacity-40 hover:bg-accent"><ChevronLeft className="h-4 w-4" /></button>

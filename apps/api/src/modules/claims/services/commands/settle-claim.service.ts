@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../../database/prisma.service';
 import { ClaimStatus, Prisma } from '@prisma/client';
@@ -76,6 +77,12 @@ export class SettleClaimService {
       );
     }
 
+    if (claim.status === ClaimStatus.PAYMENT_PENDING) {
+      throw new ConflictException(
+        'A settlement request is already pending for this claim. It cannot be overwritten.',
+      );
+    }
+
     // A payment reference supplied by the client is not proof of payment.
     // The first action creates a pending finance settlement; only the explicit
     // verification command below can move the claim to SETTLED.
@@ -85,24 +92,32 @@ export class SettleClaimService {
     );
 
     return this.prisma.$transaction(async (tx) => {
-      const settlement = await tx.settlement.upsert({
-        where: { batchNumber: `CLAIM-${claimId}` },
-        create: {
-          batchNumber: `CLAIM-${claimId}`,
-          totalAmount: settlementAmount,
-          status: 'PENDING',
+      // Compare-and-set prevents two concurrent requests from replacing the
+      // same pending settlement amount. Only APPROVED claims can be advanced.
+      const transition = await tx.claim.updateMany({
+        where: {
+          id: claimId,
+          status: ClaimStatus.APPROVED,
+          ...(actorCompanyId ? { companyId: actorCompanyId } : {}),
         },
-        update: {
-          totalAmount: settlementAmount,
-          status: 'PENDING',
-        },
-      });
-
-      const updated = await tx.claim.update({
-        where: { id: claimId },
         data: {
           status: ClaimStatus.PAYMENT_PENDING,
           updatedById: actorId,
+        },
+      });
+
+      if (transition.count !== 1) {
+        throw new ConflictException(
+          'Claim settlement was already requested or the claim status changed. Refresh and retry.',
+        );
+      }
+
+      const settlement = await tx.settlement.create({
+        data: {
+          batchNumber: `CLAIM-${claimId}`,
+          totalAmount: settlementAmount,
+          status: 'PENDING',
+          ...(actorCompanyId ? { companyId: actorCompanyId } : {}),
         },
       });
 
@@ -113,12 +128,12 @@ export class SettleClaimService {
           action: 'SETTLEMENT_REQUESTED',
           comments:
             dto.comments ||
-            `Settlement requested for ₹${dto.settlementAmount.toLocaleString('en-IN')} via ${dto.paymentMethod} (Ref: ${dto.paymentReference.trim()}). Finance verification is required before the claim can be marked SETTLED. Settlement batch: ${settlement.batchNumber}`,
+            `Settlement requested for ₹${dto.settlementAmount.toLocaleString('en-IN')} via ${dto.paymentMethod}${dto.bankName ? ` through ${dto.bankName}` : ''} (Ref: ${dto.paymentReference.trim()})${dto.settledAt ? `. Payment date: ${dto.settledAt}` : ''}. Finance verification is required before the claim can be marked SETTLED. Settlement batch: ${settlement.batchNumber}`,
           createdById: actorId,
         },
       });
 
-      return updated;
+      return { ...claim, status: ClaimStatus.PAYMENT_PENDING, updatedById: actorId };
     });
   }
 
@@ -177,18 +192,32 @@ export class SettleClaimService {
     ClaimStateMachine.validateTransition(claim.status, ClaimStatus.SETTLED);
 
     return this.prisma.$transaction(async (tx) => {
-      await tx.settlement.update({
-        where: { id: settlement.id },
+      const settlementTransition = await tx.settlement.updateMany({
+        where: { id: settlement.id, status: 'PENDING' },
         data: { status: 'PROCESSED' },
       });
+      if (settlementTransition.count !== 1) {
+        throw new ConflictException(
+          'Settlement has already been verified or processed.',
+        );
+      }
 
-      const updated = await tx.claim.update({
-        where: { id: claimId },
+      const claimTransition = await tx.claim.updateMany({
+        where: {
+          id: claimId,
+          status: ClaimStatus.PAYMENT_PENDING,
+          ...(actorCompanyId ? { companyId: actorCompanyId } : {}),
+        },
         data: {
           status: ClaimStatus.SETTLED,
           updatedById: actorId,
         },
       });
+      if (claimTransition.count !== 1) {
+        throw new ConflictException(
+          'Claim status changed before settlement verification completed.',
+        );
+      }
 
       await tx.claimHistory.create({
         data: {
@@ -200,7 +229,7 @@ export class SettleClaimService {
         },
       });
 
-      return updated;
+      return { ...claim, status: ClaimStatus.SETTLED, updatedById: actorId };
     });
   }
 }

@@ -15,7 +15,7 @@ export default function CorporateAccountsPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form, setForm] = useState({ name: '', type: 'CORPORATE', industry: '', email: '', phone: '' });
-  const limit = 25;
+  const [pageSize, setPageSize] = useState(25);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -25,14 +25,14 @@ export default function CorporateAccountsPage() {
   }, [search]);
 
   const accountsQuery = useQuery({
-    queryKey: ['accounts', page, debouncedSearch],
-    queryFn: () => accountRepository.getAccounts({ page, limit, search: debouncedSearch.trim() || undefined, sortBy: 'createdAt', sortOrder: 'desc' }),
+    queryKey: ['accounts', page, pageSize, debouncedSearch],
+    queryFn: () => accountRepository.getAccounts({ page, limit: pageSize, search: debouncedSearch.trim() || undefined, sortBy: 'createdAt', sortOrder: 'desc' }),
   });
 
   const raw: any = accountsQuery.data;
   const accounts: AccountRecord[] = Array.isArray(raw) ? raw : (raw?.data || raw?.items || []);
   const total = Array.isArray(raw) ? accounts.length : Number(raw?.total ?? accounts.length);
-  const totalPages = Array.isArray(raw) ? 1 : Number(raw?.totalPages ?? Math.max(1, Math.ceil(total / limit)));
+  const totalPages = Array.isArray(raw) ? 1 : Number(raw?.totalPages ?? Math.max(1, Math.ceil(total / pageSize)));
 
   const createMutation = useMutation({
     mutationFn: accountRepository.createAccount,
@@ -70,7 +70,7 @@ export default function CorporateAccountsPage() {
       </div>
 
       {accountsQuery.isError && <div className="p-3 border border-destructive/30 rounded-lg bg-destructive/10 text-destructive text-xs flex items-center gap-2"><AlertCircle className="h-4 w-4" />Failed to load accounts. <button onClick={() => accountsQuery.refetch()} className="underline font-bold">Retry</button></div>}
-      {accountsQuery.isLoading ? <div className="p-10 flex justify-center"><Loader2 className="h-5 w-5 animate-spin" /></div> : <EnterpriseTable data={accounts} columns={columns} totalRows={total} pageSize={limit} pageIndex={page - 1} pageCount={totalPages} manualPagination manualFiltering searchValue={search} onSearchChange={(value) => { setSearch(value); setPage(1); }} onPageChange={(nextPage) => setPage(nextPage + 1)} />}
+      {accountsQuery.isLoading ? <div className="p-10 flex justify-center"><Loader2 className="h-5 w-5 animate-spin" /></div> : <EnterpriseTable data={accounts} columns={columns} totalRows={total} pageSize={pageSize} pageIndex={page - 1} pageCount={totalPages} manualPagination manualFiltering searchValue={search} onSearchChange={(value) => { setSearch(value); setPage(1); }} onPageChange={(nextPage) => setPage(nextPage + 1)} onPageSizeChange={(newSize) => { setPageSize(newSize); setPage(1); }} />}
 
       {isModalOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4"><div className="w-full max-w-md bg-card border rounded-2xl shadow-2xl text-xs"><div className="p-4 border-b flex justify-between items-center"><h2 className="font-bold text-sm flex items-center gap-2"><Building2 className="h-4 w-4 text-primary" />Create Corporate Account</h2><button onClick={() => setIsModalOpen(false)}><X className="h-4 w-4" /></button></div><form onSubmit={handleSubmit} className="p-5 space-y-3"><div><label className="font-bold block mb-1">Account Name *</label><input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full p-2.5 rounded-lg border bg-background" /></div><div><label className="font-bold block mb-1">Industry</label><input value={form.industry} onChange={(e) => setForm({ ...form, industry: e.target.value })} className="w-full p-2.5 rounded-lg border bg-background" /></div><div><label className="font-bold block mb-1">Email</label><input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full p-2.5 rounded-lg border bg-background" /></div><div><label className="font-bold block mb-1">Phone</label><input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="w-full p-2.5 rounded-lg border bg-background" /></div><div className="flex justify-end gap-2 pt-3 border-t"><button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 rounded-lg border">Cancel</button><button type="submit" disabled={createMutation.isPending} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground font-bold flex items-center">{createMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}{createMutation.isPending ? 'Creating...' : 'Create Account'}</button></div></form></div></div>}
     </AppShell>

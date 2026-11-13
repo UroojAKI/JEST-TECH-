@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient, showApiErrorToast } from '../../../../../../lib/api-client';
+import { canQuotationRecordPayment } from '../../../../../../repositories/quotations.repository';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import {
@@ -1313,22 +1314,28 @@ export default function CaseDetailPage() {
                   </span>
                 )}
 
-                <button
-                  onClick={() => {
-                    setPaymentForm({
-                      amount: selectedQuote?.totalPremium ? String(selectedQuote.totalPremium) : '',
-                      paymentMethod: 'UPI',
-                      referenceNumber: '',
-                      status: 'PAID',
-                      notes: '',
-                    });
-                    setRecordPaymentModalOpen(true);
-                  }}
-                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition flex items-center gap-1.5"
-                >
-                  <Wallet className="h-3.5 w-3.5" />
-                  <span>Record / Verify Payment</span>
-                </button>
+                {canQuotationRecordPayment({
+                  ...selectedQuote,
+                  motorPaymentRecord: paymentRecord || selectedQuote?.motorPaymentRecord,
+                  proposalStatus: workflowProjection?.blockingGates?.proposalApproved ? 'APPROVED' : selectedQuote?.proposalStatus,
+                }) && (
+                  <button
+                    onClick={() => {
+                      setPaymentForm({
+                        amount: selectedQuote?.totalPremium ? String(selectedQuote.totalPremium) : '',
+                        paymentMethod: 'UPI',
+                        referenceNumber: '',
+                        status: 'PAID',
+                        notes: '',
+                      });
+                      setRecordPaymentModalOpen(true);
+                    }}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition flex items-center gap-1.5"
+                  >
+                    <Wallet className="h-3.5 w-3.5" />
+                    <span>Record / Verify Payment</span>
+                  </button>
+                )}
               </div>
             </div>
 

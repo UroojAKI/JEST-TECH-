@@ -23,6 +23,28 @@ describe('formatUserFacingError (REQ-8 Plain Language Error Handling)', () => {
     expect(formatted.statusCode).toBe(409);
   });
 
+  it('translates 409 POLICY_ALREADY_EXISTS with policyNumber and policyId into recovery guidance', () => {
+    const error: any = {
+      isAxiosError: true,
+      response: {
+        status: 409,
+        data: {
+          code: 'POLICY_ALREADY_EXISTS',
+          policyId: 'pol-uuid-123',
+          policyNumber: 'POL-2026-9999',
+          message: 'Policy already issued for quotation q-1 (Policy Number: POL-2026-9999).',
+        },
+      },
+    };
+
+    const formatted = formatUserFacingError(error);
+    expect(formatted.title).toBe('Policy Already Issued');
+    expect(formatted.message).toContain('POL-2026-9999');
+    expect(formatted.actionHint).toContain('POL-2026-9999');
+    expect(formatted.policyId).toBe('pol-uuid-123');
+    expect(formatted.policyNumber).toBe('POL-2026-9999');
+  });
+
   it('translates 409 stale version conflict into clear resolution guidance', () => {
     const error: any = {
       isAxiosError: true,
@@ -97,6 +119,7 @@ describe('formatUserFacingError (REQ-8 Plain Language Error Handling)', () => {
     expect(formatted.title).toBe('Renewal Window Not Yet Open');
     expect(formatted.message).toContain('within 45 days of policy expiration');
     expect(formatted.actionHint).toContain('45-day renewal window');
+    expect(formatted.message).toContain('renewal quotations can be prepared and shared in advance');
   });
 
   it('translates 400 renewal reminder 90-day restriction into plain language', () => {
@@ -161,6 +184,48 @@ describe('formatUserFacingError (REQ-8 Plain Language Error Handling)', () => {
 
     expect(formatted.title).toBe('Service Temporarily Unavailable');
     expect(formatted.dataPreserved).toBe(true);
+  });
+
+  it('translates 400 QUOTATION_INCOMPLETE_FOR_SUBMISSION nested under error into actionable missing fields guidance', () => {
+    const error: any = {
+      isAxiosError: true,
+      response: {
+        status: 400,
+        data: {
+          error: {
+            statusCode: 400,
+            errorCode: 'QUOTATION_INCOMPLETE_FOR_SUBMISSION',
+            message: 'Quotation is incomplete and cannot be submitted to back office.',
+            completion: {
+              canApprove: false,
+              sections: [
+                {
+                  section: 'customer',
+                  completedCount: 1,
+                  missing: [
+                    { field: 'phone', label: 'Mobile Number' },
+                    { field: 'email', label: 'Email Address' },
+                  ],
+                },
+                {
+                  section: 'coverage',
+                  completedCount: 3,
+                  missing: [],
+                },
+              ],
+            },
+          },
+        },
+      },
+    };
+
+    const formatted = formatUserFacingError(error);
+
+    expect(formatted.title).toBe('Quotation Details Incomplete');
+    expect(formatted.message).toContain('currently 1/2');
+    expect(formatted.message).toContain('Mobile Number, Email Address');
+    expect(formatted.actionHint).toContain('Complete Details');
+    expect(formatted.statusCode).toBe(400);
   });
 });
 

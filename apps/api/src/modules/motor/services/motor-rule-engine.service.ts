@@ -32,6 +32,7 @@ export interface MotorRuleContext {
   // Ownership transfer context
   newOwnerName?: string;
   packageRequiresInspection?: boolean;
+  isOldCustomer?: boolean;
 }
 
 export interface MotorRuleResult {
@@ -167,15 +168,17 @@ export class MotorRuleEngineService {
 
     const reasons: string[] = [];
     let inspectionRequired = false;
+    // Old customers bypass policy-expiry break-in inspection triggers only; non-expiry rules remain enforced.
+    const bypassExpiryInspection = ctx.isOldCustomer === true;
 
     // Rule: Policy expired (any expiry) → inspection (when no ownership transfer)
-    if (policyExpired && !ctx.ownershipTransfer) {
+    if (!bypassExpiryInspection && policyExpired && !ctx.ownershipTransfer) {
       inspectionRequired = true;
       reasons.push('POLICY_EXPIRED');
     }
 
     // Rule: Expired > 90 days → inspection (always, even with ownership transfer)
-    if (expiredMoreThan90Days) {
+    if (!bypassExpiryInspection && expiredMoreThan90Days) {
       inspectionRequired = true;
       if (!reasons.includes('POLICY_EXPIRED')) {
         reasons.push('POLICY_EXPIRED_MORE_THAN_90_DAYS');
@@ -190,7 +193,7 @@ export class MotorRuleEngineService {
         reasons.push('OWNERSHIP_TRANSFER_POLICY_NOT_TRANSFERRED');
       } else {
         // Transfer = Yes, prev policy transferred
-        if (policyExpired) {
+        if (!bypassExpiryInspection && policyExpired) {
           // Policy also expired → inspection
           inspectionRequired = true;
           reasons.push('OWNERSHIP_TRANSFER_POLICY_EXPIRED');
@@ -208,7 +211,7 @@ export class MotorRuleEngineService {
     }
 
     // Rule: SAOD — OD expired → inspection
-    if (ctx.newPolicyType === 'SAOD' && ctx.odExpiryDate) {
+    if (!bypassExpiryInspection && ctx.newPolicyType === 'SAOD' && ctx.odExpiryDate) {
       const odExpiryStr = this.policyDateService.toBusinessDate(ctx.odExpiryDate);
       if (odExpiryStr < today) {
         inspectionRequired = true;

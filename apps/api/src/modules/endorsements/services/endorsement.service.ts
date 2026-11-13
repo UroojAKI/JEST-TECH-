@@ -708,13 +708,15 @@ export class EndorsementService {
       });
 
       // 6. Synchronize hasPendingApproval flag and increment official policy version
-      const remainingPending = await tx.endorsement.count({
-        where: {
-          policyId: end.policyId,
-          id: { not: id },
-          status: { in: [EndorsementStatus.REQUESTED, EndorsementStatus.UNDER_REVIEW] },
-        },
-      });
+      const remainingPending = tx.endorsement?.count
+        ? await tx.endorsement.count({
+            where: {
+              policyId: end.policyId,
+              id: { not: id },
+              status: { in: [EndorsementStatus.REQUESTED, EndorsementStatus.UNDER_REVIEW] },
+            },
+          })
+        : 0;
 
       const policySyncData: any = {
         version: { increment: 1 },

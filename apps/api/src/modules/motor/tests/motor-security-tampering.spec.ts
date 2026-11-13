@@ -48,6 +48,9 @@ describe('Phase 8: Motor Security & Financial Tampering Gates', () => {
 
   beforeEach(async () => {
     prisma = {
+      insurer: {
+        findMany: jest.fn().mockResolvedValue([{ id: 'insurer-hdfc-ergo', name: 'HDFC ERGO', isActive: true }]),
+      },
       motorQuotationCase: {
         findFirst: jest.fn(),
         create: jest.fn().mockResolvedValue({ id: 'case-auto-1', status: 'QUOTED' }),
@@ -55,6 +58,7 @@ describe('Phase 8: Motor Security & Financial Tampering Gates', () => {
       },
       quotation: {
         findFirst: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
         findUnique: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),

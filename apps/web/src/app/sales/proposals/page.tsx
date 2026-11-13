@@ -35,13 +35,21 @@ export default function ProposalsRegisterPage() {
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [total, setTotal] = useState(0);
+  const [search, setSearch] = useState('');
 
   const fetchProposals = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const params: Record<string, string> = {};
+      const params: Record<string, any> = {
+        page,
+        limit: pageSize,
+      };
       if (savedView !== 'ALL') params.status = savedView;
+      if (search.trim()) params.search = search.trim();
       const response = await apiClient.get('/proposals', { params });
       // Handle both array responses and paginated envelope { data: [], total: N }
       const raw = response.data;
@@ -52,7 +60,9 @@ export default function ProposalsRegisterPage() {
           : Array.isArray(raw?.items)
             ? raw.items
             : [];
+      const totalCount = Array.isArray(raw) ? raw.length : Number(raw?.total ?? items.length);
       setProposals(items);
+      setTotal(totalCount);
     } catch (err: unknown) {
       const message =
         (err as { response?: { data?: { message?: string } } })?.response?.data
@@ -61,7 +71,7 @@ export default function ProposalsRegisterPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [savedView]);
+  }, [savedView, page, pageSize, search]);
 
   useEffect(() => {
     fetchProposals();
@@ -188,7 +198,26 @@ export default function ProposalsRegisterPage() {
 
       {/* Data Table */}
       {!isLoading && !error && (
-        <EnterpriseTable data={proposals} columns={columns} />
+        <EnterpriseTable
+          data={proposals}
+          columns={columns}
+          totalRows={total}
+          pageSize={pageSize}
+          pageIndex={page - 1}
+          pageCount={Math.max(1, Math.ceil(total / pageSize))}
+          manualPagination
+          manualFiltering
+          searchValue={search}
+          onSearchChange={(val) => {
+            setSearch(val);
+            setPage(1);
+          }}
+          onPageChange={(nextPage) => setPage(nextPage + 1)}
+          onPageSizeChange={(newSize) => {
+            setPageSize(newSize);
+            setPage(1);
+          }}
+        />
       )}
     </AppShell>
   );

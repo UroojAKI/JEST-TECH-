@@ -3,11 +3,13 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { AppShell } from '../../../components/layout/app-shell';
-import { Users, Plus, Key, Lock, Unlock, Search, Loader2, CheckCircle2, Copy, Eye } from 'lucide-react';
+import { Users, Plus, Key, Lock, Unlock, Search, Loader2, CheckCircle2, Copy, Eye, Phone } from 'lucide-react';
 import { StatusBadge } from '../../../components/ui/status-badge';
 import { toast } from 'sonner';
 import { useAdminUsers } from '../../../hooks/useAdmin';
 import { adminRepository } from '../../../repositories/admin.repository';
+import { apiClient } from '../../../lib/api-client';
+import { sanitizeTenDigitPhone, validateOptionalTenDigitPhone } from '../../../lib/user-phone';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 
 export default function UserManagementPage() {
@@ -23,9 +25,11 @@ export default function UserManagementPage() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [invitationMode, setInvitationMode] = useState(false);
   const [newFirstName, setNewFirstName] = useState('');
   const [newLastName, setNewLastName] = useState('');
   const [newEmail, setNewEmail] = useState('');
+  const [newPhone, setNewPhone] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newRole, setNewRole] = useState('AGENT');
   const [newBranchId, setNewBranchId] = useState('');
@@ -49,6 +53,11 @@ export default function UserManagementPage() {
   const [resetModalUser, setResetModalUser] = useState<any | null>(null);
   const [customResetPassword, setCustomResetPassword] = useState('');
   const [isResetting, setIsResetting] = useState(false);
+
+  // Edit Mobile Modal state
+  const [editPhoneModalUser, setEditPhoneModalUser] = useState<any | null>(null);
+  const [editPhoneValue, setEditPhoneValue] = useState('');
+  const [isSavingPhone, setIsSavingPhone] = useState(false);
 
   const { users, isLoading, isFetching, isError, updateUserStatus, updateUser, isUpdating } = useAdminUsers({
     status: statusFilter !== 'ALL' ? statusFilter : undefined,
@@ -103,6 +112,40 @@ export default function UserManagementPage() {
     setCustomResetPassword('');
   };
 
+  const handleOpenEditPhoneModal = (user: any) => {
+    setEditPhoneModalUser(user);
+    setEditPhoneValue(sanitizeTenDigitPhone(user.phone || ''));
+  };
+
+  const handleSaveEditPhone = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editPhoneModalUser) return;
+    const phoneCheck = validateOptionalTenDigitPhone(editPhoneValue);
+    if (!phoneCheck.valid) {
+      return void toast.error(phoneCheck.error);
+    }
+
+    setIsSavingPhone(true);
+    try {
+      const nextPhone = phoneCheck.normalized || null;
+      await updateUser({ id: editPhoneModalUser.id, data: { phone: nextPhone } });
+      await queryClient.invalidateQueries({
+        queryKey: ['admin', 'users', 'workspace', editPhoneModalUser.id],
+      });
+      toast.success(
+        nextPhone
+          ? `Mobile number updated for ${editPhoneModalUser.firstName} ${editPhoneModalUser.lastName}`
+          : `Mobile number cleared for ${editPhoneModalUser.firstName} ${editPhoneModalUser.lastName}`
+      );
+      setEditPhoneModalUser(null);
+      setEditPhoneValue('');
+    } catch {
+      // Error toast is already displayed by the mutation
+    } finally {
+      setIsSavingPhone(false);
+    }
+  };
+
   const handleConfirmResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!resetModalUser) return;
@@ -131,6 +174,7 @@ export default function UserManagementPage() {
     const cleanLastName = newLastName.trim();
     const cleanEmail = newEmail.trim().toLowerCase();
     const cleanPassword = newPassword.trim();
+    const phoneCheck = validateOptionalTenDigitPhone(newPhone);
 
     if (!cleanFirstName || !cleanLastName) {
       return void toast.error('First name and last name are required');
@@ -138,34 +182,50 @@ export default function UserManagementPage() {
     if (!cleanEmail) {
       return void toast.error('Work email address is required');
     }
+    if (!phoneCheck.valid) {
+      return void toast.error(phoneCheck.error);
+    }
     if (cleanPassword && cleanPassword.length < 6) {
       return void toast.error('Initial password must be at least 6 characters long');
     }
 
     setIsSubmitting(true);
     try {
-      const res = await adminRepository.createUser({
-        firstName: cleanFirstName,
-        lastName: cleanLastName,
-        email: cleanEmail,
-        password: cleanPassword || undefined,
-        role: newRole,
-        collectContacts: newRole === 'AGENT' && newCollectContacts,
-        branchId: newBranchId || undefined,
-      });
-
-      toast.success('User created successfully');
-      setCreatedCredentials({
-        email: cleanEmail,
-        password: (res as any)?.initialPassword || cleanPassword,
-      });
+      if (invitationMode) {
+        await apiClient.post('/users/invitations', {
+          firstName: cleanFirstName,
+          lastName: cleanLastName,
+          email: cleanEmail,
+          phone: phoneCheck.normalized || undefined,
+          role: newRole,
+          collectContacts: newRole === 'AGENT' && newCollectContacts,
+          branchId: newBranchId || undefined,
+        });
+        toast.success(`Invitation sent to ${cleanEmail}. The link expires in 72 hours.`);
+      } else {
+        const res = await adminRepository.createUser({
+          firstName: cleanFirstName,
+          lastName: cleanLastName,
+          email: cleanEmail,
+          phone: phoneCheck.normalized || undefined,
+          password: cleanPassword || undefined,
+          role: newRole,
+          collectContacts: newRole === 'AGENT' && newCollectContacts,
+          branchId: newBranchId || undefined,
+        });
+        toast.success('User created successfully');
+        setCreatedCredentials({
+          email: cleanEmail,
+          password: (res as any)?.initialPassword || cleanPassword,
+        });
+      }
 
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
-
       setShowCreateForm(false);
       setNewFirstName('');
       setNewLastName('');
       setNewEmail('');
+      setNewPhone('');
       setNewPassword('');
       setNewRole('AGENT');
       setNewBranchId('');
@@ -202,11 +262,24 @@ export default function UserManagementPage() {
 
         <div className="flex items-center space-x-2">
           <button
-            onClick={() => setShowCreateForm(!showCreateForm)}
-            className="flex items-center space-x-1 px-4 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground shadow hover:bg-primary/90 transition-colors"
+            onClick={() => {
+              setInvitationMode(false);
+              setShowCreateForm((open) => !open);
+            }}
+            className="flex items-center space-x-1 px-4 py-2 text-xs font-bold rounded-lg border bg-background hover:bg-muted transition-colors"
           >
             <Plus className="h-4 w-4" />
-            <span>{showCreateForm ? 'Cancel' : '+ Provision New User'}</span>
+            <span>Provision User</span>
+          </button>
+          <button
+            onClick={() => {
+              setInvitationMode(true);
+              if (newRole === 'ADMIN') setNewRole('AGENT');
+              setShowCreateForm(true);
+            }}
+            className="flex items-center space-x-1 px-4 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground shadow hover:bg-primary/90 transition-colors"
+          >
+            <span>Invite User</span>
           </button>
         </div>
       </div>
@@ -251,7 +324,7 @@ export default function UserManagementPage() {
       {/* Inline User Creation Form */}
       {showCreateForm && (
         <div className="p-5 border rounded-xl bg-card shadow-sm text-xs mb-4">
-          <h2 className="font-bold mb-3 flex items-center gap-2"><Users className="h-4 w-4" /> Provision New User Account</h2>
+          <h2 className="font-bold mb-3 flex items-center gap-2"><Users className="h-4 w-4" /> {invitationMode ? 'Invite User — 72-hour activation link' : 'Provision New User Account'}</h2>
           <form onSubmit={handleCreateUser} className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -275,7 +348,7 @@ export default function UserManagementPage() {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="font-bold text-muted-foreground block mb-1">Work Email Address *</label>
                 <input
@@ -288,19 +361,20 @@ export default function UserManagementPage() {
               </div>
               <div>
                 <label className="font-bold text-muted-foreground block mb-1">
-                  Initial Password <span className="font-normal text-[10px] text-muted-foreground/80">(Min. 6 chars, or leave blank to auto-generate)</span>
+                  Mobile Number <span className="font-normal text-[10px] text-muted-foreground/80">(Optional, 10 digits)</span>
                 </label>
                 <input
-                  type="text"
-                  minLength={6}
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Leave blank to auto-generate"
+                  type="tel"
+                  inputMode="numeric"
+                  maxLength={10}
+                  value={newPhone}
+                  onChange={(e) => setNewPhone(sanitizeTenDigitPhone(e.target.value))}
+                  placeholder="10-digit mobile number"
                   className="w-full p-2.5 rounded-lg border bg-background text-foreground text-xs font-mono focus:ring-1 focus:ring-primary"
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="font-bold text-muted-foreground block mb-1">Assigned Role *</label>
                 <select
@@ -309,7 +383,7 @@ export default function UserManagementPage() {
                   className="w-full p-2.5 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary"
                 >
                   {roles.length > 0 ? (
-                    roles.map((r: any) => (
+                    roles.filter((r: any) => !invitationMode || ['AGENT', 'BACK_OFFICE'].includes(String(r.code || r.type || r.roleName).toUpperCase())).map((r: any) => (
                       <option key={r.code || r.roleId || r.id} value={r.code || r.type || r.roleName}>
                         {r.name || r.roleName || r.displayName || r.code}
                       </option>
@@ -339,6 +413,21 @@ export default function UserManagementPage() {
                 </select>
               </div>
             </div>
+            {!invitationMode && (
+              <div>
+                <label className="font-bold text-muted-foreground block mb-1">
+                  Initial Password <span className="font-normal text-[10px] text-muted-foreground/80">(Min. 6 chars, or leave blank to auto-generate)</span>
+                </label>
+                <input
+                  type="text"
+                  minLength={6}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Leave blank to auto-generate"
+                  className="w-full p-2.5 rounded-lg border bg-background text-foreground text-xs font-mono focus:ring-1 focus:ring-primary"
+                />
+              </div>
+            )}
             {newRole === 'AGENT' && (
               <div className="rounded-lg border bg-muted/20 p-3 flex items-start gap-3">
                 <input
@@ -365,7 +454,7 @@ export default function UserManagementPage() {
                 className="px-4 py-2 rounded-lg bg-primary text-primary-foreground font-bold hover:bg-primary/90 shadow flex items-center space-x-1"
               >
                 {isSubmitting && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
-                <span>{isSubmitting ? 'Provisioning...' : 'Provision User'}</span>
+                <span>{isSubmitting ? (invitationMode ? 'Sending invitation...' : 'Provisioning...') : (invitationMode ? 'Send 72-hour invitation' : 'Provision User')}</span>
               </button>
             </div>
           </form>
@@ -399,7 +488,7 @@ export default function UserManagementPage() {
           <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Search by name, email, code..."
+            placeholder="Search by name, email, mobile, code..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-8 pr-3 py-1.5 rounded-lg border bg-background text-xs focus:outline-none focus:ring-1 focus:ring-primary"
@@ -415,6 +504,7 @@ export default function UserManagementPage() {
               <th className="p-3">Emp Code</th>
               <th className="p-3">Full Name</th>
               <th className="p-3">Email Address</th>
+              <th className="p-3">Mobile</th>
               <th className="p-3">Assigned Role</th>
               <th className="p-3">Branch & Team</th>
               <th className="p-3">Status</th>
@@ -436,6 +526,7 @@ export default function UserManagementPage() {
                   </Link>
                 </td>
                 <td className="p-3 text-muted-foreground font-mono">{u.email}</td>
+                <td className="p-3 text-muted-foreground font-mono">{u.phone || '—'}</td>
                 <td className="p-3 font-bold">
                   <span className="px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 text-[10px]">
                     {typeof u.role === 'object' ? (u.role?.name || u.role?.code || u.role?.id || 'USER') : String(u.role || 'USER')}
@@ -488,6 +579,14 @@ export default function UserManagementPage() {
                       {u.status === 'LOCKED' ? <Unlock className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
                     </button>
                     <button
+                      type="button"
+                      onClick={() => handleOpenEditPhoneModal(u)}
+                      className="p-1.5 rounded border bg-background hover:bg-accent text-foreground"
+                      title="Edit Mobile Number"
+                    >
+                      <Phone className="h-3.5 w-3.5 text-primary" />
+                    </button>
+                    <button
                       onClick={() => handleOpenResetModal(u)}
                       className="p-1.5 rounded border bg-background hover:bg-accent text-foreground"
                       title="Set / Reset Password"
@@ -500,7 +599,7 @@ export default function UserManagementPage() {
             ))}
             {(!users || users.length === 0) && (
               <tr>
-                <td colSpan={8} className="p-4 text-center text-muted-foreground">No users found.</td>
+                <td colSpan={9} className="p-4 text-center text-muted-foreground">No users found.</td>
               </tr>
             )}
           </tbody>
@@ -543,6 +642,56 @@ export default function UserManagementPage() {
                 >
                   {isResetting && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
                   <span>{isResetting ? 'Saving...' : 'Set New Password'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Edit Mobile Number Modal */}
+      {editPhoneModalUser && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-card border rounded-xl shadow-xl max-w-md w-full p-6 space-y-4 text-xs">
+            <h3 className="text-sm font-bold flex items-center gap-2">
+              <Phone className="h-4 w-4 text-primary" /> Edit Mobile Number
+            </h3>
+            <p className="text-muted-foreground">
+              Update the 10-digit mobile number for <strong>{editPhoneModalUser.firstName} {editPhoneModalUser.lastName}</strong> ({editPhoneModalUser.email}). Leave blank to clear.
+            </p>
+            <form onSubmit={handleSaveEditPhone} className="space-y-3">
+              <div>
+                <label className="font-bold text-muted-foreground block mb-1">
+                  Mobile Number <span className="font-normal text-[10px] text-muted-foreground/80">(Optional, 10 digits)</span>
+                </label>
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  maxLength={10}
+                  value={editPhoneValue}
+                  onChange={(e) => setEditPhoneValue(sanitizeTenDigitPhone(e.target.value))}
+                  placeholder="Enter 10-digit mobile number"
+                  className="w-full p-2.5 rounded-lg border bg-background text-foreground text-xs font-mono focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <div className="flex justify-end space-x-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditPhoneModalUser(null);
+                    setEditPhoneValue('');
+                  }}
+                  className="px-3 py-1.5 rounded-lg border hover:bg-accent text-muted-foreground"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingPhone}
+                  className="px-4 py-1.5 rounded-lg bg-primary text-primary-foreground font-bold hover:bg-primary/90 shadow flex items-center space-x-1"
+                >
+                  {isSavingPhone && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
+                  <span>{isSavingPhone ? 'Saving...' : 'Save Mobile'}</span>
                 </button>
               </div>
             </form>

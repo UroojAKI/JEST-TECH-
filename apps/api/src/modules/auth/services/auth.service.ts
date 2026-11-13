@@ -105,6 +105,84 @@ export class AuthService {
     };
   }
 
+  private async recordFailedLogin(
+    userId: string,
+    email: string,
+    maxAttempts: number,
+    windowMs: number,
+  ): Promise<void> {
+    const now = new Date();
+    const windowStart = new Date(now.getTime() - windowMs);
+
+    // Reset an expired window atomically; otherwise increment the counter atomically.
+    await this.prisma.$transaction(async (tx) => {
+      const reset = await tx.user.updateMany({
+        where: {
+          id: userId,
+          OR: [
+            { failedLoginWindowStartedAt: null },
+            { failedLoginWindowStartedAt: { lt: windowStart } },
+          ],
+        },
+        data: {
+          failedLoginAttempts: 1,
+          failedLoginWindowStartedAt: now,
+          lockedUntil: null,
+        },
+      });
+
+      let attempts = 1;
+      if (reset.count === 0) {
+        const updated = await tx.user.update({
+          where: { id: userId },
+          data: { failedLoginAttempts: { increment: 1 } },
+          select: { failedLoginAttempts: true },
+        });
+        attempts = updated.failedLoginAttempts;
+      }
+
+      if (attempts >= maxAttempts) {
+        await tx.user.updateMany({
+          where: { id: userId, lockedUntil: null },
+          data: { lockedUntil: new Date(now.getTime() + windowMs) },
+        });
+      }
+    });
+
+    // Audit logging is deliberately secondary; lockout state has already committed.
+    this.prisma.auditLog
+      ?.create?.({
+        data: {
+          action: AuditAction.LOGIN,
+          entity: 'User',
+          entityId: userId,
+          userId,
+          module: 'AUTH_FAILED',
+          metadata: { reason: 'Invalid password', email },
+        },
+      })
+      ?.catch?.(() => {});
+  }
+
+  private resolveEffectivePermissions(user: any): string[] {
+    const rawWidgets = (user.workspacePreference?.favoriteWidgets as any) || {};
+    const overrides = rawWidgets.permissionOverrides;
+    const granted: string[] = Array.isArray(overrides?.granted) ? overrides.granted : [];
+    const revoked: string[] = Array.isArray(overrides?.revoked) ? overrides.revoked : [];
+
+    const basePermissions: string[] = user.role?.permissions
+      ? user.role.permissions.map((p: any) => p.permission?.code || p.code).filter(Boolean)
+      : [];
+
+    return Array.from(new Set([...basePermissions, ...granted])).filter(
+      (p) => !revoked.includes(p),
+    );
+  }
+
+  async activateInvitation(token: string, password: string) {
+    return this.usersService.activateInvitation(token, password);
+  }
+
   async login(dto: LoginDto) {
     // Use a single constant-time error message for all authentication failures.
     // This prevents account-status enumeration (distinguishing between
@@ -116,67 +194,36 @@ export class AuthService {
     const user = await this.usersService.findByEmailForAuth(dto.email);
     if (!user) throw genericAuthError;
 
-    // SEC-011 FIX: Account lockout — count failed LOGIN attempts in the last 15 minutes.
-    // Uses existing AuditLog with metadata.event='FAILED_LOGIN' marker (no schema change needed).
-    const LOCKOUT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+    // Account lockout is stored on the User row and updated atomically. AuditLog
+    // remains an audit trail only; its availability must never determine enforcement.
+    const LOCKOUT_WINDOW_MS = 15 * 60 * 1000;
     const MAX_FAILED_ATTEMPTS = 5;
-    const windowStart = new Date(Date.now() - LOCKOUT_WINDOW_MS);
+    const now = new Date();
+    const locked = Boolean(user.lockedUntil && new Date(user.lockedUntil).getTime() > now.getTime());
 
-    const recentFailures = this.prisma.auditLog?.count
-      ? await this.prisma.auditLog
-          .count({
-            where: {
-              userId: user.id,
-              action: AuditAction.LOGIN,
-              module: 'AUTH_FAILED',
-              createdAt: { gte: windowStart },
-            },
-          })
-          .catch(() => 0)
-      : 0; // fail-open: if audit table/mock unavailable, proceed
-
-    if (recentFailures >= MAX_FAILED_ATTEMPTS) {
-      // Record another failure attempt — still generic error externally
-      this.prisma.auditLog
-        ?.create?.({
-          data: {
-            action: AuditAction.LOGIN,
-            entity: 'User',
-            entityId: user.id,
-            userId: user.id,
-            module: 'AUTH_FAILED',
-            metadata: {
-              reason: 'Lockout threshold exceeded',
-              email: dto.email,
-            },
-          },
-        })
-        ?.catch?.(() => {});
-      throw genericAuthError;
-    }
-
-    // Verify password before checking account status to prevent timing attacks
-    // that could reveal account existence via response time difference.
+    // Verify password before returning the generic error so account state is not exposed by timing.
     const passwordValid = await argon2.verify(user.passwordHash, dto.password);
     if (!passwordValid) {
-      // Record failed attempt in audit log for lockout tracking
-      this.prisma.auditLog
-        ?.create?.({
-          data: {
-            action: AuditAction.LOGIN,
-            entity: 'User',
-            entityId: user.id,
-            userId: user.id,
-            module: 'AUTH_FAILED',
-            metadata: { reason: 'Invalid password', email: dto.email },
-          },
-        })
-        ?.catch?.(() => {});
+      if (!locked) {
+        await this.recordFailedLogin(user.id, dto.email, MAX_FAILED_ATTEMPTS, LOCKOUT_WINDOW_MS);
+      }
       throw genericAuthError;
     }
+
+    if (locked) throw genericAuthError;
 
     // Check account status AFTER password verification — same error externally
     if (user.status !== 'ACTIVE') throw genericAuthError;
+
+    // A successful login resets the atomic failure window.
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        failedLoginAttempts: 0,
+        failedLoginWindowStartedAt: null,
+        lockedUntil: null,
+      },
+    });
 
     const updatedUser = await this.usersService.updateLastLogin(user.id);
     const effectiveUser = {
@@ -184,9 +231,7 @@ export class AuthService {
       updatedAt: updatedUser?.updatedAt || new Date(),
     };
 
-    const permissions = user.role?.permissions
-      ? user.role.permissions.map((p) => p.permission.code)
-      : [];
+    const permissions = this.resolveEffectivePermissions(user);
     const organizationId = this.requireOrganization(user);
     const roleType = (user.role?.type || user.role?.code) as RoleType;
     const payload = this.buildPayload(
@@ -292,16 +337,16 @@ export class AuthService {
 
     // Case B: Token found but already revoked -> REPLAY ATTACK DETECTED
     if (matchedRecord.revokedAt) {
-      await this.prisma.$transaction([
-        this.prisma.refreshToken.updateMany({
+      await this.prisma.$transaction(async (tx) => {
+        await tx.refreshToken.updateMany({
           where: { userId: user.id, revokedAt: null },
           data: { revokedAt: new Date() },
-        }),
-        this.prisma.user.update({
+        });
+        await tx.user.update({
           where: { id: user.id },
           data: { authVersion: { increment: 1 } },
-        }),
-        this.prisma.auditLog.create({
+        });
+        await tx.auditLog.create({
           data: {
             userId: user.id,
             action: AuditAction.LOGIN,
@@ -312,8 +357,8 @@ export class AuthService {
               replayedTokenId: matchedRecord.id,
             },
           },
-        }),
-      ]);
+        });
+      });
       throw new UnauthorizedException(
         'Security alert: Refresh token replay detected. All sessions terminated.',
       );
@@ -326,9 +371,7 @@ export class AuthService {
 
     // Atomic token rotation: revoke old token AND store new token in a single transaction.
     // This prevents concurrent refresh races from issuing two active tokens.
-    const permissions = user.role?.permissions
-      ? user.role.permissions.map((p: any) => p.permission.code)
-      : [];
+    const permissions = this.resolveEffectivePermissions(user);
     const organizationId = this.requireOrganization(user);
     const roleType = (user.role?.type || user.role?.code) as RoleType;
     const newPayload = this.buildPayload(
@@ -349,15 +392,25 @@ export class AuthService {
       .update(newRefreshToken)
       .digest('hex');
 
-    await this.prisma.$transaction([
-      this.prisma.refreshToken.update({
-        where: { id: matchedRecord.id },
+    await this.prisma.$transaction(async (tx) => {
+      // Compare-and-set prevents two concurrent refresh requests from both
+      // rotating the same active token.
+      const revoked = await tx.refreshToken.updateMany({
+        where: {
+          id: matchedRecord.id,
+          userId: user.id,
+          revokedAt: null,
+          expiresAt: { gt: new Date() },
+        },
         data: { revokedAt: new Date() },
-      }),
-      this.prisma.refreshToken.create({
+      });
+      if (revoked.count !== 1) {
+        throw new UnauthorizedException('Refresh token has already been used or expired');
+      }
+      await tx.refreshToken.create({
         data: { userId: user.id, tokenHash, expiresAt },
-      }),
-    ]);
+      });
+    });
     return this.responsePayload(
       user,
       newAccessToken,

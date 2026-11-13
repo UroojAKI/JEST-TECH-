@@ -14,6 +14,7 @@ describe('AcceptQuotationService (R5 Multi-Version & Single Accepted Rule)', () 
   const mockTx = {
     quotation: {
       findFirst: jest.fn(),
+      findMany: jest.fn(),
       update: jest.fn(),
       updateMany: jest.fn(),
     },
@@ -59,12 +60,9 @@ describe('AcceptQuotationService (R5 Multi-Version & Single Accepted Rule)', () 
       leadId: 'lead-123',
     };
 
-    // 1st findFirst: finds target quote
-    // 2nd findFirst: checks if any OTHER quote for lead-123 is accepted -> returns null
-    // 3rd findFirst: final detail fetch
+    // First findFirst loads the target; findMany checks explicit customer-acceptance evidence.
     mockTx.quotation.findFirst
       .mockResolvedValueOnce(targetQuote)
-      .mockResolvedValueOnce(null)
       .mockResolvedValueOnce({
         ...targetQuote,
         status: QuotationStatus.APPROVED,
@@ -76,6 +74,7 @@ describe('AcceptQuotationService (R5 Multi-Version & Single Accepted Rule)', () 
         documents: [],
       });
 
+    mockTx.quotation.findMany.mockResolvedValue([]);
     mockTx.quotation.update.mockResolvedValue({
       ...targetQuote,
       status: QuotationStatus.APPROVED,
@@ -128,9 +127,11 @@ describe('AcceptQuotationService (R5 Multi-Version & Single Accepted Rule)', () 
       leadId: 'lead-123',
     };
 
-    mockTx.quotation.findFirst
-      .mockResolvedValueOnce(targetQuote)
-      .mockResolvedValueOnce(competingAccepted); // Already accepted quote exists!
+    mockTx.quotation.findFirst.mockResolvedValueOnce(targetQuote);
+    mockTx.quotation.findMany.mockResolvedValueOnce([{
+      ...competingAccepted,
+      motorMetadata: { customerAcceptance: { evidenceMethod: CustomerAcceptanceMethod.EMAIL, timestamp: new Date().toISOString() } },
+    }]);
 
     await expect(service.execute('q-v2', 'user-1')).rejects.toThrow(
       BadRequestException,

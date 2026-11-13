@@ -15,6 +15,16 @@ export class UserResponseDto {
 
   agentCode?: string | null;
 
+  clientCodes?: Array<{
+    id: string;
+    value: string;
+    codeSystem: string;
+    verificationStatus: string;
+    isPrimary: boolean;
+  }>;
+
+  agentProfile?: { id: string } | null;
+
   designation?: string | null;
 
   department?: string | null;

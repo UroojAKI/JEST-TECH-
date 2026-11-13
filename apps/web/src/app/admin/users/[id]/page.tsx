@@ -1,4 +1,5 @@
 'use client';
+import { UserPermissionsManager } from '../../../../components/admin/UserPermissionsManager';
 
 import React, { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -8,6 +9,7 @@ import { AppShell } from '../../../../components/layout/app-shell';
 import { StatusBadge } from '../../../../components/ui/status-badge';
 import { adminRepository, UserWorkspaceData } from '../../../../repositories/admin.repository';
 import { apiClient } from '../../../../lib/api-client';
+import { sanitizeTenDigitPhone, validateOptionalTenDigitPhone } from '../../../../lib/user-phone';
 import { toast } from 'sonner';
 import { useAuthStore } from '../../../../store/auth-store';
 import {
@@ -35,6 +37,9 @@ import {
   Copy,
   Fingerprint,
   Plus,
+  Pencil,
+  Check,
+  X,
 } from 'lucide-react';
 
 export default function User360Page() {
@@ -59,6 +64,8 @@ export default function User360Page() {
   const [resetModalOpen, setResetModalOpen] = useState(false);
   const [customPassword, setCustomPassword] = useState('');
   const [resetResult, setResetResult] = useState<string | null>(null);
+  const [isEditingPhone, setIsEditingPhone] = useState(false);
+  const [phoneDraft, setPhoneDraft] = useState('');
 
   const { data: workspace, isLoading, error, refetch } = useQuery<UserWorkspaceData>({
     queryKey: ['admin', 'users', 'workspace', userId],
@@ -180,6 +187,7 @@ export default function User360Page() {
     },
     onSuccess: (_, newValue) => {
       toast.success(`Customer contact collection set to ${newValue ? 'REQUIRED' : 'OPTIONAL'}`);
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
       queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
       refetch();
     },
@@ -187,6 +195,32 @@ export default function User360Page() {
       toast.error(err.response?.data?.message || 'Failed to update contact collection rule');
     },
   });
+
+  const updatePhoneMutation = useMutation({
+    mutationFn: async (phone: string | null) => {
+      return adminRepository.updateUser(userId, { phone });
+    },
+    onSuccess: (_, phone) => {
+      toast.success(phone ? 'Mobile number updated successfully' : 'Mobile number cleared');
+      setIsEditingPhone(false);
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+      refetch();
+    },
+    onError: (err: any) => {
+      const rawMessage = err?.response?.data?.message || err?.message;
+      toast.error(Array.isArray(rawMessage) ? rawMessage.join(', ') : (rawMessage || 'Failed to update mobile number'));
+    },
+  });
+
+  const handleSavePhone = (e: React.FormEvent) => {
+    e.preventDefault();
+    const phoneCheck = validateOptionalTenDigitPhone(phoneDraft);
+    if (!phoneCheck.valid) {
+      return void toast.error(phoneCheck.error);
+    }
+    updatePhoneMutation.mutate(phoneCheck.normalized || null);
+  };
 
   const resetPasswordMutation = useMutation({
     mutationFn: async (newPassword?: string) => {
@@ -247,6 +281,9 @@ export default function User360Page() {
     recentQuotations = [],
     recentPolicies = [],
     recentLeads = [],
+    recentCustomers = [],
+    recentRenewals = [],
+    recentClaims = [],
   } = workspace;
   const isLocked = profile.status === 'LOCKED' || profile.status === 'SUSPENDED';
 
@@ -426,7 +463,7 @@ export default function User360Page() {
             { id: 'organization', label: 'Organization & Role', icon: Shield },
             { id: 'security', label: 'Security & Access', icon: Key },
             { id: 'finance', label: 'Commissions & Incentives', icon: Award },
-            ...(profile.agentProfile ? [{ id: 'identifiers', label: 'External IDs', icon: Fingerprint }] : []),
+            ...(profile.agentProfile ? [{ id: 'identifiers', label: 'Client codes', icon: Fingerprint }] : []),
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -453,8 +490,8 @@ export default function User360Page() {
               <div className="rounded-2xl border bg-card p-5 space-y-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <h2 className="font-bold flex items-center gap-2"><Fingerprint className="h-4 w-4 text-primary" /> Registered Agent identifiers</h2>
-                    <p className="text-xs text-muted-foreground mt-1">JEST Agent code: <span className="font-mono">{profile.agentProfile.agentCode}</span>. External codes remain separate and require verification before assignment.</p>
+                    <h2 className="font-bold flex items-center gap-2"><Fingerprint className="h-4 w-4 text-primary" /> Client Agent codes</h2>
+                    <p className="text-xs text-muted-foreground mt-1">Client-owned codes identify this Agent in your business records. A verified code is used for assignments; the database links records through the Agent profile.</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <select
@@ -541,10 +578,10 @@ export default function User360Page() {
 
               {canManageExternalCodes ? <form onSubmit={(event) => { event.preventDefault(); registerExternalCodeMutation.mutate(); }} className="h-fit rounded-2xl border bg-card p-5 space-y-4">
                 <div>
-                  <h2 className="font-bold flex items-center gap-2"><Plus className="h-4 w-4 text-primary" /> Add external identifier</h2>
+                  <h2 className="font-bold flex items-center gap-2"><Plus className="h-4 w-4 text-primary" /> Add a client code</h2>
                   <p className="text-xs text-muted-foreground mt-1">Code casing and punctuation are preserved. Deactivated codes remain reserved.</p>
                 </div>
-                <label className="block space-y-1.5 text-xs font-semibold">External Agent Code
+                <label className="block space-y-1.5 text-xs font-semibold">Client Agent Code
                   <input required maxLength={100} value={externalCodeForm.externalCode} onChange={(event) => setExternalCodeForm({ ...externalCodeForm, externalCode: event.target.value })} placeholder="IGSK001" className="w-full rounded-lg border bg-background px-3 py-2 text-sm font-normal" />
                 </label>
                 <label className="block space-y-1.5 text-xs font-semibold">Code System / Namespace
@@ -569,7 +606,7 @@ export default function User360Page() {
                   Primary code within this namespace
                 </label>
                 <button type="submit" disabled={registerExternalCodeMutation.isPending || !externalCodeForm.externalCode.trim() || !externalCodeForm.codeSystem.trim()} className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50">
-                  {registerExternalCodeMutation.isPending ? 'Registering…' : 'Register as Pending'}
+                  {registerExternalCodeMutation.isPending ? 'Registering…' : 'Add code for verification'}
                 </button>
               </form> : <div className="h-fit rounded-2xl border bg-card p-5 text-sm text-muted-foreground">Identifier management is available to Admin and Back Office users.</div>}
             </div>
@@ -597,9 +634,64 @@ export default function User360Page() {
                   <span className="text-muted-foreground">Email Address</span>
                   <span className="font-mono">{profile.email}</span>
                 </div>
-                <div className="py-2.5 flex justify-between">
-                  <span className="text-muted-foreground">Mobile Phone</span>
-                  <span className="font-mono">{profile.phone || 'N/A'}</span>
+                <div className="py-2.5 flex justify-between items-center gap-3">
+                  <span className="text-muted-foreground shrink-0">Mobile Phone</span>
+                  {isEditingPhone ? (
+                    <form onSubmit={handleSavePhone} className="flex items-center gap-1.5">
+                      <input
+                        type="tel"
+                        inputMode="numeric"
+                        maxLength={10}
+                        value={phoneDraft}
+                        onChange={(e) => setPhoneDraft(sanitizeTenDigitPhone(e.target.value))}
+                        placeholder="10-digit mobile"
+                        aria-label="Mobile Phone"
+                        className="w-36 px-2 py-1 rounded border bg-background text-foreground text-xs font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                      <button
+                        type="submit"
+                        disabled={updatePhoneMutation.isPending}
+                        title="Save Mobile Number"
+                        className="p-1.5 rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                      >
+                        {updatePhoneMutation.isPending ? (
+                          <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Check className="h-3.5 w-3.5" />
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={updatePhoneMutation.isPending}
+                        onClick={() => {
+                          setIsEditingPhone(false);
+                          setPhoneDraft(sanitizeTenDigitPhone(profile.phone || ''));
+                        }}
+                        title="Cancel"
+                        className="p-1.5 rounded border hover:bg-accent text-muted-foreground"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </form>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono">{profile.phone || 'N/A'}</span>
+                      {currentRole === 'ADMIN' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPhoneDraft(sanitizeTenDigitPhone(profile.phone || ''));
+                            setIsEditingPhone(true);
+                          }}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[11px] font-semibold text-muted-foreground hover:text-foreground hover:bg-accent"
+                          title="Edit Mobile Number"
+                        >
+                          <Pencil className="h-3 w-3" />
+                          <span>Edit</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="py-2.5 flex justify-between">
                   <span className="text-muted-foreground">Designation</span>
@@ -637,7 +729,7 @@ export default function User360Page() {
                   <span>
                     {profile.agentProfile ? (
                       <span className="font-mono text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-700 border border-emerald-300">
-                        {profile.agentProfile.agentCode} ({profile.agentProfile.commissionTier || 'STANDARD'})
+                        {(profile.agentProfile.clientCodes.find((code) => code.isPrimary && code.verificationStatus === 'VERIFIED') || profile.agentProfile.clientCodes.find((code) => code.verificationStatus === 'VERIFIED'))?.value || 'Client code not registered'} ({profile.agentProfile.commissionTier || 'STANDARD'})
                       </span>
                     ) : (
                       'Non-Agent User'
@@ -1177,6 +1269,210 @@ export default function User360Page() {
                 </div>
               )}
             </div>
+
+            {/* Customer Portfolio Table */}
+            <div className="border rounded-2xl overflow-hidden bg-card shadow-sm space-y-0">
+              <div className="p-4 border-b flex items-center justify-between bg-muted/20">
+                <div className="space-y-0.5">
+                  <h3 className="text-sm font-bold flex items-center gap-2">
+                    <Users className="h-4 w-4 text-primary" />
+                    Assigned Customer Portfolio ({recentCustomers.length})
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Directly managed customers, account relationships, and total gross written premium
+                  </p>
+                </div>
+                <span className="text-xs font-mono font-bold text-emerald-600 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-300">
+                  {recentCustomers.length} Accounts
+                </span>
+              </div>
+              {recentCustomers.length === 0 ? (
+                <div className="p-8 text-center text-sm text-muted-foreground">
+                  No customers are currently assigned to this agent.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-muted/40 text-[10px] uppercase font-bold text-muted-foreground border-b">
+                        <th className="p-3">Customer Code</th>
+                        <th className="p-3">Customer Name</th>
+                        <th className="p-3">Phone</th>
+                        <th className="p-3">Email</th>
+                        <th className="p-3">Active Policies</th>
+                        <th className="p-3">Total GWP</th>
+                        <th className="p-3">Joined Date</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y font-mono">
+                      {recentCustomers.map((c: any) => (
+                        <tr key={c.id} className="hover:bg-accent/40 font-sans">
+                          <td className="p-3 font-mono font-bold text-primary">
+                            <Link href={`/crm/customers/${c.id}`} className="hover:underline">
+                              {c.customerCode}
+                            </Link>
+                          </td>
+                          <td className="p-3 font-semibold text-foreground">{c.name}</td>
+                          <td className="p-3 font-mono text-muted-foreground">{c.phone || '-'}</td>
+                          <td className="p-3 text-muted-foreground">{c.email || '-'}</td>
+                          <td className="p-3">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary">
+                              {c.activePoliciesCount} {c.activePoliciesCount === 1 ? 'Policy' : 'Policies'}
+                            </span>
+                          </td>
+                          <td className="p-3 font-mono text-sm font-bold text-emerald-600">
+                            ₹{Number(c.totalGwp || 0).toLocaleString('en-IN')}
+                          </td>
+                          <td className="p-3 font-mono text-[11px] text-muted-foreground">
+                            {new Date(c.createdAt).toLocaleDateString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Upcoming Renewals Pipeline */}
+            <div className="border rounded-2xl overflow-hidden bg-card shadow-sm space-y-0">
+              <div className="p-4 border-b flex items-center justify-between bg-muted/20">
+                <div className="space-y-0.5">
+                  <h3 className="text-sm font-bold flex items-center gap-2">
+                    <RefreshCw className="h-4 w-4 text-primary" />
+                    Renewals Pipeline & Expiries ({recentRenewals.length})
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Policies approaching expiry requiring agent renewal follow-up and retention actions
+                  </p>
+                </div>
+                <span className="text-xs font-mono font-bold text-amber-600 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-300">
+                  {recentRenewals.filter((r: any) => r.daysToExpiry <= 30 && r.daysToExpiry >= 0).length} Due in 30 Days
+                </span>
+              </div>
+              {recentRenewals.length === 0 ? (
+                <div className="p-8 text-center text-sm text-muted-foreground">
+                  No upcoming policy renewals within the next 60 days.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-muted/40 text-[10px] uppercase font-bold text-muted-foreground border-b">
+                        <th className="p-3">Policy Number</th>
+                        <th className="p-3">Customer</th>
+                        <th className="p-3">Insurer</th>
+                        <th className="p-3">Premium</th>
+                        <th className="p-3">Expiry Date</th>
+                        <th className="p-3">Days Remaining</th>
+                        <th className="p-3">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y font-mono">
+                      {recentRenewals.map((r: any) => (
+                        <tr key={r.id} className="hover:bg-accent/40 font-sans">
+                          <td className="p-3 font-mono font-bold text-primary">
+                            <Link href={`/policies/${r.id}`} className="hover:underline">
+                              {r.policyNumber}
+                            </Link>
+                          </td>
+                          <td className="p-3 font-semibold text-foreground">{r.customerName}</td>
+                          <td className="p-3">{r.insurerName}</td>
+                          <td className="p-3 font-mono text-sm font-bold text-foreground">
+                            ₹{Number(r.premiumAmount || 0).toLocaleString('en-IN')}
+                          </td>
+                          <td className="p-3 font-mono text-[11px] text-muted-foreground">
+                            {new Date(r.expiryDate).toLocaleDateString()}
+                          </td>
+                          <td className="p-3 font-mono font-bold">
+                            <span className={
+                              r.daysToExpiry < 0
+                                ? 'text-rose-600'
+                                : r.daysToExpiry <= 15
+                                ? 'text-amber-600'
+                                : 'text-emerald-600'
+                            }>
+                              {r.daysToExpiry < 0 ? `Lapsed (${Math.abs(r.daysToExpiry)}d ago)` : `${r.daysToExpiry} days`}
+                            </span>
+                          </td>
+                          <td className="p-3">
+                            <span className={
+                              r.status === 'LAPSED'
+                                ? 'px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/10 text-rose-600'
+                                : r.status === 'CRITICAL'
+                                ? 'px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-600'
+                                : 'px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-600'
+                            }>
+                              {r.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Claims Visibility Table */}
+            <div className="border rounded-2xl overflow-hidden bg-card shadow-sm space-y-0">
+              <div className="p-4 border-b flex items-center justify-between bg-muted/20">
+                <div className="space-y-0.5">
+                  <h3 className="text-sm font-bold flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-primary" />
+                    Claims Visibility ({recentClaims.length})
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Claims registered on policies written by or attributed to this agent
+                  </p>
+                </div>
+                <span className="text-xs font-mono font-bold text-foreground px-2.5 py-1 rounded-lg bg-muted border">
+                  Total Claims: {recentClaims.length}
+                </span>
+              </div>
+              {recentClaims.length === 0 ? (
+                <div className="p-8 text-center text-sm text-muted-foreground">
+                  No claims have been registered on this agent's policies.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-muted/40 text-[10px] uppercase font-bold text-muted-foreground border-b">
+                        <th className="p-3">Claim Number</th>
+                        <th className="p-3">Policy Number</th>
+                        <th className="p-3">Customer</th>
+                        <th className="p-3">Claim Amount</th>
+                        <th className="p-3">Settled Amount</th>
+                        <th className="p-3">Status</th>
+                        <th className="p-3">Reported Date</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y font-mono">
+                      {recentClaims.map((cl: any) => (
+                        <tr key={cl.id} className="hover:bg-accent/40 font-sans">
+                          <td className="p-3 font-mono font-bold text-primary">{cl.claimNumber}</td>
+                          <td className="p-3 font-mono text-foreground">{cl.policyNumber}</td>
+                          <td className="p-3 font-semibold text-foreground">{cl.customerName}</td>
+                          <td className="p-3 font-mono text-sm font-bold text-foreground">
+                            ₹{Number(cl.claimAmount || 0).toLocaleString('en-IN')}
+                          </td>
+                          <td className="p-3 font-mono text-sm font-bold text-emerald-600">
+                            {cl.settledAmount ? `₹${Number(cl.settledAmount).toLocaleString('en-IN')}` : '-'}
+                          </td>
+                          <td className="p-3">
+                            <StatusBadge status={cl.status} />
+                          </td>
+                          <td className="p-3 font-mono text-[11px] text-muted-foreground">
+                            {new Date(cl.createdAt).toLocaleDateString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -1371,51 +1667,7 @@ export default function User360Page() {
         {/* Tab Content: ORGANIZATION & PERMISSIONS */}
         {activeTab === 'organization' && (
           <div className="space-y-6">
-            <div className="border rounded-2xl p-5 bg-card space-y-4">
-              <h2 className="text-base font-bold flex items-center gap-2">
-                <Shield className="h-4 w-4 text-primary" />
-                Assigned Role & Authorization Scope
-              </h2>
-              {profile.role ? (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <div className="px-3 py-1 rounded-lg bg-primary/10 text-primary font-bold text-sm border border-primary/20">
-                      {profile.role.name} ({profile.role.code})
-                    </div>
-                    <span className="text-xs text-muted-foreground font-mono">
-                      System Type: {profile.role.type}
-                    </span>
-                  </div>
-                  {profile.role.description && (
-                    <p className="text-xs text-muted-foreground">{profile.role.description}</p>
-                  )}
-
-                  <div className="pt-3 border-t">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
-                      Granted Permissions ({profile.role.permissions.length})
-                    </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                      {profile.role.permissions.map((p) => (
-                        <div
-                          key={p.id}
-                          className="p-2.5 rounded-lg border bg-muted/20 flex flex-col gap-1 text-xs"
-                        >
-                          <div className="font-semibold flex items-center justify-between">
-                            <span>{p.name}</span>
-                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                              {p.scope}
-                            </span>
-                          </div>
-                          <span className="font-mono text-[10px] text-primary">{p.code}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground">No specific role permissions configured.</p>
-              )}
-            </div>
+            <UserPermissionsManager userId={userId} canManage={currentRole === 'ADMIN'} />
           </div>
         )}
 

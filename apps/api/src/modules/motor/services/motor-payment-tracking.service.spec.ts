@@ -57,9 +57,12 @@ describe('MotorPaymentTrackingService & Reconciliation (Iteration 7)', () => {
   describe('recordPayment', () => {
     const mockQuote = {
       id: 'q-10',
+      productType: 'MOTOR',
       totalPremium: 17638.88,
-      workflowState: 'QUOTATION_DRAFT',
+      status: 'APPROVED',
+      workflowState: 'PROPOSAL_APPROVED',
       issuanceStatus: 'PAYMENT_PENDING',
+      backOfficeSubmittedAt: new Date('2026-11-11T00:00:00.000Z'),
     };
 
     it('should successfully record payment and transition to ISSUANCE_PENDING on exact amount', async () => {
@@ -142,7 +145,7 @@ describe('MotorPaymentTrackingService & Reconciliation (Iteration 7)', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('should return existing payment idempotently when same reference is re-submitted', async () => {
+    it('should reject recording payment again when payment is already PAID without idempotency key retry', async () => {
       prisma.quotation.findUnique.mockResolvedValue(mockQuote);
       const existingPaid = {
         id: 'pay-1',
@@ -153,14 +156,56 @@ describe('MotorPaymentTrackingService & Reconciliation (Iteration 7)', () => {
       };
       prisma.motorPaymentRecord.findUnique.mockResolvedValue(existingPaid);
 
-      const result = await service.recordPayment({
-        quotationId: 'q-10',
-        status: 'PAID',
-        amount: 17638.88,
-        referenceNumber: 'REF-BANK-999',
-      });
+      await expect(
+        service.recordPayment({
+          quotationId: 'q-10',
+          status: 'PAID',
+          amount: 17638.88,
+          referenceNumber: 'REF-BANK-999',
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.motorPaymentRecord.upsert).not.toHaveBeenCalled();
+    });
 
-      expect(result).toEqual(existingPaid);
+    it('should reject payment if quotation has not been sent to Back Office', async () => {
+      prisma.quotation.findUnique.mockResolvedValue({
+        ...mockQuote,
+        status: 'ACCEPTED',
+        workflowState: 'READY_FOR_PROPOSAL',
+        backOfficeSubmittedAt: null,
+      });
+      prisma.motorPaymentRecord.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.recordPayment({
+          quotationId: 'q-10',
+          status: 'PAID',
+          amount: 17638.88,
+          referenceNumber: 'CASH-Q-10',
+          paymentMethod: 'Cash',
+        }),
+      ).rejects.toThrow('sent to Back Office');
+      expect(prisma.motorPaymentRecord.upsert).not.toHaveBeenCalled();
+    });
+
+    it('should reject UNDER_PROCESS payment if quotation has not been approved by Back Office', async () => {
+      prisma.quotation.findUnique.mockResolvedValue({
+        ...mockQuote,
+        status: 'APPROVED',
+        workflowState: 'READY_FOR_PROPOSAL',
+        backOfficeSubmittedAt: new Date('2026-11-11T00:00:00.000Z'),
+      });
+      prisma.motorPaymentRecord.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.recordPayment({
+          quotationId: 'q-10',
+          status: 'UNDER_PROCESS',
+          amount: 17638.88,
+          referenceNumber: 'UTR-PENDING-1',
+          paymentMethod: 'UPI',
+        }),
+      ).rejects.toThrow('Proposal has not been approved yet');
       expect(prisma.motorPaymentRecord.upsert).not.toHaveBeenCalled();
     });
 
@@ -432,6 +477,7 @@ describe('MotorPaymentTrackingService & Reconciliation (Iteration 7)', () => {
       prisma.quotation.findUnique.mockResolvedValue({
         ...mockQuote,
         workflowState: 'INSPECTION_REQUIRED',
+        motorMetadata: { workflowStatus: 'PROPOSAL_APPROVED' },
       });
       prisma.motorPaymentRecord.findUnique.mockResolvedValue(null);
       prisma.motorRuleEvaluation.findUnique.mockResolvedValue({
@@ -481,6 +527,35 @@ describe('MotorPaymentTrackingService & Reconciliation (Iteration 7)', () => {
       expect(prisma.motorQuotationCase.update).toHaveBeenCalledWith({
         where: { id: 'case-motor-1' },
         data: { status: 'PAYMENT_VERIFIED' },
+      });
+    });
+
+    it('PAY-003: should bind selectedQuoteId when linked case has no selectedQuoteId yet on PAID payment', async () => {
+      prisma.quotation.findUnique.mockResolvedValue({
+        ...mockQuote,
+        caseId: 'case-motor-unselected',
+      });
+      prisma.motorPaymentRecord.findUnique.mockResolvedValue(null);
+      prisma.motorPaymentRecord.upsert.mockResolvedValue({
+        id: 'pay-case-2',
+        quotationId: 'q-10',
+        status: 'PAID',
+        amount: 17638.88,
+      });
+      prisma.motorQuotationCase.findUnique = jest
+        .fn()
+        .mockResolvedValue({ selectedQuoteId: null });
+
+      await service.recordPayment({
+        quotationId: 'q-10',
+        status: 'PAID',
+        amount: 17638.88,
+        referenceNumber: 'REF-CASE-002',
+      });
+
+      expect(prisma.motorQuotationCase.update).toHaveBeenCalledWith({
+        where: { id: 'case-motor-unselected' },
+        data: { status: 'PAYMENT_VERIFIED', selectedQuoteId: 'q-10' },
       });
     });
   });

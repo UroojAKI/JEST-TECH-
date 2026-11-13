@@ -26,9 +26,10 @@ Cross-tenant queries are blocked fail-closed at the API authorization layer (`Re
 - `createdById`: Creator user ID.
 
 ### Agent identity
-- `Agent.id`: Canonical internal Agent identity, scoped by `companyId`.
-- `Agent.agentCode`: JEST-issued company-scoped code; it is not an external code.
+- `Agent.id`: Canonical internal Agent identity and database join key, scoped by `companyId`; it is not a business-facing code.
+- `Agent.agentCode`: Nullable legacy field retained for compatibility with existing records. New Agent profiles do not receive a generated JEST code.
 - `AgentExternalCode`: Company and Agent FK, code-system namespace, preserved external value, normalized lookup value, lifecycle and verification state. Code-system keys are uppercased; external code values are trimmed and Unicode NFC-normalized while preserving case and punctuation until a client-specific normalization rule is supplied.
+- Client-owned `AgentExternalCode` values are the business-facing Agent codes. Agent selection and business records resolve them to `Agent.id` and retain the specific `AgentExternalCode.id` used for the assignment where supported.
 - External codes are retained as inactive records. `(companyId, codeSystem, normalizedCode)` remains unique after deactivation, preventing reuse and preserving historical attribution.
 - `AgentExternalCodeHistory`: Append-only code changes with before/after snapshots, actor, reason, and correlation ID.
 - `AgentAssignmentHistory`: Append-only assignment changes for Contact, Customer, and Lead, including previous/next Agent and external-code references, actor, reason, timestamp, and correlation ID.
@@ -41,7 +42,7 @@ Cross-tenant queries are blocked fail-closed at the API authorization layer (`Re
 - `vehicleId`: Subject vehicle.
 - `customerId`: Customer recipient.
 - `agentId`: Originating agent ID (`Agent.id`).
-- `agentCodeSnapshot`: Snapshot of agent code at quotation creation.
+- `agentCodeSnapshot`: Snapshot of the client-owned Agent code at quotation creation; null when no verified client code was available.
 - `createdById`: Creator user ID.
 - `agentId`: Originating Agent ID where the product workflow captures it. Write paths must preserve this through proposal and issuance; creator and issuer IDs are not substitutes.
 - `agentExternalCodeId`: External identifier reference captured with the canonical Agent when available; it is a historical source reference, not a current assignment lookup.

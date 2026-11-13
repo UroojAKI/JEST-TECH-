@@ -11,11 +11,15 @@ export function usePolicies(params?: Partial<PaginationParams> & { status?: stri
     queryFn: () => policiesRepository.getPolicies(params),
   });
 
-  const list = Array.isArray(query.data) ? query.data : (query.data?.data || []);
+  const rawData = query.data as any;
+  const list = Array.isArray(rawData) ? rawData : (rawData?.data || rawData?.items || []);
+  const totalCount = Array.isArray(rawData)
+    ? rawData.length
+    : (rawData?.meta?.total ?? rawData?.total ?? list.length);
 
   return {
     policies: list,
-    total: Array.isArray(query.data) ? query.data.length : (query.data?.total || list.length),
+    total: totalCount,
     isLoading: query.isLoading,
     isError: query.isError,
     refetch: query.refetch,

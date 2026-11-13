@@ -1,11 +1,17 @@
+import { PERMISSION_CATALOG } from '../../auth/constants/permission-catalog';
 import {
   BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
+  ConflictException,
+  ServiceUnavailableException,
+  Optional,
 } from '@nestjs/common';
 import * as argon2 from 'argon2';
 import * as crypto from 'crypto';
+import { EmailProvider } from '../../platform/notifications/providers/email.provider';
+import { InviteUserDto } from '../dto/invite-user.dto';
 
 import {
   AuditAction,
@@ -24,13 +30,186 @@ import { CreateUserDto } from '../dto/create-user.dto';
 import { UserRepository } from '../repositories/user.repository';
 import { PrismaService } from '../../../database/prisma.service';
 import { PlatformPrivilegeResolver } from '../../../common/services/platform-privilege.resolver';
+import { normalizeOptionalUserPhone } from '../utils/user-phone.util';
 
 @Injectable()
 export class UsersService {
   constructor(
     private readonly userRepository: UserRepository,
     private readonly prisma: PrismaService,
+    @Optional() private readonly emailProvider?: EmailProvider,
   ) {}
+
+  async inviteUser(dto: InviteUserDto, actor: any) {
+    const companyId = actor?.companyId || actor?.organizationId || actor?.user?.companyId;
+    if (!companyId) throw new ForbiddenException('Company context is required to invite a user');
+
+    const requestedRole = String(dto.role || '').toUpperCase();
+    const backOfficeRoleAliases: string[] = [
+      'BACK_OFFICE',
+      'UNDERWRITER',
+      'FINANCE',
+      'CLAIMS_OFFICER',
+      'BRANCH_MANAGER',
+      'OPERATIONS',
+    ];
+    const role = requestedRole === 'AGENT' || requestedRole.includes('AGENT') || requestedRole === 'SALES'
+      ? RoleType.AGENT
+      : backOfficeRoleAliases.includes(requestedRole)
+        ? RoleType.BACK_OFFICE
+        : null;
+    if (!role) {
+      throw new BadRequestException('Invitations may be created only for AGENT or BACK_OFFICE roles');
+    }
+
+    const email = dto.email.trim().toLowerCase();
+    const normalizedPhone = normalizeOptionalUserPhone(dto.phone);
+    const existing = await this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true, companyId: true, status: true },
+    });
+    if (existing && (existing.companyId !== companyId || existing.status !== UserStatus.PENDING_VERIFICATION)) {
+      throw new ConflictException('A user with this email already exists');
+    }
+
+    if (!this.emailProvider || !process.env.FRONTEND_URL) {
+      throw new ServiceUnavailableException('User invitation delivery is unavailable: configure the email provider and FRONTEND_URL');
+    }
+
+    let invitedUserId = existing?.id;
+    if (!invitedUserId) {
+      const temporaryPassword = crypto.randomBytes(48).toString('base64url');
+      const created = await this.create({
+        firstName: dto.firstName.trim(),
+        lastName: dto.lastName.trim(),
+        email,
+        phone: normalizedPhone ?? undefined,
+        role,
+        branchId: dto.branchId,
+        department: dto.departmentId,
+        employeeCode: dto.employeeCode,
+        collectContacts: dto.collectContacts,
+        password: temporaryPassword,
+        status: UserStatus.PENDING_VERIFICATION,
+      } as any, { companyId, userId: actor?.id, id: actor?.id });
+      invitedUserId = created.id;
+    } else if (dto.phone !== undefined) {
+      await this.userRepository.update(invitedUserId, {
+        phone: normalizedPhone ?? null,
+      });
+    }
+
+    const rawToken = crypto.randomBytes(32).toString('base64url');
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000);
+
+    const invitation = await this.prisma.$transaction(async (tx) => {
+      await tx.userInvitation.updateMany({
+        where: { companyId, email, consumedAt: null, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      return tx.userInvitation.create({
+        data: {
+          userId: invitedUserId!,
+          email,
+          companyId,
+          invitedById: actor?.id || actor?.userId || 'system',
+          tokenHash,
+          expiresAt,
+        },
+        select: { id: true, expiresAt: true },
+      });
+    });
+
+    const activationUrl = new URL('/activate-invitation', process.env.FRONTEND_URL);
+    activationUrl.searchParams.set('token', rawToken);
+    const sent = await this.emailProvider.send({
+      to: email,
+      recipientName: `${dto.firstName} ${dto.lastName}`.trim(),
+      title: 'Activate your JEST Policy CRM account',
+      message: `An administrator invited you to JEST Policy CRM. This single-use activation link expires in 72 hours. If you were not expecting this invitation, ignore this email.`,
+      actionUrl: activationUrl.toString(),
+    });
+
+    if (!sent.success) {
+      await this.prisma.userInvitation.update({
+        where: { id: invitation.id },
+        data: { revokedAt: new Date() },
+      });
+      // Keep the account in PENDING_VERIFICATION so an administrator can safely
+      // resend a fresh invitation without creating a duplicate user record.
+      throw new ServiceUnavailableException(sent.failureReason || 'Invitation email could not be delivered');
+    }
+
+    return {
+      success: true,
+      invitationId: invitation.id,
+      email,
+      expiresAt: invitation.expiresAt,
+      message: 'Invitation sent. The user must activate the account within 72 hours.',
+    };
+  }
+
+  async activateInvitation(token: string, password: string) {
+    if (!token || token.length < 32) throw new BadRequestException('A valid invitation token is required');
+    if (!password || password.length < 12) throw new BadRequestException('Password must be at least 12 characters');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const now = new Date();
+    const passwordHash = await argon2.hash(password);
+
+    return this.prisma.$transaction(async (tx) => {
+      const invitation = await tx.userInvitation.findFirst({
+        where: {
+          tokenHash,
+          consumedAt: null,
+          revokedAt: null,
+          expiresAt: { gt: now },
+        },
+      });
+      if (!invitation) {
+        throw new BadRequestException('Invitation is invalid, expired, revoked or already used');
+      }
+
+      const claim = await tx.userInvitation.updateMany({
+        where: {
+          id: invitation.id,
+          tokenHash,
+          consumedAt: null,
+          revokedAt: null,
+          expiresAt: { gt: now },
+        },
+        data: { consumedAt: now },
+      });
+      if (claim.count !== 1) throw new ConflictException('Invitation has already been consumed');
+
+      const activated = await tx.user.updateMany({
+        where: {
+          id: invitation.userId,
+          email: invitation.email,
+          companyId: invitation.companyId,
+          status: UserStatus.PENDING_VERIFICATION,
+          deletedAt: null,
+        },
+        data: {
+          passwordHash,
+          status: UserStatus.ACTIVE,
+          authVersion: { increment: 1 },
+          failedLoginAttempts: 0,
+          failedLoginWindowStartedAt: null,
+          lockedUntil: null,
+        },
+      });
+      if (activated.count !== 1) {
+        throw new ConflictException('The invited account is no longer eligible for activation');
+      }
+
+      return {
+        success: true,
+        email: invitation.email,
+        message: 'Account activated. You can now sign in.',
+      };
+    });
+  }
 
   async getPrimaryOrganizationId(): Promise<string | null> {
     const company = await this.prisma.company.findFirst({
@@ -63,6 +242,8 @@ export class UsersService {
         'Cross-organization user creation is strictly prohibited',
       );
     }
+
+    const normalizedPhone = normalizeOptionalUserPhone(dto.phone);
 
     let canonicalRole: RoleType = RoleType.AGENT;
     const rawRole = String(dto.role || '').toUpperCase();
@@ -136,53 +317,95 @@ export class UsersService {
       companyConnect = { connect: { id: targetCompanyId } };
     }
 
-    const user = await this.userRepository.create({
-      email: dto.email,
-      passwordHash,
-      firstName: dto.firstName,
-      lastName: dto.lastName,
-      phone: dto.phone,
-      collectContacts: canonicalRole === RoleType.AGENT && dto.collectContacts === true,
-      employeeCode: empCode,
-      designation: (dto as any).designation,
-      role: { connect: { id: role.id } },
-      company: companyConnect,
-      status: (dto as any).status || UserStatus.ACTIVE,
-      branch: branchConnect,
-      department: departmentConnect,
-    });
+    // Resolve branch by ID or code, but always prove it belongs to the user's tenant.
+    let resolvedBranchId: string | undefined;
+    if (targetBranchId) {
+      const branch = await this.prisma.branch.findFirst({
+        where: {
+          OR: [{ id: targetBranchId }, { code: targetBranchId }],
+          zone: { region: { company: { id: targetCompanyId } } },
+        },
+        select: { id: true },
+      });
+      if (!branch) {
+        throw new ForbiddenException('Selected branch does not belong to the target organization');
+      }
+      resolvedBranchId = branch.id;
+      branchConnect = { connect: { id: branch.id } };
+    }
 
-    if (canonicalRole === RoleType.AGENT && targetCompanyId) {
-      try {
-        const count = await this.prisma.agent.count({
-          where: { companyId: targetCompanyId },
-        });
-        let nextNum = count + 1;
-        let agentCode = `AGT-${String(nextNum).padStart(6, '0')}`;
-        while (
-          await this.prisma.agent.findFirst({
-            where: { companyId: targetCompanyId, agentCode },
-          })
-        ) {
-          nextNum++;
-          agentCode = `AGT-${String(nextNum).padStart(6, '0')}`;
-        }
+    // Department is branch-owned in the schema. Validate its branch ancestry
+    // when present, while retaining support for explicitly shared branchless departments.
+    if (targetDepartmentId) {
+      const department = await this.prisma.department.findFirst({
+        where: { OR: [{ id: targetDepartmentId }, { code: targetDepartmentId }] },
+        select: {
+          id: true,
+          branchId: true,
+          branch: {
+            select: {
+              zone: {
+                select: {
+                  region: {
+                    select: { company: { select: { id: true } } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+      if (!department) {
+        throw new BadRequestException('Selected department does not exist');
+      }
+      const departmentCompanyId = department.branch?.zone?.region?.company?.id;
+      if (departmentCompanyId && departmentCompanyId !== targetCompanyId) {
+        throw new ForbiddenException('Selected department does not belong to the target organization');
+      }
+      if (resolvedBranchId && department.branchId && department.branchId !== resolvedBranchId) {
+        throw new BadRequestException('Selected department does not belong to the selected branch');
+      }
+      departmentConnect = { connect: { id: department.id } };
+    }
 
-        const name = `${user.firstName || ''} ${user.lastName || ''}`.trim();
-        await this.prisma.agent.create({
+    const user = await this.prisma.$transaction(async (tx) => {
+      const createdUser = await this.userRepository.create(
+        {
+          email: dto.email,
+          passwordHash,
+          firstName: dto.firstName,
+          lastName: dto.lastName,
+          phone: normalizedPhone ?? undefined,
+          collectContacts: canonicalRole === RoleType.AGENT && dto.collectContacts === true,
+          employeeCode: empCode,
+          designation: (dto as any).designation,
+          role: { connect: { id: role.id } },
+          company: companyConnect,
+          status: (dto as any).status || UserStatus.ACTIVE,
+          branch: branchConnect,
+          department: departmentConnect,
+        },
+        tx,
+      );
+
+      if (canonicalRole === RoleType.AGENT && targetCompanyId) {
+        const name = `${createdUser.firstName || ''} ${createdUser.lastName || ''}`.trim();
+        // User and Agent profile are one business operation: a profile failure
+        // must roll back user creation rather than leave an unusable active Agent.
+        await tx.agent.create({
           data: {
             companyId: targetCompanyId,
-            userId: user.id,
-            agentCode,
-            agencyName: name ? `${name} Agency` : `Agency ${agentCode}`,
+            userId: createdUser.id,
+            agencyName: name ? `${name} Agency` : 'Agency',
             commissionTier: 'STANDARD',
             isActive: true,
           },
         });
-      } catch {
-        // Safe fallback if agent profile already exists or in case of concurrency
+        return (await this.userRepository.findById(createdUser.id, tx)) || createdUser;
       }
-    }
+
+      return createdUser;
+    });
 
     const response: any = UserMapper.toResponse(user);
     response.initialPassword = initialPassword;
@@ -261,6 +484,7 @@ export class UsersService {
         { firstName: { contains: pagination.search, mode: 'insensitive' } },
         { lastName: { contains: pagination.search, mode: 'insensitive' } },
         { email: { contains: pagination.search, mode: 'insensitive' } },
+        { phone: { contains: pagination.search, mode: 'insensitive' } },
         { employeeCode: { contains: pagination.search, mode: 'insensitive' } },
       ];
     }
@@ -291,7 +515,26 @@ export class UsersService {
         skip,
         take: limit,
         orderBy,
-        include: { role: true, branch: true, team: true, agentProfile: true },
+        include: {
+          role: true,
+          branch: true,
+          team: true,
+          agentProfile: {
+            include: {
+              externalCodes: {
+                where: { status: 'ACTIVE' },
+                orderBy: [{ isPrimary: 'desc' }, { codeSystem: 'asc' }],
+                select: {
+                  id: true,
+                  externalCode: true,
+                  codeSystem: true,
+                  verificationStatus: true,
+                  isPrimary: true,
+                },
+              },
+            },
+          },
+        },
       }),
       this.prisma.user.count({ where }),
     ]);
@@ -332,7 +575,21 @@ export class UsersService {
         branch: true,
         team: true,
         department: true,
-        agentProfile: true,
+        agentProfile: {
+          include: {
+            externalCodes: {
+              where: { status: 'ACTIVE' },
+              orderBy: [{ isPrimary: 'desc' }, { codeSystem: 'asc' }],
+              select: {
+                id: true,
+                externalCode: true,
+                codeSystem: true,
+                verificationStatus: true,
+                isPrimary: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -347,6 +604,9 @@ export class UsersService {
     }
 
     const companyId = user.companyId;
+    if (!companyId) {
+      throw new ForbiddenException('A company-scoped user context is required to load this workspace.');
+    }
     let agentId = user.agentProfile?.id;
     if (!agentId) {
       const directAgent = await this.prisma.agent.findFirst({
@@ -414,6 +674,9 @@ export class UsersService {
       recentLeadsRaw,
       recentActivities,
       recentTasks,
+      recentCustomersRaw,
+      recentClaimsRaw,
+      recentRenewalsRaw,
     ] = await Promise.all([
       this.prisma.lead.count({
         where: { createdById: id, companyId, deletedAt: null },
@@ -476,6 +739,7 @@ export class UsersService {
       this.prisma.task.count({
         where: {
           assignedToId: id,
+          assignedTo: { companyId },
           status: { in: ['PENDING', 'IN_PROGRESS'] },
           deletedAt: null,
         },
@@ -483,6 +747,7 @@ export class UsersService {
       this.prisma.task.count({
         where: {
           assignedToId: id,
+          assignedTo: { companyId },
           status: { in: ['PENDING', 'IN_PROGRESS'] },
           dueDate: { lt: new Date() },
           deletedAt: null,
@@ -490,12 +755,13 @@ export class UsersService {
       }),
       this.prisma?.quotation?.count
         ? this.prisma.quotation.count({
-            where: quoteUserFilter,
+            where: { ...quoteUserFilter, companyId },
           })
         : Promise.resolve(0),
       this.prisma?.quotation?.count
         ? this.prisma.quotation.count({
             where: {
+              companyId,
               AND: [
                 quoteUserFilter,
                 {
@@ -512,6 +778,7 @@ export class UsersService {
       this.prisma?.quotation?.count
         ? this.prisma.quotation.count({
             where: {
+              companyId,
               AND: [
                 quoteUserFilter,
                 { status: { in: ['APPROVED', 'ACCEPTED'] as any } },
@@ -576,11 +843,100 @@ export class UsersService {
       this.prisma.task.findMany({
         where: {
           assignedToId: id,
+          assignedTo: { companyId },
           deletedAt: null,
         },
         orderBy: { dueDate: 'asc' },
         take: 10,
       }),
+      this.prisma?.customer?.findMany
+        ? this.prisma.customer.findMany({
+            where: {
+              OR: [
+                { createdById: id },
+                ...(agentId ? [{ primaryAgentId: agentId }] : []),
+              ],
+              ...(companyId ? { companyId } : {}),
+              deletedAt: null,
+            },
+            include: {
+              contact: {
+                select: {
+                  firstName: true,
+                  lastName: true,
+                  phone: true,
+                  email: true,
+                },
+              },
+              policies: {
+                where: {
+                  status: { in: ['ACTIVE', 'ISSUED'] },
+                  deletedAt: null,
+                },
+                select: {
+                  id: true,
+                  premiumAmount: true,
+                  actualPremium: true,
+                },
+              },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 50,
+          })
+        : Promise.resolve([]),
+      this.prisma?.claim?.findMany
+        ? this.prisma.claim.findMany({
+            where: {
+              OR: [
+                ...(agentId ? [{ agentId }] : []),
+                { policy: policyUserFilter },
+              ],
+              ...(companyId ? { companyId } : {}),
+            },
+            include: {
+              policy: {
+                select: {
+                  policyNumber: true,
+                  actualPolicyNumber: true,
+                },
+              },
+              contact: {
+                select: {
+                  firstName: true,
+                  lastName: true,
+                  phone: true,
+                },
+              },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 50,
+          })
+        : Promise.resolve([]),
+      this.prisma?.policy?.findMany
+        ? this.prisma.policy.findMany({
+            where: {
+              ...policyUserFilter,
+              status: 'ACTIVE',
+              expiryDate: {
+                lte: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
+                gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+              },
+            },
+            include: {
+              contact: {
+                select: {
+                  firstName: true,
+                  lastName: true,
+                  phone: true,
+                  email: true,
+                },
+              },
+              quotation: { select: { insurerName: true } },
+            },
+            orderBy: { expiryDate: 'asc' },
+            take: 50,
+          })
+        : Promise.resolve([]),
     ]);
 
     const totalQuotationValue = Number(quotationAggregate?._sum?.totalPremium || 0);
@@ -717,6 +1073,75 @@ export class UsersService {
       });
     }
 
+    for (const cl of recentClaimsRaw || []) {
+      operationalActivities.push({
+        id: `claim-${cl.id}`,
+        action: 'CLAIM',
+        entity: 'Claim',
+        entityId: cl.claimNumber || 'CLM',
+        ipAddress: 'System',
+        createdAt: cl.createdAt,
+        details: {
+          customer: cl.contact ? `${cl.contact.firstName || ''} ${cl.contact.lastName || ''}`.trim() : 'Customer',
+          amount: `₹${Number(cl.claimAmount || 0).toLocaleString('en-IN')}`,
+          status: cl.status,
+          policy: cl.policy?.actualPolicyNumber || cl.policy?.policyNumber,
+        },
+        source: 'OPERATIONAL',
+      });
+    }
+
+    const recentCustomers = (recentCustomersRaw || []).map((c: any) => {
+      const activePolicies = c.policies || [];
+      const totalGwp = activePolicies.reduce(
+        (sum: number, p: any) => sum + Number(p.actualPremium ?? p.premiumAmount ?? 0),
+        0,
+      );
+      const name = c.name || (c.contact ? `${c.contact.firstName || ''} ${c.contact.lastName || ''}`.trim() : 'Customer');
+      const phone = c.phone || c.contact?.phone || null;
+      const email = c.email || c.contact?.email || null;
+      return {
+        id: c.id,
+        customerCode: c.customerCode || 'CUST',
+        name,
+        phone,
+        email,
+        activePoliciesCount: activePolicies.length,
+        totalGwp,
+        createdAt: c.createdAt,
+      };
+    });
+
+    const recentClaims = (recentClaimsRaw || []).map((cl: any) => ({
+      id: cl.id,
+      claimNumber: cl.claimNumber || 'CLM',
+      policyNumber: cl.policy?.actualPolicyNumber || cl.policy?.policyNumber || 'N/A',
+      customerName: cl.contact ? `${cl.contact.firstName || ''} ${cl.contact.lastName || ''}`.trim() : 'Customer',
+      customerPhone: cl.contact?.phone || null,
+      claimAmount: Number(cl.claimAmount || 0),
+      settledAmount: cl.settledAmount ? Number(cl.settledAmount) : null,
+      status: cl.status,
+      incidentDate: cl.incidentDate || null,
+      createdAt: cl.createdAt,
+    }));
+
+    const recentRenewals = (recentRenewalsRaw || []).map((rn: any) => {
+      const now = new Date();
+      const expiry = new Date(rn.expiryDate);
+      const daysToExpiry = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      return {
+        id: rn.id,
+        policyNumber: rn.actualPolicyNumber || rn.policyNumber,
+        customerName: rn.contact ? `${rn.contact.firstName || ''} ${rn.contact.lastName || ''}`.trim() : 'Customer',
+        customerPhone: rn.contact?.phone || null,
+        insurerName: rn.quotation?.insurerName || 'Insurer',
+        premiumAmount: Number(rn.actualPremium || rn.premiumAmount || 0),
+        expiryDate: rn.expiryDate,
+        daysToExpiry,
+        status: daysToExpiry < 0 ? 'LAPSED' : daysToExpiry <= 15 ? 'CRITICAL' : 'UPCOMING',
+      };
+    });
+
     const mergedActivities = [...auditActivities, ...operationalActivities]
       .sort(
         (a, b) =>
@@ -775,7 +1200,13 @@ export class UsersService {
         agentProfile: user.agentProfile
           ? {
               id: user.agentProfile.id,
-              agentCode: user.agentProfile.agentCode,
+              clientCodes: (user.agentProfile.externalCodes || []).map((code) => ({
+                id: code.id,
+                value: code.externalCode,
+                codeSystem: code.codeSystem,
+                verificationStatus: code.verificationStatus,
+                isPrimary: code.isPrimary,
+              })),
               agencyName: user.agentProfile.agencyName,
               licenseNumber: user.agentProfile.licenseNumber,
               commissionTier: user.agentProfile.commissionTier,
@@ -813,6 +1244,9 @@ export class UsersService {
       recentQuotations,
       recentPolicies,
       recentLeads,
+      recentCustomers,
+      recentClaims,
+      recentRenewals,
     };
   }
 
@@ -918,7 +1352,9 @@ export class UsersService {
     const updateData: any = {};
     if (dto.firstName) updateData.firstName = dto.firstName;
     if (dto.lastName) updateData.lastName = dto.lastName;
-    if (dto.phone) updateData.phone = dto.phone;
+    if (dto.phone !== undefined) {
+      updateData.phone = normalizeOptionalUserPhone(dto.phone, { emptyAsNull: true });
+    }
     if (dto.email) updateData.email = dto.email;
     if (dto.status) updateData.status = dto.status;
     if (dto.collectContacts !== undefined) {
@@ -1192,5 +1628,145 @@ export class UsersService {
       policyStatus: 'PENDING_APPROVAL',
       note: 'Incentive calculation pending executive business policy approval (INC-B01)',
     }));
+  }
+
+  async getAvailablePermissions() {
+    return PERMISSION_CATALOG;
+  }
+
+  async getUserPermissions(userId: string, actor: any) {
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+
+    const actorCompanyId = actor?.companyId || actor?.organizationId;
+    if (actorCompanyId && user.companyId && user.companyId !== actorCompanyId) {
+      throw new ForbiddenException('Cross-organization access forbidden');
+    }
+
+    const pref = await this.prisma.workspacePreference.findUnique({
+      where: { userId },
+    });
+    const widgets = (pref?.favoriteWidgets as any) || {};
+    const overrides = widgets.permissionOverrides || { granted: [], revoked: [], scopes: {} };
+    const granted: string[] = Array.isArray(overrides.granted) ? overrides.granted : [];
+    const revoked: string[] = Array.isArray(overrides.revoked) ? overrides.revoked : [];
+    const scopes: Record<string, string> = overrides.scopes || {};
+
+    const basePermissions: string[] =
+      user.role?.permissions?.map((p: any) => p.permission?.code || p.code).filter(Boolean) || [];
+
+    const effectivePermissions = Array.from(
+      new Set([...basePermissions, ...granted]),
+    ).filter((p) => !revoked.includes(p));
+
+    return {
+      userId,
+      role: {
+        id: user.role?.id,
+        name: user.role?.name,
+        code: user.role?.code,
+        type: user.role?.type,
+      },
+      basePermissions,
+      overrides: {
+        granted,
+        revoked,
+        scopes,
+        updatedAt: overrides.updatedAt,
+        updatedById: overrides.updatedById,
+      },
+      effectivePermissions,
+    };
+  }
+
+  async updateUserPermissions(
+    userId: string,
+    dto: { granted?: string[]; revoked?: string[]; scopes?: Record<string, string> },
+    actor: any,
+  ) {
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+
+    const actorCompanyId = actor?.companyId || actor?.organizationId;
+    if (actorCompanyId && user.companyId && user.companyId !== actorCompanyId) {
+      throw new ForbiddenException('Cross-organization access forbidden');
+    }
+
+    const granted = Array.isArray(dto.granted) ? dto.granted : [];
+    const revoked = Array.isArray(dto.revoked) ? dto.revoked : [];
+    const scopes = dto.scopes || {};
+
+    const pref = await this.prisma.workspacePreference.findUnique({
+      where: { userId },
+    });
+
+    const currentWidgets = (pref?.favoriteWidgets as any) || {};
+    const updatedWidgets = {
+      ...currentWidgets,
+      permissionOverrides: {
+        granted,
+        revoked,
+        scopes,
+        updatedAt: new Date().toISOString(),
+        updatedById: actor?.userId || actor?.id,
+      },
+    };
+
+    if (pref) {
+      await this.prisma.workspacePreference.update({
+        where: { id: pref.id },
+        data: { favoriteWidgets: updatedWidgets },
+      });
+    } else {
+      await this.prisma.workspacePreference.create({
+        data: {
+          userId,
+          favoriteWidgets: updatedWidgets,
+        },
+      });
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { authVersion: { increment: 1 } },
+    });
+
+    return this.getUserPermissions(userId, actor);
+  }
+
+  async resetUserPermissions(userId: string, actor: any) {
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+
+    const actorCompanyId = actor?.companyId || actor?.organizationId;
+    if (actorCompanyId && user.companyId && user.companyId !== actorCompanyId) {
+      throw new ForbiddenException('Cross-organization access forbidden');
+    }
+
+    const pref = await this.prisma.workspacePreference.findUnique({
+      where: { userId },
+    });
+
+    if (pref) {
+      const currentWidgets = (pref.favoriteWidgets as any) || {};
+      const { permissionOverrides, ...rest } = currentWidgets;
+      await this.prisma.workspacePreference.update({
+        where: { id: pref.id },
+        data: { favoriteWidgets: rest },
+      });
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { authVersion: { increment: 1 } },
+    });
+
+    return this.getUserPermissions(userId, actor);
   }
 }

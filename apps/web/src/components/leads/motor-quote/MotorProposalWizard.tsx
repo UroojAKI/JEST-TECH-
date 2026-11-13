@@ -8,6 +8,12 @@ import { apiClient } from '../../../lib/api-client';
 
 import { DocumentChecklist } from './DocumentChecklist';
 import { PaymentStatusForm } from './PaymentStatusForm';
+import {
+  canQuotationRecordPayment,
+  isQuotationBackOfficeApproved,
+  isQuotationPaymentPaid,
+  isQuotationSubmittedToBackOffice,
+} from '../../../repositories/quotations.repository';
 import type { UploadedDoc, SavedMotorQuote, PaymentRecord } from './motorFormTypes';
 
 interface Props {
@@ -61,10 +67,15 @@ export function MotorProposalWizard({ isOpen, quote, onClose, onSuccess }: Props
   const workflowState = String(currentQuote.workflowState || (currentQuote as any)?.motorMetadata?.workflowState || '').toUpperCase();
   const proposalStatus = String(currentQuote.proposalStatus || (currentQuote as any)?.proposal?.status || '').toUpperCase();
 
-  const isApprovedForPayment =
-    ['APPROVED', 'ACCEPTED', 'CUSTOMER_ACCEPTED', 'PROPOSAL_APPROVED', 'PAYMENT_PENDING', 'PAYMENT_UNDER_PROCESS', 'READY_FOR_PROPOSAL', 'PROPOSAL_COMPLETED'].includes(rawStatus) ||
-    ['APPROVED', 'ACCEPTED', 'CUSTOMER_ACCEPTED', 'PROPOSAL_APPROVED', 'PAYMENT_PENDING', 'PAYMENT_UNDER_PROCESS', 'READY_FOR_PROPOSAL', 'PROPOSAL_COMPLETED'].includes(workflowState) ||
-    ['APPROVED', 'ACCEPTED', 'SUBMITTED'].includes(proposalStatus);
+  const isSubmittedToBackOffice = isQuotationSubmittedToBackOffice(currentQuote);
+  const isApprovedByBackOffice = isQuotationBackOfficeApproved(currentQuote);
+  const isAlreadyPaid = isQuotationPaymentPaid(currentQuote);
+  const isApprovedForPayment = canQuotationRecordPayment({
+    ...currentQuote,
+    status: rawStatus,
+    motorWorkflowState: (currentQuote as any).motorWorkflowState || workflowState,
+    proposalStatus,
+  });
 
   const canProceed = () => {
     if (step === 1) return true;

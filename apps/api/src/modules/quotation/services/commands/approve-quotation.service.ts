@@ -27,13 +27,22 @@ export class ApproveQuotationService {
       throw new NotFoundException(`Quotation with ID ${id} not found`);
     }
 
+    const currentWorkflowState = String(existing.workflowState || '').toUpperCase();
+    const isAlreadyUnderwriterApproved =
+      existing.status === QuotationStatus.APPROVED &&
+      !['', 'QUOTATION_DRAFT', 'DRAFT', 'READY_FOR_PROPOSAL', 'INSPECTION_REQUIRED', 'INSPECTION_IN_PROGRESS'].includes(
+        currentWorkflowState,
+      );
+
     if (
-      existing.status !== QuotationStatus.PENDING_APPROVAL &&
-      existing.status !== QuotationStatus.DRAFT &&
-      existing.status !== QuotationStatus.ACCEPTED
+      (existing.status !== QuotationStatus.PENDING_APPROVAL &&
+        existing.status !== QuotationStatus.DRAFT &&
+        existing.status !== QuotationStatus.ACCEPTED &&
+        existing.status !== QuotationStatus.APPROVED) ||
+      isAlreadyUnderwriterApproved
     ) {
       throw new BadRequestException(
-        `Cannot approve quotation in status ${existing.status}. Must be DRAFT, PENDING_APPROVAL, or ACCEPTED.`,
+        `Cannot approve quotation in status ${existing.status}. Must be DRAFT, PENDING_APPROVAL, ACCEPTED, or awaiting underwriter approval.`,
       );
     }
 

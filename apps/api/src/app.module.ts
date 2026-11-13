@@ -1,3 +1,4 @@
+import { PosPartnersModule } from './modules/pos-partners/pos-partners.module';
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { CacheModule as NestCacheModule } from '@nestjs/cache-manager';
 import { redisStore } from 'cache-manager-redis-yet';
@@ -112,6 +113,7 @@ import { IdempotencyInterceptor } from './common/interceptors/idempotency.interc
     LeadsModule,
     QuotationModule,
     PoliciesModule,
+    PosPartnersModule,
     ClaimsModule,
     DashboardModule,
     NotificationsModule,

@@ -433,7 +433,18 @@ export class TasksService {
                 mobile: true,
               },
             },
-            agent: { select: { id: true, agentCode: true, agencyName: true } },
+            agent: {
+              select: {
+                id: true,
+                agentCode: true,
+                agencyName: true,
+                externalCodes: {
+                  where: { status: 'ACTIVE', verificationStatus: 'VERIFIED' },
+                  orderBy: [{ isPrimary: 'desc' }, { codeSystem: 'asc' }],
+                  select: { externalCode: true },
+                },
+              },
+            },
           },
         },
         motorQuotation: {
@@ -469,7 +480,17 @@ export class TasksService {
 
     return {
       total: tasks.length,
-      queue: tasks,
+      queue: tasks.map((task) => ({
+        ...task,
+        lead: task.lead
+          ? {
+              ...task.lead,
+              agent: task.lead.agent
+                ? { ...task.lead.agent, agentCode: task.lead.agent.externalCodes?.[0]?.externalCode || null }
+                : null,
+            }
+          : null,
+      })),
     };
   }
 
@@ -486,7 +507,15 @@ export class TasksService {
         lead: {
           include: {
             customer: true,
-            agent: true,
+            agent: {
+              include: {
+                externalCodes: {
+                  where: { status: 'ACTIVE', verificationStatus: 'VERIFIED' },
+                  orderBy: [{ isPrimary: 'desc' }, { codeSystem: 'asc' }],
+                  select: { externalCode: true },
+                },
+              },
+            },
             vehicles: true,
             motorQuotations: true,
           },
@@ -495,7 +524,15 @@ export class TasksService {
           include: {
             vehicle: true,
             customer: true,
-            agent: true,
+            agent: {
+              include: {
+                externalCodes: {
+                  where: { status: 'ACTIVE', verificationStatus: 'VERIFIED' },
+                  orderBy: [{ isPrimary: 'desc' }, { codeSystem: 'asc' }],
+                  select: { externalCode: true },
+                },
+              },
+            },
           },
         },
         case: true,
@@ -506,7 +543,17 @@ export class TasksService {
       throw new NotFoundException(`Back Office Task ${id} not found`);
     }
 
-    return task;
+    const clientIdentity = (agent: any) => agent && ({
+      ...agent,
+      agentCode: agent.externalCodes?.[0]?.externalCode || null,
+    });
+    return {
+      ...task,
+      lead: task.lead ? { ...task.lead, agent: clientIdentity(task.lead.agent) } : task.lead,
+      motorQuotation: task.motorQuotation
+        ? { ...task.motorQuotation, agent: clientIdentity(task.motorQuotation.agent) }
+        : task.motorQuotation,
+    };
   }
 
   async createBackOfficeTask(dto: CreateBackOfficeTaskDto, user: RequestUser) {

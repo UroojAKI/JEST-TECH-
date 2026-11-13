@@ -1,3 +1,6 @@
+import { PolicyAddressResolverService } from '../policy-address-resolver.service';
+import { PosEligibilityService } from '../../../pos-partners/services/pos-eligibility.service';
+import { Optional } from '@nestjs/common';
 import {
   BadRequestException,
   ConflictException,
@@ -46,6 +49,8 @@ export class IssuePolicyService {
     private readonly outboxService: OutboxService,
     private readonly backOfficeQueueService: BackOfficeQueueService,
     @Inject(CACHE_PROVIDER_TOKEN) private readonly cache: RedisCacheService,
+    @Optional() private readonly addressResolver?: PolicyAddressResolverService,
+    @Optional() private readonly posEligibilityService?: PosEligibilityService,
   ) {}
 
   async execute(
@@ -63,6 +68,18 @@ export class IssuePolicyService {
     if (!quotation) {
       throw new NotFoundException(
         `Quotation with ID ${dto.quotationId} not found. Cannot issue policy.`,
+      );
+    }
+
+    // BOLA defense: Tenant ownership enforcement (JEST-07: verified before applying KYC updates)
+    const actorCompanyId = actor?.companyId || actor?.organizationId;
+    if (
+      actorCompanyId &&
+      quotation.companyId &&
+      quotation.companyId !== actorCompanyId
+    ) {
+      throw new ForbiddenException(
+        'Cross-tenant policy issuance forbidden: Quotation does not belong to your company.',
       );
     }
 
@@ -93,9 +110,12 @@ export class IssuePolicyService {
       where: { quotationId: dto.quotationId },
     });
     if (existingPolicy) {
-      throw new ConflictException(
-        `Policy already issued for quotation ${dto.quotationId} (Policy Number: ${existingPolicy.policyNumber}). Duplicate issuance is blocked.`,
-      );
+      throw new ConflictException({
+        code: 'POLICY_ALREADY_EXISTS',
+        policyId: existingPolicy.id,
+        policyNumber: existingPolicy.policyNumber,
+        message: `Policy already issued for quotation ${dto.quotationId} (Policy Number: ${existingPolicy.policyNumber}). Duplicate issuance is blocked.`,
+      });
     }
 
     // Single Authority Invariant: Motor policies must be issued exclusively via MotorPolicyIssuanceService
@@ -106,18 +126,6 @@ export class IssuePolicyService {
     ) {
       throw new ConflictException(
         'MOTOR_WORKFLOW_REQUIRES_MOTOR_ISSUANCE: Motor policies must be issued exclusively via MotorPolicyIssuanceService (/motor/quotes/:id/issue)',
-      );
-    }
-
-    // BOLA defense: Tenant ownership enforcement
-    const actorCompanyId = actor?.companyId || actor?.organizationId;
-    if (
-      actorCompanyId &&
-      quotation.companyId &&
-      quotation.companyId !== actorCompanyId
-    ) {
-      throw new ForbiddenException(
-        'Cross-tenant policy issuance forbidden: Quotation does not belong to your company.',
       );
     }
 
@@ -351,6 +359,66 @@ export class IssuePolicyService {
       });
     }
 
+    // ── Module A: Mandatory Structured Address Enforcement (DEC-06) ──
+    let addressSnapshotData: any = {};
+    if (this.addressResolver) {
+      const addressRes = await this.addressResolver.resolveAddress(
+        quotation.id,
+        dto.structuredAddress || dto.address || dto.customerAddress,
+      );
+      if (!addressRes.isValid) {
+        throw new BadRequestException({
+          code: 'POLICY_ADDRESS_REQUIRED',
+          message: `Policy issuance requires a complete structured customer address. Missing: ${addressRes.missingFields.join(', ')}`,
+          missingFields: addressRes.missingFields,
+        });
+      }
+      addressSnapshotData = {
+        addressLine1: addressRes.address.addressLine1,
+        addressLine2: addressRes.address.addressLine2 || null,
+        landmark: addressRes.address.landmark || null,
+        locality: addressRes.address.locality || null,
+        city: addressRes.address.city,
+        district: addressRes.address.district || null,
+        state: addressRes.address.state,
+        stateCode: addressRes.address.stateCode || null,
+        pincode: addressRes.address.pincode,
+        country: addressRes.address.country || 'India',
+        addressSource: addressRes.addressSource,
+        addressCapturedAt: addressRes.addressCapturedAt,
+        addressSnapshot: addressRes.address as any,
+      };
+    }
+
+    // ── Module B: Optional Agent POS attribution with insurer-specific validation ──
+    let posSnapshotData: any = {};
+    const requestedPosId = dto.posPartnerId;
+    if (requestedPosId) {
+      if (!this.posEligibilityService) {
+        throw new BadRequestException('Agent POS validation is unavailable. Retry without POS attribution or contact an administrator.');
+      }
+      const posEligibility = await this.posEligibilityService.assertEligibleForIssuance({
+        posPartnerId: requestedPosId,
+        companyId: quotation.companyId,
+        policyInsurerName: quotation.insurerName,
+        productType: quotation.productType || 'HEALTH',
+      });
+      posSnapshotData = {
+        posPartnerId: posEligibility.partner.id,
+        posInsurerMappingId: posEligibility.mapping?.id || null,
+        distributionChannel: 'POS',
+        posCodeSnapshot: posEligibility.partner.posCode,
+        posNameSnapshot: posEligibility.partner.name,
+        insurerCodeSnapshot: posEligibility.insurer?.code || null,
+        insurerNameSnapshot: posEligibility.insurer?.name || quotation.insurerName || null,
+        insurerPartnerCodeSnapshot: posEligibility.mapping?.insurerPartnerCode || null,
+        insurerPospIdSnapshot: posEligibility.mapping?.insurerPospId || null,
+      };
+    }
+    if (!requestedPosId) {
+      posSnapshotData = { distributionChannel: 'DIRECT' };
+    }
+
     const policyData: Prisma.PolicyCreateInput = {
       policyNumber,
       status:
@@ -369,6 +437,8 @@ export class IssuePolicyService {
       policyType: isMotor ? 'MOTOR' : (quotation.productType || 'HEALTH'),
       createdBy: { connect: { id: createdById } },
       updatedBy: { connect: { id: createdById } },
+      ...addressSnapshotData,
+      ...posSnapshotData,
     };
 
     if (quotation.accountId)
@@ -438,20 +508,8 @@ export class IssuePolicyService {
           data: { status: 'COMPLETED' },
         });
 
-        await tx.healthQuotationDocument.updateMany({
-          where: {
-            OR: [
-              { quotationId: quotation.id },
-              { caseId: (quotation as any).healthCaseId },
-            ],
-            verificationStatus: { not: DocumentVerificationStatus.VERIFIED },
-          },
-          data: {
-            verificationStatus: DocumentVerificationStatus.VERIFIED,
-            verifiedById: createdById,
-            verifiedAt: new Date(),
-          },
-        });
+        // Document verification is a reviewer decision and must never be
+        // inferred from policy issuance. Preserve each document's actual status.
       }
 
       if ((quotation as any).lifeCaseId) {

@@ -16,6 +16,8 @@ import { NumberingEngineService } from '../../../administration/services/numberi
 import { VehicleCategory } from '@prisma/client';
 import { TenantResourceAuthorizationService } from '../../../auth/services/tenant-resource-authorization.service';
 import { AgentIdentityResolverService } from '../../../agents/agent-identity-resolver.service';
+import { CrmIdentityService } from '../../../crm-identity/services/crm-identity.service';
+import { Optional } from '@nestjs/common';
 
 @Injectable()
 export class CreateMotorQuotationCommand {
@@ -28,6 +30,7 @@ export class CreateMotorQuotationCommand {
     private readonly numberingEngine: NumberingEngineService,
     private readonly tenantAuthService: TenantResourceAuthorizationService,
     private readonly agentIdentityResolver: AgentIdentityResolverService,
+    @Optional() private readonly crmIdentityService?: CrmIdentityService,
   ) {}
 
   async execute(dto: CreateMotorCaptureDto, user: RequestUser) {
@@ -38,8 +41,33 @@ export class CreateMotorQuotationCommand {
       );
     }
 
+    const selectedInsurer = dto.insurerName?.trim();
+    if (!selectedInsurer || selectedInsurer.toLowerCase() === 'partner insurer') {
+      throw new BadRequestException('Select a valid insurer before generating a Motor quotation');
+    }
+    const matchingInsurers = await this.prisma.insurer.findMany({
+      where: {
+        isActive: true,
+        ...(dto.insurerId ? { id: dto.insurerId } : {}),
+        name: { equals: selectedInsurer, mode: 'insensitive' },
+      },
+      select: { id: true, name: true },
+      take: 2,
+    });
+    if (matchingInsurers.length !== 1) {
+      throw new BadRequestException(
+        matchingInsurers.length === 0
+          ? 'The selected insurer is not active in Insurer Master. Refresh the insurer list and select an active insurer.'
+          : 'The selected insurer name is ambiguous in Insurer Master. Contact an administrator to resolve duplicate insurer names.',
+      );
+    }
+    const insurer = matchingInsurers[0];
+
     // ── 0. Vehicle Duplicate Policy & Quotation Prevention ──
-    if (dto.registrationNumber) {
+    // Existing cases may contain alternative insurer quotes for the same vehicle.
+    // A renewal is already anchored to and validated against its predecessor policy below.
+    // Do not let the generic duplicate check block either legitimate workflow.
+    if (dto.registrationNumber && !dto.caseId && !dto.renewalOfPolicyId) {
       const vehicleCheck = await this.vehicleDataService.checkVehicleRunningPolicy(
         dto.registrationNumber,
         companyId,
@@ -55,6 +83,33 @@ export class CreateMotorQuotationCommand {
           renewalDate: vehicleCheck.renewalDate,
           formattedRenewalDate: vehicleCheck.formattedRenewalDate,
         });
+      }
+    }
+
+    // A renewal quotation must be anchored to an existing policy in this tenant.
+    // Multiple insurer alternatives may reference the same predecessor policy.
+    let renewalPolicy: any = null;
+    if (dto.renewalOfPolicyId) {
+      renewalPolicy = await this.prisma.policy.findFirst({
+        where: {
+          id: dto.renewalOfPolicyId,
+          companyId,
+          deletedAt: null,
+          status: { notIn: ['CANCELLED', 'DRAFT'] },
+        },
+        include: { vehicle: { select: { registrationNumber: true } } },
+      });
+      if (!renewalPolicy) {
+        throw new NotFoundException('Renewal source policy was not found in the current company workspace');
+      }
+      if (dto.contactId && dto.contactId !== renewalPolicy.contactId) {
+        throw new BadRequestException('Renewal quotation customer must match the predecessor policy customer');
+      }
+      if (dto.registrationNumber && renewalPolicy.vehicle?.registrationNumber) {
+        const normalize = (value: string) => value.replace(/[^a-z0-9]/gi, '').toUpperCase();
+        if (normalize(dto.registrationNumber) !== normalize(renewalPolicy.vehicle.registrationNumber)) {
+          throw new BadRequestException('Renewal vehicle registration must match the predecessor policy');
+        }
       }
     }
 
@@ -105,11 +160,39 @@ export class CreateMotorQuotationCommand {
           `MotorQuotationCase '${activeCaseId}' not found or tenant access denied`,
         );
       }
-      if (['CANCELLED', 'COMPLETED'].includes(existingCase.status)) {
+      if (['CANCELLED', 'COMPLETED', 'ISSUED'].includes(existingCase.status)) {
         throw new BadRequestException(
           `Cannot create quotation for a ${existingCase.status} case '${activeCaseId}'`,
         );
       }
+      if (existingCase.selectedQuoteId) {
+        throw new ConflictException(
+          'This case already has a selected insurer quotation. Deselect or reopen the case through the authorized case workflow before adding another alternative.',
+        );
+      }
+
+      // The persisted case snapshot is authoritative for every insurer alternative.
+      // Ignore client-side edits to customer/vehicle/previous-policy fields so the
+      // user enters those details once and changes only the insurer/rating choice.
+      if (dto.contactId && dto.contactId !== existingCase.contactId) {
+        throw new BadRequestException('Alternative quotations must retain the case customer');
+      }
+      const normalizeRegistration = (value?: string | null) =>
+        String(value || '').replace(/[^a-z0-9]/gi, '').toUpperCase();
+      if (
+        dto.registrationNumber &&
+        existingCase.registrationNumber &&
+        normalizeRegistration(dto.registrationNumber) !== normalizeRegistration(existingCase.registrationNumber)
+      ) {
+        throw new BadRequestException('Alternative quotations must retain the case vehicle registration');
+      }
+      dto.contactId = existingCase.contactId;
+      dto.vehicleId = existingCase.vehicleId || dto.vehicleId;
+      dto.registrationNumber = existingCase.registrationNumber || dto.registrationNumber;
+      dto.proposerDetails = (existingCase.customerSnapshot as any) || dto.proposerDetails;
+      dto.vehicleDetails = (existingCase.vehicleSnapshot as any) || dto.vehicleDetails;
+      dto.previousPolicyDetails =
+        (existingCase.previousPolicySnapshot as any) || dto.previousPolicyDetails;
     }
 
     // ── 2. Contact Resolution (Tenant-Scoped) ──
@@ -202,7 +285,16 @@ export class CreateMotorQuotationCommand {
     let assignedExternalCodeId: string | null = null;
     let manualAgentSnapshot: any = null;
 
+    const hasExternalAgentCode = Boolean(dto.externalAgentCode?.trim());
+    const hasAgentCodeSystem = Boolean(dto.agentCodeSystem?.trim());
+    if (hasExternalAgentCode !== hasAgentCodeSystem) {
+      throw new BadRequestException('agentCodeSystem is required with externalAgentCode');
+    }
+
     if (dto.manualAgent?.isManual) {
+      if (dto.agentId || hasExternalAgentCode) {
+        throw new BadRequestException('Manual Agent details cannot be combined with a registered Agent');
+      }
       // Phase 26 & MOTOR-REG-02: Strict validation for manual agent
       const name = (
         dto.manualAgent.manualAgentName ||
@@ -258,10 +350,21 @@ export class CreateMotorQuotationCommand {
         manualAgentContact: contact,
         manualAgentSource: rawSource,
       };
-    } else if (dto.agentId) {
+    } else if (dto.agentId || hasExternalAgentCode) {
+      const resolvedCode = hasExternalAgentCode
+        ? await this.agentIdentityResolver.resolveExternalCodeForAssignment(
+            dto.externalAgentCode!,
+            dto.agentCodeSystem!,
+            user,
+          )
+        : null;
+      if (dto.agentId && resolvedCode && dto.agentId !== resolvedCode.agentId) {
+        throw new BadRequestException('Agent ID does not match the supplied client Agent code');
+      }
+      const requestedAgentId = dto.agentId || resolvedCode?.agentId;
       // Phase 1.2 & MOTOR-REG-01: Validates tenant match and active status
       const agent = await this.tenantAuthService.assertAssignableAgent(
-        dto.agentId,
+        requestedAgentId!,
         user,
       );
       const canonical = await this.agentIdentityResolver.validateAgentOwnership(
@@ -269,6 +372,7 @@ export class CreateMotorQuotationCommand {
         companyId,
       );
       assignedAgentId = canonical.id;
+      assignedExternalCodeId = resolvedCode?.externalCodeId || null;
     }
     // Do NOT silently overwrite with lead.agentId!
 
@@ -335,22 +439,44 @@ export class CreateMotorQuotationCommand {
       }
     }
 
-    if (!contactId) {
-      // Contact collection OFF or existing contact found; create provisional record with available details.
-      const mobileNumber = String(proposer['mobileNumber'] || '').trim();
-      const rawName = String(proposer['customerName'] || '').trim();
-      const [firstName, ...rest] = (rawName || 'Provisional Customer').split(/\s+/);
+    let customerId = dto.customerId;
+    const mobileNumber = String(proposer['mobileNumber'] || '').trim();
+    const rawName = String(proposer['customerName'] || '').trim();
+    const [firstName, ...rest] = (rawName || 'Provisional Customer').split(/\s+/);
+    const lastName = rest.join(' ') || (rawName ? '' : 'Customer');
+    const emailId = String(proposer['emailId'] || proposer['email'] || '').trim();
+    const panNumber = String(proposer['panNumber'] || '').trim().toUpperCase();
+
+    if (this.crmIdentityService) {
+      const identityResult = await this.crmIdentityService.ensureLinkedContactAndCustomer(
+        this.prisma,
+        {
+          companyId,
+          contactId: contactId || undefined,
+          customerId: customerId || undefined,
+          phone: mobileNumber || undefined,
+          email: emailId || undefined,
+          firstName: firstName || 'Provisional',
+          lastName: lastName,
+          panNumber: panNumber || undefined,
+          addressLine1: String(proposer['address'] || proposer['communicationAddress'] || '').trim() || undefined,
+          pincode: String(proposer['pincode'] || proposer['pinCode'] || '').trim() || undefined,
+          createdById: user.id,
+          primaryAgentId: assignedAgentId || undefined,
+          primaryAgentExternalCodeId: assignedExternalCodeId || undefined,
+          createCustomerIfMissing: true,
+        },
+      );
+      contactId = identityResult.contact.id;
+      customerId = identityResult.customer?.id;
+    } else if (!contactId) {
       const newContact = await this.contactsService.create(
         {
           firstName: firstName || 'Provisional',
-          lastName: rest.join(' ') || (rawName ? '' : 'Customer'),
-          email: proposer['emailId']
-            ? String(proposer['emailId']).trim()
-            : undefined,
+          lastName: lastName,
+          email: emailId || undefined,
           phone: mobileNumber || undefined,
-          panNumber: proposer['panNumber']
-            ? String(proposer['panNumber']).trim()
-            : undefined,
+          panNumber: panNumber || undefined,
           type: 'INDIVIDUAL',
         },
         user.id,
@@ -358,25 +484,30 @@ export class CreateMotorQuotationCommand {
       contactId = newContact.id;
     }
 
+    if (!contactId) {
+      throw new BadRequestException('Contact could not be resolved or created for this quotation');
+    }
+
     if (assignedAgentId && contactId) {
       const contactAssignment = await this.prisma.contact.findFirst({
         where: { id: contactId, companyId, deletedAt: null },
         select: { assignedAgentId: true, assignedExternalCodeId: true },
       });
-      if (contactAssignment?.assignedAgentId === assignedAgentId) {
+      if (!assignedExternalCodeId && contactAssignment?.assignedAgentId === assignedAgentId) {
         assignedExternalCodeId = contactAssignment.assignedExternalCodeId;
       }
     }
 
     // ── 4. Vehicle Details & Canonical Link ──
     const vehicleDetails = (dto.vehicleDetails || {}) as any;
-    let vehicleId: string | null = null;
+    let vehicleId: string | null = dto.vehicleId || null;
 
-    if (contactId) {
+    if (!vehicleId && contactId) {
       const vehicleCategoryEnum = dto.vehicleCategory as VehicleCategory;
       const upserted = await this.vehicleDataService.upsertVehicle(
         {
           contactId,
+          customerId,
           category: vehicleCategoryEnum,
           registrationNumber: dto.registrationNumber,
           makeModel: vehicleDetails.makeModel,
@@ -449,24 +580,8 @@ export class CreateMotorQuotationCommand {
     }
 
     const prevPolicy = dto.previousPolicyDetails || {};
-    // REQ-5: New renewal quotations can only be generated within 45 days of policy expiry
-    const prevExpiryStr =
-      prevPolicy.policyExpiryDate ||
-      (policyDetails as any)?.previousPolicyExpiryDate;
-    if (prevExpiryStr) {
-      const prevExpiry = new Date(prevExpiryStr);
-      if (!isNaN(prevExpiry.getTime())) {
-        const now = new Date();
-        const daysToExpiry = Math.ceil(
-          (prevExpiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
-        );
-        if (daysToExpiry > 45) {
-          throw new BadRequestException(
-            `RENEWAL_RESTRICTION_45_DAYS: New renewal quotations can only be generated within 45 days of policy expiry. Expiring policy has ${daysToExpiry} days remaining.`,
-          );
-        }
-      }
-    }
+    // Renewal quotations can be generated and shared in advance (even when >45 days remain).
+    // Note: The 45-day window restriction applies at policy renewal issuance (renew-policy.service.ts).
     const claimInExpiring =
       String(policyDetails.claimInExpiringPolicy || prevPolicy.claimInPreviousYear || '').toLowerCase() === 'yes' ||
       Boolean(prevPolicy.claimInPreviousYear);
@@ -480,6 +595,10 @@ export class CreateMotorQuotationCommand {
       );
     }
 
+    const isOldCustomer = Boolean(
+      dto.isOldCustomer ?? (dto.proposerDetails as any)?.isOldCustomer,
+    );
+
     const ruleResult = this.motorRuleEngineService.evaluateQuotation({
       vehicleStatus: isVehicleNew ? 'NEW' : 'EXISTING',
       newPolicyType: dto.policyType as any,
@@ -491,6 +610,7 @@ export class CreateMotorQuotationCommand {
       eligibleNcbPercentage: declaredNcb,
       tpExpiryDate: saodVerification.tpExpiryDate ? new Date(saodVerification.tpExpiryDate) : null,
       odExpiryDate: saodVerification.odExpiryDate ? new Date(saodVerification.odExpiryDate) : null,
+      isOldCustomer,
     });
 
     const authoritativeNcb = ruleResult.ncb;
@@ -516,13 +636,31 @@ export class CreateMotorQuotationCommand {
         }
       : undefined;
 
+    // Resolve TP tenure from a structured value or legacy display label.
+    // Never Number() a label: Number("5-Year Long Term TP...") is NaN and
+    // previously silently fell back to one year.
+    const rawTpTenure = policyDetails.tpTenureYears ?? policyDetails.policyTenure ?? policyDetails.tenure;
+    let selectedTpTenure: number | undefined;
+    if (rawTpTenure !== undefined && rawTpTenure !== null && rawTpTenure !== '') {
+      if (typeof rawTpTenure === 'number' || /^\d+$/.test(String(rawTpTenure).trim())) selectedTpTenure = Number(rawTpTenure);
+      else {
+        const match = String(rawTpTenure).match(/\b(1|3|5)\s*[- ]?Year/i);
+        if (match) selectedTpTenure = Number(match[1]);
+      }
+      if (!Number.isInteger(selectedTpTenure) || selectedTpTenure! < 1) throw new BadRequestException('Selected TP policy tenure is invalid. Choose a supported numeric tenure.');
+    }
+    const defaultTpTenure = isVehicleNew ? (dto.vehicleCategory === VehicleCategory.BIKE ? 5 : dto.vehicleCategory === VehicleCategory.PRIVATE_CAR ? 3 : 1) : 1;
+    const tpTenureYears = selectedTpTenure ?? defaultTpTenure;
+
     // ── 6. Authoritative Pricing via MotorCalculationService ──
     const calculationInput: any = {
       vehicleCategory: dto.vehicleCategory,
       vehicleSubType: vehicleDetails.vehicleSubType || vehicleDetails.vehicleType,
       vehicleStatus: isVehicleNew ? 'NEW' : 'EXISTING',
       policyType,
-      policyTenure: Number(policyDetails.policyTenure || 1) || 1,
+      odTenureYears: 1,
+      tpTenureYears,
+      policyTenure: tpTenureYears,
       idv: dto.idv || Number(policyDetails.insuredDeclaredValue || 0) || undefined,
       ncbPercent: authoritativeNcb,
       claimInExpiringPolicy: claimInExpiring,
@@ -716,6 +854,7 @@ export class CreateMotorQuotationCommand {
       vehicleCategory: dto.vehicleCategory,
       policyType: dto.policyType,
       registrationNumber: dto.registrationNumber,
+      isOldCustomer,
       proposerDetails: dto.proposerDetails,
       vehicleDetails: dto.vehicleDetails,
       policyDetails: dto.policyDetails,
@@ -761,7 +900,7 @@ export class CreateMotorQuotationCommand {
               category: dto.vehicleCategory as any,
               vehicleStatus: isVehicleNew ? 'NEW' : 'EXISTING',
               registrationNumber: dto.registrationNumber || null,
-              contactId,
+              contactId: contactId as string,
               vehicleId,
               leadId: dto.leadId || null,
               journeyId: journey?.id || null,
@@ -779,13 +918,55 @@ export class CreateMotorQuotationCommand {
           });
         }
 
+        // Customer acceptance locks the winning version for this case.
+        // Once accepted, no further insurer alternatives may be added.
+        if (activeCaseId) {
+          const caseQuotes = await tx.quotation.findMany({
+            where: {
+              companyId,
+              caseId: activeCaseId,
+              productType: 'MOTOR',
+              deletedAt: null,
+            },
+            select: { id: true, quotationCode: true, motorMetadata: true },
+          });
+          const acceptedQuote = caseQuotes.find((candidate: any) => {
+            const evidence = (candidate.motorMetadata as any)?.customerAcceptance;
+            return Boolean(evidence?.evidenceMethod && evidence?.timestamp);
+          });
+          if (acceptedQuote) {
+            throw new ConflictException(
+              `This case already has customer-accepted quotation ${acceptedQuote.quotationCode || acceptedQuote.id}. Reopen it through the authorized case workflow before adding another alternative.`,
+            );
+          }
+
+          // A case represents one customer/vehicle comparison. Do not create the
+          // same insurer alternative twice; revisions belong under versioning.
+          const existingInsurerAlternative = await tx.quotation.findFirst({
+            where: {
+              companyId,
+              caseId: activeCaseId,
+              insurerId: insurer.id,
+              productType: 'MOTOR',
+              deletedAt: null,
+            },
+            select: { id: true, quotationCode: true },
+          });
+          if (existingInsurerAlternative) {
+            throw new ConflictException(
+              `An alternative for ${insurer.name} already exists in this case (${existingInsurerAlternative.quotationCode || existingInsurerAlternative.id}). Open that quotation to create an explicit revision instead of adding the same insurer again.`,
+            );
+          }
+        }
+
         const createdQuotation = await tx.quotation.create({
           data: {
             companyId,
             quotationCode,
             title: `Motor ${dto.vehicleCategory} — ${dto.policyType} | ${dto.registrationNumber || 'New Vehicle'}`,
             productType: 'MOTOR',
-            insurerName: dto.insurerName,
+            insurerId: insurer.id,
+            insurerName: insurer.name,
             sumInsured: dto.idv || 0,
             basePremium: calcResult.outputs.basePremium,
             gstAmount: calcResult.outputs.totalGst,
@@ -805,10 +986,11 @@ export class CreateMotorQuotationCommand {
               : 'READY_FOR_PROPOSAL',
             motorMetadata: motorMetadata as any,
             expiryDate: new Date(Date.now() + 30 * 86400000),
-            contactId,
+            contactId: contactId as string,
             vehicleId,
             leadId: dto.leadId || null,
             caseId: activeCaseId,
+            renewalOfPolicyId: renewalPolicy?.id || null,
             agentId: assignedAgentId,
             agentExternalCodeId: assignedExternalCodeId,
             createdById: user.id,

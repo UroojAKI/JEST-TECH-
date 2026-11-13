@@ -13,6 +13,10 @@ export interface UserFacingError {
   correlationId?: string;
   /** Original HTTP status code if available */
   statusCode?: number;
+  /** Policy ID if available for navigation / recovery */
+  policyId?: string;
+  /** Policy Number if available for display */
+  policyNumber?: string;
 }
 
 /**
@@ -30,10 +34,11 @@ export function formatUserFacingError(
   let statusCode: number | undefined;
   let rawMsg = '';
   let errorCode = '';
+  let resData: any = null;
 
   if (axios.isAxiosError(error)) {
     statusCode = error.response?.status;
-    const resData = error.response?.data as any;
+    resData = error.response?.data as any;
 
     correlationId =
       resData?.meta?.requestId ||
@@ -60,7 +65,9 @@ export function formatUserFacingError(
       rawMsg = error.message;
     }
   } else if (error && typeof error === 'object' && (error as any).response?.data) {
-    const resData = (error as any).response.data;
+    resData = (error as any).response.data;
+    statusCode = (error as any).response?.status;
+    errorCode = resData?.error?.errorCode || resData?.errorCode || resData?.code || '';
     if (Array.isArray(resData?.error?.message)) {
       rawMsg = resData.error.message.join(' | ');
     } else if (typeof resData?.error?.message === 'string') {
@@ -120,6 +127,26 @@ export function formatUserFacingError(
         dataPreserved: true,
         correlationId,
         statusCode: 409,
+      };
+    }
+
+    if (
+      errorCode === 'POLICY_ALREADY_EXISTS' ||
+      lower.includes('policy already issued') ||
+      lower.includes('policy number collision') ||
+      lower.includes('duplicate issuance is blocked')
+    ) {
+      const pNum = resData?.policyNumber || resData?.error?.policyNumber;
+      const pId = resData?.policyId || resData?.error?.policyId;
+      return {
+        title: 'Policy Already Issued',
+        message: pNum ? ('Policy #' + pNum + ' has already been issued for this record.') : 'A policy has already been issued for this record.',
+        actionHint: pId ? ('You can view the issued policy details directly or search for Policy #' + (pNum || pId) + ' in the Policies directory.') : 'Please search for the existing policy in the Policies directory to view its details or manage renewals.',
+        dataPreserved: true,
+        correlationId,
+        statusCode: 409,
+        policyId: pId,
+        policyNumber: pNum,
       };
     }
 
@@ -211,9 +238,9 @@ export function formatUserFacingError(
       return {
         title: 'Renewal Window Not Yet Open',
         message:
-          'Policy renewals and renewal quotations are strictly permitted only within 45 days of policy expiration.',
+          'Policy renewal issuance is strictly permitted only within 45 days of policy expiration. However, renewal quotations can be prepared and shared in advance at any time.',
         actionHint:
-          'Please check back when the policy enters its 45-day renewal window. Current coverage remains active.',
+          'You may prepare and share renewal quotations now. Final policy renewal issuance can be completed once the policy enters its 45-day renewal window.',
         dataPreserved: true,
         correlationId,
         statusCode: 400,
@@ -232,6 +259,45 @@ export function formatUserFacingError(
           'Renewal reminders can only be sent within 90 days of policy expiration.',
         actionHint:
           'Reminder notifications will become available once the policy is 90 days away from expiry.',
+        dataPreserved: true,
+        correlationId,
+        statusCode: 400,
+      };
+    }
+
+    // Incomplete quotation handoff validation (submit-to-back-office)
+    const completion = resData?.error?.completion || resData?.completion;
+    if (
+      errorCode === 'QUOTATION_INCOMPLETE_FOR_SUBMISSION' ||
+      lower.includes('incomplete and cannot be submitted') ||
+      completion
+    ) {
+      const sections: any[] = Array.isArray(completion?.sections)
+        ? completion.sections
+        : [];
+      const customerSec = sections.find((s) => s?.section === 'customer');
+      const coverageSec = sections.find((s) => s?.section === 'coverage');
+      const missingCoverage = (coverageSec?.missing || []).map((m: any) => m.label);
+      const missingCustomer = (customerSec?.missing || []).map((m: any) => m.label);
+      const parts: string[] = [];
+      if (missingCoverage.length > 0) {
+        parts.push(`Missing coverage: ${missingCoverage.join(', ')}.`);
+      }
+      if (customerSec && (customerSec.completedCount ?? 0) < 2) {
+        parts.push(
+          `Provide at least 2 customer details (currently ${customerSec.completedCount ?? 0}/2${
+            missingCustomer.length ? `; missing: ${missingCustomer.join(', ')}` : ''
+          }).`,
+        );
+      }
+      return {
+        title: 'Quotation Details Incomplete',
+        message:
+          parts.join(' ') ||
+          rawMsg ||
+          'Quotation is incomplete and cannot be submitted to back office.',
+        actionHint:
+          'Use Complete Details to add Mobile Number, Email Address, or Communication Address & PIN Code, then retry Select & Send.',
         dataPreserved: true,
         correlationId,
         statusCode: 400,

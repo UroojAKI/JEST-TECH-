@@ -41,6 +41,7 @@ export interface CapturePreviousPolicyDto {
   newPolicyType: 'TP_ONLY' | 'SAOD' | 'PACKAGE';
   newInsurerName?: string;
   previousPolicyCopyUrl?: string;
+  isOldCustomer?: boolean;
 }
 
 @Injectable()
@@ -161,6 +162,13 @@ export class MotorQuoteWorkflowService {
             String(dto.rcTransferStatus).toUpperCase() === 'TRANSFERRED'
           : undefined;
 
+    const quotationMetadata = (quotation.motorMetadata as any) || {};
+    const isOldCustomer = Boolean(
+      dto.isOldCustomer ??
+        quotationMetadata.isOldCustomer ??
+        quotationMetadata.proposerDetails?.isOldCustomer,
+    );
+
     // 1. Build rule engine context
     const context: MotorRuleContext = {
       policyExpiryDate: expiryDate,
@@ -177,6 +185,7 @@ export class MotorQuoteWorkflowService {
       eligibleNcbPercentage: dto.eligibleNcbPercentage,
       newOwnerName: dto.newOwnerName,
       quotationDate: today,
+      isOldCustomer,
     };
 
     // 2. Run the rule engine — backend is SOLE authority
@@ -507,9 +516,8 @@ export class MotorQuoteWorkflowService {
 
   // ── Authoritative State Machine & Transition Authority (Phase 3) ────────
 
-  private static readonly ALLOWED_TRANSITIONS: Record<
-    MotorWorkflowState,
-    MotorWorkflowState[]
+  private static readonly ALLOWED_TRANSITIONS: Partial<
+    Record<MotorWorkflowState, MotorWorkflowState[]>
   > = {
     [MotorWorkflowState.DRAFT]: [
       MotorWorkflowState.READY_FOR_PROPOSAL,

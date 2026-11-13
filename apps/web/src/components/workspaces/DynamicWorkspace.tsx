@@ -3,7 +3,8 @@
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '../../lib/api-client';
+import { apiClient, showApiErrorToast } from '../../lib/api-client';
+import { quotationsRepository } from '../../repositories/quotations.repository';
 import { toast } from 'sonner';
 import {
   TrendingUp, TrendingDown, Minus,
@@ -204,7 +205,7 @@ export function DynamicWorkspace({ roleLabel, roleIcon, fallbackRole, customCont
   }, [healthPolicies]);
 
   // 5. Quotations
-  const { data: quotationsData = [] } = useQuery({
+  const { data: quotationsData = [], refetch: refetchQuotations } = useQuery({
     queryKey: ['workspace-quotations'],
     queryFn: async () => {
       const res = await apiClient.get('/quotations', { params: { limit: 20, sortBy: 'createdAt', sortOrder: 'desc' } });
@@ -406,6 +407,19 @@ export function DynamicWorkspace({ roleLabel, roleIcon, fallbackRole, customCont
     setInitialCategory(category || null);
     setCloneQuoteData(cloneData || null);
     setIsWizardOpen(true);
+  };
+
+  const handleSubmitQuoteToBackOffice = async (quotationId: string) => {
+    const selected = quotations.find((q: any) => q.id === quotationId) as any;
+    const caseId = selected?.caseId || selected?.motorMetadata?.caseId;
+    try {
+      await quotationsRepository.selectAndSubmitMotorQuotation(quotationId, caseId);
+      toast.success('Selected quotation sent to Back Office');
+      await refetchQuotations();
+    } catch (err: any) {
+      showApiErrorToast(err, 'Could not submit quotation to Back Office');
+      throw err;
+    }
   };
 
   return (
@@ -778,6 +792,7 @@ export function DynamicWorkspace({ roleLabel, roleIcon, fallbackRole, customCont
                   onCompleteProposal={setProposalQuote}
                   onIssuePolicy={isBackOfficeOrAdmin ? setCompletionQuote : undefined}
                   onAddComparisonQuote={(q) => handleOpenWizard(q.vehicleCategory, { vehicleDetails: q.vehicleDetails, proposerDetails: q.proposerDetails })}
+                  onSubmitToBackOffice={handleSubmitQuoteToBackOffice}
                 />
               ))}
             </div>
@@ -811,6 +826,7 @@ export function DynamicWorkspace({ roleLabel, roleIcon, fallbackRole, customCont
                   key={quote.id || idx}
                   quote={quote}
                   onUploadQuote={() => {}}
+                  onSubmitToBackOffice={handleSubmitQuoteToBackOffice}
                   onConductInspection={setInspectionQuoteId}
                   onCompleteProposal={setProposalQuote}
                   onIssuePolicy={isBackOfficeOrAdmin ? setCompletionQuote : undefined}
