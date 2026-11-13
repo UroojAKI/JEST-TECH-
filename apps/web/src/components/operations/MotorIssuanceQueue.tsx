@@ -227,11 +227,17 @@ export function MotorIssuanceQueue() {
         limit: 25,
         productType: productFilter === 'ALL' ? undefined : productFilter,
       });
-      const items = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+      const items = Array.isArray(res?.data)
+        ? res.data
+        : Array.isArray(res)
+          ? res
+          : Array.isArray(res?.data?.data)
+            ? res.data.data
+            : [];
       setQueue(items);
-      setTotalPages(Number(res?.meta?.totalPages || 1));
-      setTotalRecords(Number(res?.meta?.total || items.length));
-      if (res?.summary) setSummary(res.summary);
+      setTotalPages(Number(res?.totalPages ?? res?.data?.totalPages ?? res?.meta?.totalPages ?? 1));
+      setTotalRecords(Number(res?.total ?? res?.data?.total ?? res?.meta?.total ?? items.length));
+      if (res?.summary || res?.data?.summary) setSummary(res?.summary || res?.data?.summary);
     } catch (error: any) {
       console.error('Failed to load queue:', error);
       const errMsg =
