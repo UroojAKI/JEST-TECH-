@@ -1017,6 +1017,22 @@ model CallLog {
   notes             String?
   scheduledFollowup DateTime?
   createdAt         DateTime  @default(now())
+  
+  // Exotel telephony (empty for manually logged calls)
+  provider            String?   // EXOTEL
+  providerCallSid     String?   @unique // Exotel's CallSid
+  callStatus          String?   // completed, busy, no-answer, failed, canceled
+  fromNumber          String?
+  toNumber            String?
+  startedAt           DateTime?
+  endedAt             DateTime?
+
+  // Call recording (our own copy + expiry)
+  recordingUrl        String?   // Exotel's temporary link
+  recordingStorageKey String?   // file path in our MinIO/S3 storage
+  recordingExpiresAt  DateTime?
+  recordingDeletedAt  DateTime?
+
 
   lead Lead? @relation(fields: [leadId], references: [id], onDelete: Cascade)
   user User  @relation(fields: [userId], references: [id])
@@ -1024,6 +1040,7 @@ model CallLog {
   @@index([leadId])
   @@index([userId])
   @@index([contactId])
+  @@index([recordingExpiresAt])
   @@map("call_logs")
 }
 

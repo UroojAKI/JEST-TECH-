@@ -26,6 +26,7 @@ import { StatusBadge } from '../ui/status-badge';
 import { formatCurrency } from '../../lib/formatters';
 import { adminRepository, UserItem } from '../../repositories/admin.repository';
 import { leadsRepository } from '../../repositories/leads.repository';
+import { telephonyRepository } from '../../repositories/telephony.repository';
 import { useAuthStore } from '../../store/auth-store';
 import { toast } from 'sonner';
 
@@ -44,6 +45,7 @@ export function LeadHeader({ lead, onLaunchConvert, onLaunchMarkLost, onStatusCh
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentStatus, setCurrentStatus] = useState(lead?.status || lead?.stage || 'NEW');
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isCalling, setIsCalling] = useState(false);
 
   const user = useAuthStore((s) => s.user);
 
@@ -133,6 +135,20 @@ export function LeadHeader({ lead, onLaunchConvert, onLaunchMarkLost, onStatusCh
     }
   };
 
+  // Click-to-call via Exotel: rings the agent's phone first, then the customer
+  const handleClickToCall = async () => {
+    if (!lead?.id) return;
+    setIsCalling(true);
+    try {
+      await telephonyRepository.callLead(lead.id);
+      toast.success('Calling… your phone will ring first. Answer it to connect to the customer.');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Could not start the call. Please try again.');
+    } finally {
+      setIsCalling(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Duplicate Warning Banner */}
@@ -188,6 +204,16 @@ export function LeadHeader({ lead, onLaunchConvert, onLaunchMarkLost, onStatusCh
 
           {/* State-Driven Contextual Action Buttons */}
           <div className="flex flex-wrap items-center gap-2">
+            {/* Click-to-call (Exotel) */}
+            <button
+              onClick={handleClickToCall}
+              disabled={isCalling || !lead?.id}
+              className="px-3.5 py-2 text-xs font-bold rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs flex items-center space-x-1.5 transition-colors disabled:opacity-50"
+            >
+              {isCalling ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Phone className="h-3.5 w-3.5" />}
+              <span>{isCalling ? 'Calling…' : 'Call'}</span>
+            </button>
+
             {canReassign && (
               <button
                 onClick={handleOpenAssignModal}

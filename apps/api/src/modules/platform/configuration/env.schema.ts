@@ -54,9 +54,18 @@ export const envSchema = z
       .string()
       .min(32, 'PII_ENCRYPTION_KEY must be at least 32 characters')
       .optional(),
-    // SEC-002: Razorpay webhook HMAC secret — enforced at runtime in webhook-gateway.controller.ts
+        // SEC-002: Razorpay webhook HMAC secret — enforced at runtime in webhook-gateway.controller.ts
     RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
+    // Exotel telephony — click-to-call, call logs, recordings
+    EXOTEL_ACCOUNT_SID: z.string().optional(),
+    EXOTEL_SUBDOMAIN: z.string().default('api.exotel.com'),
+    EXOTEL_API_KEY: z.string().optional(),
+    EXOTEL_API_TOKEN: z.string().optional(),
+    EXOTEL_CALLER_ID: z.string().optional(),
+    EXOTEL_WEBHOOK_SECRET: z.string().optional(),
+    EXOTEL_WEBHOOK_BASE_URL: z.string().optional(),
   })
+
   .refine(
     (data) => {
       if (data.NODE_ENV === 'production') {
