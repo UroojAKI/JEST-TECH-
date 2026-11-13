@@ -516,9 +516,8 @@ export class MotorQuoteWorkflowService {
 
   // ── Authoritative State Machine & Transition Authority (Phase 3) ────────
 
-  private static readonly ALLOWED_TRANSITIONS: Record<
-    MotorWorkflowState,
-    MotorWorkflowState[]
+  private static readonly ALLOWED_TRANSITIONS: Partial<
+    Record<MotorWorkflowState, MotorWorkflowState[]>
   > = {
     [MotorWorkflowState.DRAFT]: [
       MotorWorkflowState.READY_FOR_PROPOSAL,
