@@ -1,4 +1,4 @@
-﻿import { Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 
 @Injectable()
@@ -13,10 +13,20 @@ export class NumberingEngineService {
    * task codes when two simultaneous requests hit the service at the same time.
    */
   async generateNext(prefix: string): Promise<string> {
-    const result = await this.prisma.$queryRaw<[{ nextval: bigint }]>`
-      SELECT nextval('back_office_task_code_seq')::bigint AS nextval
-    `;
-    const seq = Number(result[0].nextval);
-    return `${prefix}-${seq.toString().padStart(6, '0')}`;
+    try {
+      const result = await this.prisma.$queryRaw<[{ nextval: bigint }]>`
+        SELECT nextval('back_office_task_code_seq')::bigint AS nextval
+      `;
+      const seq = Number(result[0].nextval);
+      return `${prefix}-${seq.toString().padStart(6, '0')}`;
+    } catch {
+      await this.prisma
+        .$executeRaw`CREATE SEQUENCE IF NOT EXISTS back_office_task_code_seq START 1;`;
+      const retry = await this.prisma.$queryRaw<[{ nextval: bigint }]>`
+        SELECT nextval('back_office_task_code_seq')::bigint AS nextval
+      `;
+      const seq = Number(retry[0].nextval);
+      return `${prefix}-${seq.toString().padStart(6, '0')}`;
+    }
   }
 }

@@ -491,6 +491,18 @@ export class CrmIdentityService {
         return `CONT-${result[0].nextval.toString().padStart(6, '0')}`;
       }
     } catch (err: any) {
+      if (typeof client.$executeRaw === 'function') {
+        try {
+          await client.$executeRaw`CREATE SEQUENCE IF NOT EXISTS contact_number_seq START 1;`;
+          const retry = await client.$queryRaw<[{ nextval: bigint }]>`
+            SELECT nextval('contact_number_seq')`;
+          if (retry?.[0]?.nextval !== undefined) {
+            return `CONT-${retry[0].nextval.toString().padStart(6, '0')}`;
+          }
+        } catch {
+          // Fall through to error handler
+        }
+      }
       this.logger.error(`Failed to retrieve next sequence value from contact_number_seq: ${err?.message}`);
       throw new Error(`Contact code sequence unavailable: ${err?.message || 'contact_number_seq failure'}`);
     }
@@ -512,6 +524,18 @@ export class CrmIdentityService {
         return `CUST-${result[0].nextval.toString().padStart(6, '0')}`;
       }
     } catch (err: any) {
+      if (typeof client.$executeRaw === 'function') {
+        try {
+          await client.$executeRaw`CREATE SEQUENCE IF NOT EXISTS customer_number_seq START 1;`;
+          const retry = await client.$queryRaw<[{ nextval: bigint }]>`
+            SELECT nextval('customer_number_seq')`;
+          if (retry?.[0]?.nextval !== undefined) {
+            return `CUST-${retry[0].nextval.toString().padStart(6, '0')}`;
+          }
+        } catch {
+          // Fall through to error handler
+        }
+      }
       this.logger.error(`Failed to retrieve next sequence value from customer_number_seq: ${err?.message}`);
       throw new Error(`Customer code sequence unavailable: ${err?.message || 'customer_number_seq failure'}`);
     }
