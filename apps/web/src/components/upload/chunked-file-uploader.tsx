@@ -28,7 +28,7 @@ export function ChunkedFileUploader({ entityType, entityId, onSuccess }: FileUpl
     setProgress(30);
 
     try {
-      await documentsRepository.uploadDocument(file, entityType, entityId);
+      await documentsRepository.uploadDocument(file, entityType, entityId, { name: file.name });
       setProgress(100);
       toast.success(`Document ${file.name} uploaded successfully!`);
       onSuccess?.();

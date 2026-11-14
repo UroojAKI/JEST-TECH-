@@ -192,7 +192,7 @@ export class DocumentService {
 
   async uploadDocument(params: {
     file: Express.Multer.File;
-    name: string;
+    name?: string;
     entityType: string;
     entityId: string;
     uploadedById: string;
@@ -248,10 +248,12 @@ export class DocumentService {
       );
     }
 
+    const docName = name?.trim() || file.originalname || 'Document';
+
     const doc = await this.prisma.document.create({
       data: {
         documentNumber,
-        name,
+        name: docName,
         originalFileName: file.originalname,
         mimeType: file.mimetype,
         size: file.size,

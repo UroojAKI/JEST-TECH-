@@ -22,7 +22,7 @@ export function BreadcrumbNav() {
     if (pathname.startsWith('/workspace/admin')) return '/workspace/admin';
     if (pathname.startsWith('/workspace/operations')) return '/workspace/operations';
     if (pathname.startsWith('/workspace/sales')) return '/workspace/sales';
-    if (pathname.startsWith('/crm')) return '/crm/dashboard';
+    if (pathname.startsWith('/crm')) return '/crm/contacts';
     return '/';
   };
 

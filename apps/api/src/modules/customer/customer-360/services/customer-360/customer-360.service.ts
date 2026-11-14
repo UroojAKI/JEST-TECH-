@@ -278,8 +278,10 @@ export class Customer360Service {
         }),
         this.prisma.document.findMany({
           where: {
-            entityId: contact.id,
-            entityType: { in: ['CONTACT', 'CUSTOMER'] },
+            OR: [
+              { entityId: contact.id },
+              ...(contact.customer ? [{ entityId: contact.customer.id }] : []),
+            ],
             deletedAt: null,
             ...(agentId && actor?.userId
               ? { uploadedBy: { is: { id: actor.userId } } }
@@ -520,6 +522,30 @@ export class Customer360Service {
       contact.assignedExternalCode?.externalCode ||
       (contact.agentCode && !/^AGT-/i.test(contact.agentCode) ? contact.agentCode : null);
 
+    const policyIds = policies.map((p) => p.id).filter(Boolean);
+    const quotationIds = quotations.map((q) => q.id).filter(Boolean);
+    let relatedDocuments: any[] = [];
+    if (this.prisma.document?.findMany && (policyIds.length > 0 || quotationIds.length > 0)) {
+      relatedDocuments = await this.prisma.document.findMany({
+        where: {
+          OR: [
+            ...(policyIds.length > 0 ? [{ entityType: 'POLICY', entityId: { in: policyIds } }] : []),
+            ...(quotationIds.length > 0 ? [{ entityType: 'QUOTATION', entityId: { in: quotationIds } }] : []),
+          ],
+          deletedAt: null,
+          ...(agentId && actor?.userId
+            ? { uploadedBy: { is: { id: actor.userId } } }
+            : {}),
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      });
+    }
+
+    const allDocuments = [...(documents || []), ...(relatedDocuments || [])].filter(
+      (doc, idx, arr) => arr.findIndex((d) => d.id === doc.id) === idx,
+    );
+
     return {
       profile: {
         id: contact.id,
@@ -569,7 +595,7 @@ export class Customer360Service {
       claims,
       openClaims,
       leads,
-      documents,
+      documents: allDocuments,
       payments: [
         ...policies.flatMap((p) => p.payments || []),
         ...quotations.flatMap((q) => q.motorPaymentRecord ? [{
