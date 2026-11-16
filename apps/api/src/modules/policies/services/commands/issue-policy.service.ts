@@ -85,10 +85,19 @@ export class IssuePolicyService {
 
     // Pre-apply supplied customer KYC updates to Contact before gate validation
     const contactUpdates: Record<string, string> = {};
-    if (dto.customerPan && dto.customerPan !== quotation.contact?.panNumber) {
+    const isMaskedPii = (v?: string) => !v || v.includes('*') || v.includes('X');
+    if (
+      dto.customerPan &&
+      !isMaskedPii(dto.customerPan) &&
+      dto.customerPan !== quotation.contact?.panNumber
+    ) {
       contactUpdates.panNumber = dto.customerPan.trim().toUpperCase();
     }
-    if (dto.customerAadhaar && dto.customerAadhaar !== quotation.contact?.aadhaarNumber) {
+    if (
+      dto.customerAadhaar &&
+      !isMaskedPii(dto.customerAadhaar) &&
+      dto.customerAadhaar !== quotation.contact?.aadhaarNumber
+    ) {
       contactUpdates.aadhaarNumber = dto.customerAadhaar.trim();
     }
     if (Object.keys(contactUpdates).length && quotation.contactId) {

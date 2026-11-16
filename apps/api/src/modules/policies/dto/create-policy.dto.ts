@@ -47,23 +47,36 @@ export class CreatePolicyNomineeDto {
 }
 
 export class CreatePolicyPaymentDto {
+  @IsOptional()
   @IsNumber()
   @Min(0)
-  amount: number;
+  amount?: number;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  transactionId: string;
+  transactionId?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  paymentMethod: string;
+  referenceNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  paymentMethod?: string;
+
+  @IsOptional()
+  @IsString()
+  status?: string;
 }
 
 export class CreatePolicyDto {
   @IsOptional()
   @IsString()
   quotationId?: string;
+
+  @IsOptional()
+  @IsString()
+  policyType?: string;
 
   @IsOptional()
   @IsString()

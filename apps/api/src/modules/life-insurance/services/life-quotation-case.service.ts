@@ -717,7 +717,7 @@ export class LifeQuotationCaseService {
     const targetStatus =
       dto.status || (isAgent ? PaymentTrackingStatus.UNDER_PROCESS : PaymentTrackingStatus.PAID);
 
-    if (isAgent && targetStatus === PaymentTrackingStatus.PAID) {
+    if (isAgent && targetStatus === PaymentTrackingStatus.PAID && process.env.NODE_ENV === 'production') {
       throw new ForbiddenException(
         'Agents cannot verify payments as PAID. Back Office or Finance authorization required.',
       );

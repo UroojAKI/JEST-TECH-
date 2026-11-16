@@ -462,6 +462,11 @@ export class SelectLifeQuoteDto {
 }
 
 export class RecordLifePaymentDto {
+  @ApiPropertyOptional({ description: 'Quotation ID (optional for nested route, used when posting to case payment)' })
+  @IsOptional()
+  @IsString()
+  quotationId?: string;
+
   @ApiPropertyOptional({ description: 'Payment amount; defaults to authoritative totalPremium' })
   @IsOptional()
   @IsNumber()

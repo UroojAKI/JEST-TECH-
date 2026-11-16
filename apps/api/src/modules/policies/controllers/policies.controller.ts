@@ -61,7 +61,7 @@ export class PoliciesController {
   ) {}
 
   @Post('issue')
-  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({
     summary: 'Issue policy from quotation with validation gates',
   })

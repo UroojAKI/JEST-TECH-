@@ -194,6 +194,32 @@ export class DocumentService {
         }
         break;
       }
+      case 'LIFE_QUOTATION_CASE': {
+        const lqc = await (this.prisma as any).lifeQuotationCase.findUnique({
+          where: { id: entityId },
+          select: { companyId: true },
+        });
+        if (!lqc) throw new NotFoundException(`LifeQuotationCase ${entityId} not found`);
+        if (lqc.companyId && lqc.companyId !== actorOrg) {
+          throw new ForbiddenException(
+            'Life quotation case belongs to another organization',
+          );
+        }
+        break;
+      }
+      case 'HEALTH_QUOTATION_CASE': {
+        const hqc = await (this.prisma as any).healthQuotationCase.findUnique({
+          where: { id: entityId },
+          select: { companyId: true },
+        });
+        if (!hqc) throw new NotFoundException(`HealthQuotationCase ${entityId} not found`);
+        if (hqc.companyId && hqc.companyId !== actorOrg) {
+          throw new ForbiddenException(
+            'Health quotation case belongs to another organization',
+          );
+        }
+        break;
+      }
     }
   }
 

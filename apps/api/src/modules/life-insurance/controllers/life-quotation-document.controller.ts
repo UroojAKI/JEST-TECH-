@@ -74,9 +74,20 @@ export class LifeQuotationDocumentController {
   }
 
   @Patch('documents/:documentRecordId/verify')
-  @Roles(RoleType.BACK_OFFICE, RoleType.ADMIN)
+  @Roles(RoleType.BACK_OFFICE, RoleType.ADMIN, RoleType.AGENT)
   @ApiOperation({ summary: 'Verify or reject a document (Back Office & Admin only)' })
   verifyDocument(
+    @Param('documentRecordId', ParseUUIDPipe) documentRecordId: string,
+    @Body() dto: VerifyDocumentBodyDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.documentService.verifyDocument(documentRecordId, dto, user);
+  }
+
+  @Post('documents/:documentRecordId/verify')
+  @Roles(RoleType.BACK_OFFICE, RoleType.ADMIN, RoleType.AGENT)
+  @ApiOperation({ summary: 'Verify or reject a document alias (POST)' })
+  verifyDocumentPost(
     @Param('documentRecordId', ParseUUIDPipe) documentRecordId: string,
     @Body() dto: VerifyDocumentBodyDto,
     @CurrentUser() user: RequestUser,

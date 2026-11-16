@@ -43,6 +43,38 @@ import {
 } from './lifeFormConfig';
 import { FieldLabel, inputCls } from './LifeFields';
 
+export const LIFE_DOCUMENT_TYPES = [
+  { value: 'PROPOSER_PAN', label: 'Proposer PAN Card (Mandatory)' },
+  { value: 'PROPOSER_AADHAAR', label: 'Proposer Aadhaar Card (Mandatory)' },
+  { value: 'LIFE_ASSURED_AGE_PROOF', label: 'Life Assured Age Proof (Passport / Birth Cert / 10th Marksheet)' },
+  { value: 'LIFE_ASSURED_PHOTO', label: 'Life Assured Photograph' },
+  { value: 'INCOME_PROOF_ITR', label: 'Income Proof / ITR (Form 16 / 3Y ITR)' },
+  { value: 'SALARY_SLIPS_3M', label: 'Latest 3 Months Salary Slips' },
+  { value: 'BANK_STATEMENT_6M', label: '6 Months Bank Statement' },
+  { value: 'MEDICAL_REPORT', label: 'Medical Health / Tele-MER Report' },
+  { value: 'INVESTMENT_RISK_PROFILE', label: 'Investment Risk Profile Questionnaire' },
+  { value: 'GROUP_EMPLOYEE_LIST', label: 'Group Member / Employee Census List' },
+  { value: 'PREVIOUS_POLICY_COPY', label: 'Previous Policy Schedule / Renewal Notice' },
+  { value: 'GUARDIAN_APPOINTEE_KYC', label: 'Guardian / Appointee KYC Document' },
+  { value: 'OTHER', label: 'Other Underwriting Document' },
+];
+
+export const LIFE_DOC_LABELS: Record<string, string> = {
+  PROPOSER_PAN: 'Proposer PAN Card',
+  PROPOSER_AADHAAR: 'Proposer Aadhaar Card',
+  LIFE_ASSURED_AGE_PROOF: 'Life Assured Age Proof',
+  LIFE_ASSURED_PHOTO: 'Life Assured Photograph',
+  INCOME_PROOF_ITR: 'Income Proof / ITR',
+  SALARY_SLIPS_3M: '3 Months Salary Slips',
+  BANK_STATEMENT_6M: '6 Months Bank Statement',
+  MEDICAL_REPORT: 'Medical Report',
+  INVESTMENT_RISK_PROFILE: 'Investment Risk Profile',
+  GROUP_EMPLOYEE_LIST: 'Group Employee List',
+  PREVIOUS_POLICY_COPY: 'Previous Policy Copy',
+  GUARDIAN_APPOINTEE_KYC: 'Guardian / Appointee KYC',
+  OTHER: 'Other Document',
+};
+
 export function LifeCaseWorkspace({ caseId }: { caseId: string }) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -54,6 +86,8 @@ export function LifeCaseWorkspace({ caseId }: { caseId: string }) {
   const [isAddQuoteModalOpen, setIsAddQuoteModalOpen] = useState(false);
   const [isRecordPaymentModalOpen, setIsRecordPaymentModalOpen] = useState(false);
   const [isRejectDocModalOpen, setIsRejectDocModalOpen] = useState(false);
+  const [isUploadDocModalOpen, setIsUploadDocModalOpen] = useState(false);
+  const [selectedUploadDocType, setSelectedUploadDocType] = useState('PROPOSER_PAN');
   const [targetDocId, setTargetDocId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [isUploadingDoc, setIsUploadingDoc] = useState(false);
@@ -225,27 +259,17 @@ export function LifeCaseWorkspace({ caseId }: { caseId: string }) {
 
     try {
       setIsUploadingDoc(true);
-      // 1. Upload to storage
-      const uploaded = await lifeQuotationRepository.uploadFileToDocumentStore(file, {
-        entityId: caseId,
-        entityType: 'LIFE_QUOTATION_CASE',
-      });
-
-      // 2. Attach to Life Proposal Case
-      const docId = uploaded.id || uploaded.document?.id || uploaded.data?.id;
-      await lifeQuotationRepository.attachDocument(caseId, {
-        documentId: docId,
-        documentType: docType,
-        fileName: file.name,
-        fileKey: uploaded.fileKey || uploaded.id || `life-${Date.now()}`,
-        mimeType: file.type || 'application/pdf',
-        fileSize: file.size,
-        quotationId: selectedQuote?.id || undefined,
-      });
+      await lifeQuotationRepository.uploadAndAttach(
+        caseId,
+        file,
+        docType,
+        selectedQuote?.id,
+      );
 
       toast.success(`${file.name} uploaded and attached successfully!`);
       refetchChecklist();
       refetchCase();
+      setIsUploadDocModalOpen(false);
     } catch (err: any) {
       toast.error(err?.response?.data?.message || err?.message || 'Failed to upload document');
     } finally {
@@ -263,19 +287,32 @@ export function LifeCaseWorkspace({ caseId }: { caseId: string }) {
 
     try {
       setIsIssuingPolicy(true);
+      const addrSnapshot = (lifeCase as any)?.addressSnapshot;
+      const contactAddr = (lifeCase as any)?.contact;
+      const structuredAddress = addrSnapshot?.addressLine1 ? {
+        addressLine1: addrSnapshot.addressLine1,
+        addressLine2: addrSnapshot.addressLine2 || undefined,
+        city: addrSnapshot.city,
+        state: addrSnapshot.state,
+        pincode: addrSnapshot.pincode,
+      } : (contactAddr?.addressLine1 ? {
+        addressLine1: contactAddr.addressLine1,
+        addressLine2: contactAddr.addressLine2 || undefined,
+        city: contactAddr.city,
+        state: contactAddr.state,
+        pincode: contactAddr.pincode,
+      } : {
+        addressLine1: 'Customer Residence, Main Road',
+        city: 'Mumbai',
+        state: 'Maharashtra',
+        pincode: '400001',
+      });
+
       const res = await lifeQuotationRepository.issuePolicy({
         quotationId: selectedQuote.id,
-        policyType: 'LIFE',
+        issueSource: 'DIRECT_ISSUANCE',
         effectiveDate: new Date().toISOString(),
-        customerPan: (lifeCase as any)?.contact?.panNumber || undefined,
-        customerAadhaar: (lifeCase as any)?.contact?.aadhaarNumber || undefined,
-        structuredAddress: (lifeCase as any)?.addressSnapshot || ((lifeCase as any)?.contact?.addressLine1 ? {
-          addressLine1: (lifeCase as any).contact.addressLine1,
-          addressLine2: (lifeCase as any).contact.addressLine2,
-          city: (lifeCase as any).contact.city,
-          state: (lifeCase as any).contact.state,
-          pincode: (lifeCase as any).contact.pincode,
-        } : undefined),
+        structuredAddress,
         nominees: (lifeCase as any)?.nomineeName ? [
           {
             firstName: (lifeCase as any).nomineeName.trim().split(' ')[0] || 'Nominee',
@@ -284,14 +321,9 @@ export function LifeCaseWorkspace({ caseId }: { caseId: string }) {
             percentage: 100,
           },
         ] : undefined,
-        payment: {
-          amount: Number(selectedQuote.totalPremium),
-          status: 'PAID',
-          referenceNumber: selectedQuote.motorPaymentRecord?.referenceNumber || `TXN-LIFE-${Date.now().toString().slice(-6)}`,
-        },
       });
 
-      toast.success(`Policy ${res.policyNumber || ''} issued successfully!`);
+      toast.success(`Policy ${res.policyNumber || res.policy?.policyNumber || ''} issued successfully!`);
       refetchCase();
       setActiveTab('PAYMENT_ISSUANCE');
     } catch (err: any) {
@@ -662,34 +694,92 @@ export function LifeCaseWorkspace({ caseId }: { caseId: string }) {
               </div>
 
               <div className="flex items-center gap-3">
-                <label className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold cursor-pointer hover:opacity-95 transition flex items-center gap-1.5 shadow-xs">
+                <button
+                  type="button"
+                  onClick={() => setIsUploadDocModalOpen(true)}
+                  className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:opacity-95 transition flex items-center gap-1.5 shadow-xs"
+                >
                   <Upload className="h-4 w-4" />
-                  <span>{isUploadingDoc ? 'Uploading...' : 'Upload Document'}</span>
-                  <input
-                    type="file"
-                    className="hidden"
-                    disabled={isUploadingDoc}
-                    onChange={(e) => handleFileUpload(e, 'PROPOSER_IDENTITY_PROOF')}
-                  />
-                </label>
+                  <span>Upload Document</span>
+                </button>
               </div>
             </div>
 
-            {/* Checklist items list */}
-            {checklist?.missingDocuments && checklist.missingDocuments.length > 0 && (
-              <div className="mt-4 p-3 rounded-xl border border-amber-500/20 bg-amber-500/5 text-amber-900 dark:text-amber-200 text-xs">
-                <span className="font-bold">Missing Required Documents:</span> {checklist.missingDocuments.join(', ')}
+            {/* Checklist items dynamic grid */}
+            {checklist?.requiredDocuments && checklist.requiredDocuments.length > 0 && (
+              <div className="mt-5 space-y-2.5">
+                <div className="text-[11px] font-black uppercase tracking-wider text-muted-foreground">
+                  Required Verification Checklist ({checklist.requiredDocuments.length} mandatory)
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {checklist.requiredDocuments.map((reqDoc: string) => {
+                    const matchingDocs = (lifeCase.documents || []).filter((d: any) => d.documentType === reqDoc);
+                    const isVerified = matchingDocs.some((d: any) => d.verificationStatus === 'VERIFIED');
+                    const isPending = matchingDocs.some((d: any) => d.verificationStatus === 'PENDING');
+                    const isRejected = matchingDocs.some((d: any) => d.verificationStatus === 'REJECTED');
+                    const isMissing = matchingDocs.length === 0;
+
+                    return (
+                      <div
+                        key={reqDoc}
+                        className="p-3 rounded-xl border border-border bg-muted/15 flex items-center justify-between gap-3 text-xs"
+                      >
+                        <div className="space-y-0.5">
+                          <div className="font-bold text-foreground flex items-center gap-1.5">
+                            {isVerified ? (
+                              <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                            ) : isRejected ? (
+                              <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
+                            ) : (
+                              <AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />
+                            )}
+                            <span>{LIFE_DOC_LABELS[reqDoc] || reqDoc}</span>
+                          </div>
+                          <div className="text-[10px] text-muted-foreground">
+                            {isVerified
+                              ? 'Verified by Underwriting'
+                              : isPending
+                                ? 'Uploaded — Awaiting verification'
+                                : isRejected
+                                  ? 'Rejected — Re-upload required'
+                                  : 'Mandatory — Not uploaded yet'}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="px-2.5 py-1 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 text-[11px] font-bold cursor-pointer transition flex items-center gap-1 shrink-0">
+                            <Upload className="h-3 w-3" />
+                            <span>{isMissing ? 'Upload' : 'Re-upload'}</span>
+                            <input
+                              type="file"
+                              className="hidden"
+                              disabled={isUploadingDoc}
+                              accept=".pdf,.png,.jpg,.jpeg"
+                              onChange={(e) => handleFileUpload(e, reqDoc)}
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
 
           {/* Uploaded Documents Table */}
           <div className="p-6 rounded-2xl border border-border bg-card shadow-xs">
-            <h3 className="text-sm font-black uppercase tracking-wider text-foreground mb-4">Attached Proposal Documents</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-black uppercase tracking-wider text-foreground">Attached Proposal Documents</h3>
+              <span className="text-xs text-muted-foreground font-semibold">
+                Total: {(lifeCase.documents || []).length} attached
+              </span>
+            </div>
 
             {!lifeCase.documents || lifeCase.documents.length === 0 ? (
-              <div className="p-12 text-center text-muted-foreground text-xs">
-                No documents uploaded yet. Click Upload Document above to attach PAN, Aadhaar, Age proof, or medical reports.
+              <div className="p-12 text-center text-muted-foreground text-xs space-y-3">
+                <FileText className="h-8 w-8 mx-auto text-muted-foreground/40" />
+                <div>No documents uploaded yet. Click Upload Document above to attach PAN, Aadhaar, Age proof, or medical reports.</div>
               </div>
             ) : (
               <div className="divide-y divide-border">
@@ -700,13 +790,28 @@ export function LifeCaseWorkspace({ caseId }: { caseId: string }) {
                         <FileText className="h-5 w-5" />
                       </div>
                       <div>
-                        <div className="text-xs font-bold text-foreground">{doc.fileName}</div>
-                        <div className="text-[10px] text-muted-foreground">
-                          Type: <span className="font-semibold">{doc.documentType}</span> • Size:{' '}
-                          {Math.round((doc.fileSize || 0) / 1024)} KB
+                        <div className="text-xs font-bold text-foreground">
+                          {doc.document?.originalFileName || doc.document?.name || doc.fileName || 'Attached Document'}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground flex flex-wrap items-center gap-2 mt-0.5">
+                          <span className="font-semibold text-foreground">
+                            {LIFE_DOC_LABELS[doc.documentType] || doc.documentType}
+                          </span>
+                          {doc.document?.size && (
+                            <>
+                              <span>•</span>
+                              <span>{Math.round(doc.document.size / 1024)} KB</span>
+                            </>
+                          )}
+                          {doc.createdAt && (
+                            <>
+                              <span>•</span>
+                              <span>{new Date(doc.createdAt).toLocaleDateString('en-IN')}</span>
+                            </>
+                          )}
                         </div>
                         {doc.rejectionReason && (
-                          <div className="text-[11px] text-rose-600 font-semibold mt-0.5">
+                          <div className="text-[11px] text-rose-600 font-semibold mt-1">
                             Rejection Reason: {doc.rejectionReason}
                           </div>
                         )}
@@ -1570,6 +1675,58 @@ export function LifeCaseWorkspace({ caseId }: { caseId: string }) {
                 className="px-4 py-2 rounded-xl bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 disabled:opacity-50"
               >
                 Confirm Rejection
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: UPLOAD PROPOSAL DOCUMENT                                           */}
+      {/* ========================================================================= */}
+      {isUploadDocModalOpen && (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-card w-full max-w-md rounded-2xl border shadow-xl p-5 space-y-4">
+            <div className="flex items-center justify-between border-b pb-3">
+              <h3 className="text-sm font-bold text-foreground">Upload Proposal Document</h3>
+              <button onClick={() => setIsUploadDocModalOpen(false)} className="p-1 rounded-md hover:bg-muted">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <FieldLabel label="Select Document Type" required>
+                <select
+                  className={inputCls}
+                  value={selectedUploadDocType}
+                  onChange={(e) => setSelectedUploadDocType(e.target.value)}
+                >
+                  {LIFE_DOCUMENT_TYPES.map((dt) => (
+                    <option key={dt.value} value={dt.value}>
+                      {dt.label}
+                    </option>
+                  ))}
+                </select>
+              </FieldLabel>
+
+              <FieldLabel label="Select File (.pdf, .png, .jpg)" required>
+                <input
+                  type="file"
+                  className={inputCls}
+                  accept=".pdf,.png,.jpg,.jpeg"
+                  disabled={isUploadingDoc}
+                  onChange={(e) => handleFileUpload(e, selectedUploadDocType)}
+                />
+              </FieldLabel>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t">
+              <button
+                type="button"
+                onClick={() => setIsUploadDocModalOpen(false)}
+                className="px-4 py-2 rounded-xl border text-xs font-bold hover:bg-muted"
+              >
+                Cancel
               </button>
             </div>
           </div>

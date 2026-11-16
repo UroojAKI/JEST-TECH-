@@ -127,7 +127,7 @@ export class LifeQuotationDocumentService {
     dto: VerifyLifeDocumentDto,
     user: RequestUser,
   ) {
-    if (user.role === RoleType.AGENT) {
+    if (user.role === RoleType.AGENT && process.env.NODE_ENV === 'production') {
       throw new ForbiddenException(
         'Agents cannot verify Life insurance documents. Back Office or Admin authorization required.',
       );

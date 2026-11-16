@@ -99,6 +99,8 @@ export class DocumentsController {
       'CONTACT',
       'CUSTOMER',
       'INSPECTION',
+      'LIFE_QUOTATION_CASE',
+      'HEALTH_QUOTATION_CASE',
     ];
     if (!validEntityTypes.includes(entityType))
       throw new BadRequestException(
@@ -159,6 +161,8 @@ export class DocumentsController {
       'ENDORSEMENT',
       'CONTACT',
       'CUSTOMER',
+      'LIFE_QUOTATION_CASE',
+      'HEALTH_QUOTATION_CASE',
     ];
     if (!validEntityTypes.includes(entityType))
       throw new BadRequestException(

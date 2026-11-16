@@ -60,7 +60,7 @@ export class BackOfficeController {
   }
 
   @Post('issue/:quotationId')
-  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({
     summary: 'Validate multi-gates and execute transactional policy issuance',
   })

@@ -181,6 +181,30 @@ export const lifeQuotationRepository = {
     );
   },
 
+  async uploadAndAttach(
+    caseId: string,
+    file: File,
+    documentType: string,
+    quotationId?: string,
+  ): Promise<any> {
+    const lifeCase = await this.getCase(caseId);
+    const targetEntityId = quotationId || lifeCase.selectedQuoteId || lifeCase.contactId || caseId;
+    const targetEntityType = quotationId || lifeCase.selectedQuoteId ? 'QUOTATION' : 'CONTACT';
+    const stored = await documentsRepository.uploadDocument(
+      file,
+      targetEntityType,
+      targetEntityId,
+      { name: file.name, category: `LIFE_${documentType}` },
+    );
+    const docId = stored.id || (stored as any).document?.id || (stored as any).data?.id;
+    const response = await apiClient.post(`/life/quotation-cases/${caseId}/documents`, {
+      documentId: docId,
+      documentType,
+      ...(quotationId ? { quotationId } : {}),
+    });
+    return response.data;
+  },
+
   async attachDocument(caseId: string, payload: Record<string, any>): Promise<any> {
     const response = await apiClient.post(`/life/quotation-cases/${caseId}/documents`, payload);
     return response.data;
