@@ -343,7 +343,7 @@ export function UpdatePolicyDetailsDialog({
           formData.append('tags', `${isLife ? 'life' : 'health'},policy,issued`);
 
           const upload = await apiClient.post('/documents/upload', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
+            headers: { 'Content-Type': undefined },
           });
           const storageKey = upload.data?.storageKey;
           if (storageKey) {
@@ -413,7 +413,7 @@ export function UpdatePolicyDetailsDialog({
           formData.append('tags', 'motor,policy,issued');
 
           const upload = await apiClient.post('/documents/upload', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
+            headers: { 'Content-Type': undefined },
           });
           const storageKey = upload.data?.storageKey;
           if (!storageKey) throw new Error('Policy document upload did not return a storage key');

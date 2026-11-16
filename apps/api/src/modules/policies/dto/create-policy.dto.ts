@@ -1,6 +1,7 @@
 import { PolicyAddressDto } from './policy-address.dto';
 import {
   IsArray,
+  IsBoolean,
   IsDateString,
   IsNotEmpty,
   IsNumber,
@@ -16,9 +17,9 @@ export class CreatePolicyMemberDto {
   @IsNotEmpty()
   firstName: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  lastName: string;
+  lastName?: string;
 
   @IsString()
   @IsNotEmpty()
@@ -33,9 +34,9 @@ export class CreatePolicyNomineeDto {
   @IsNotEmpty()
   firstName: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  lastName: string;
+  lastName?: string;
 
   @IsString()
   @IsNotEmpty()
@@ -168,4 +169,32 @@ export class CreatePolicyDto {
   @ValidateNested()
   @Type(() => PolicyAddressDto)
   structuredAddress?: PolicyAddressDto;
+
+  @IsOptional()
+  @IsString()
+  actualPolicyNumber?: string;
+
+  @IsOptional()
+  @IsNumber()
+  actualPremium?: number;
+
+  @IsOptional()
+  @IsString()
+  paymentReference?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  confirmPaymentReceived?: boolean;
+
+  @IsOptional()
+  @IsString()
+  documentFileKey?: string;
+
+  @IsOptional()
+  @IsString()
+  documentFileName?: string;
+
+  @IsOptional()
+  @IsNumber()
+  documentFileSize?: number;
 }

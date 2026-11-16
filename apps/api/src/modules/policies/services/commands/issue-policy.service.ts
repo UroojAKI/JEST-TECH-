@@ -154,14 +154,47 @@ export class IssuePolicyService {
     }
 
     // The only authoritative payment source for issuance is a verified PAID motor payment record.
-    // Do not accept payment values supplied again in the policy request.
-    const paymentRecord = await this.prisma.motorPaymentRecord.findUnique({
+    // Do not accept payment values supplied again in the policy request unless confirmed manual entry.
+    let paymentRecord = await this.prisma.motorPaymentRecord.findUnique({
       where: { quotationId: quotation.id },
     });
     if (!paymentRecord || paymentRecord.status !== 'PAID') {
-      throw new BadRequestException(
-        'Cannot issue policy without an authoritative reconciled payment. Payment must be verified as PAID before issuance.',
-      );
+      if (
+        (dto as any).confirmPaymentReceived &&
+        ((dto as any).paymentReference || (dto as any).actualPolicyNumber)
+      ) {
+        const rawRef = ((dto as any).paymentReference || '').trim();
+        const refNumber = rawRef || `MANUAL-${(dto as any).actualPolicyNumber || Date.now()}`;
+        const paidAmount = (dto as any).actualPremium
+          ? new Prisma.Decimal((dto as any).actualPremium)
+          : new Prisma.Decimal(quotation.totalPremium);
+
+        paymentRecord = await this.prisma.motorPaymentRecord.upsert({
+          where: { quotationId: quotation.id },
+          update: {
+            status: 'PAID',
+            amount: paidAmount,
+            referenceNumber: refNumber,
+            paymentMethod: ((dto as any).paymentMethod || 'DIRECT_SETTLEMENT') as any,
+            paidAt: new Date(),
+            recordedById: createdById,
+          },
+          create: {
+            companyId: quotation.companyId,
+            quotationId: quotation.id,
+            status: 'PAID',
+            amount: paidAmount,
+            referenceNumber: refNumber,
+            paymentMethod: ((dto as any).paymentMethod || 'DIRECT_SETTLEMENT') as any,
+            paidAt: new Date(),
+            recordedById: createdById,
+          },
+        });
+      } else {
+        throw new BadRequestException(
+          'Cannot issue policy without an authoritative reconciled payment. Payment must be verified as PAID before issuance.',
+        );
+      }
     }
 
     const authoritativePayable = new Prisma.Decimal(quotation.totalPremium);
@@ -430,6 +463,7 @@ export class IssuePolicyService {
 
     const policyData: Prisma.PolicyCreateInput = {
       policyNumber,
+      actualPolicyNumber: (dto as any).actualPolicyNumber || dto.insurerPolicyNumber || null,
       status:
         effectiveDate <= new Date() ? PolicyStatus.ACTIVE : PolicyStatus.ISSUED,
       quotation: { connect: { id: quotation.id } },
@@ -457,7 +491,7 @@ export class IssuePolicyService {
       policyData.members = {
         create: dto.members.map((m) => ({
           firstName: m.firstName,
-          lastName: m.lastName,
+          lastName: m.lastName || '',
           relation: m.relation,
           dateOfBirth: new Date(m.dateOfBirth),
         })),
@@ -476,7 +510,7 @@ export class IssuePolicyService {
     policyData.nominees = {
       create: dto.nominees.map((n) => ({
         firstName: n.firstName,
-        lastName: n.lastName,
+        lastName: n.lastName || '',
         relation: n.relation,
         percentage: new Prisma.Decimal(n.percentage),
       })),

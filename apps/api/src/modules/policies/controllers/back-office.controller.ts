@@ -21,8 +21,9 @@ import type { RequestUser } from '../../auth/decorators/current-user.decorator';
 import { BackOfficeQueueService } from '../services/queries/back-office-queue.service';
 import { IssuePolicyService } from '../services/commands/issue-policy.service';
 import { MotorPolicyIssuanceService } from '../../motor/services/motor-policy-issuance.service';
-import { IssueMotorPolicyDto } from '../../motor/dto/issue-motor-policy.dto';
+import { IssueBackOfficePolicyDto } from '../dto/issue-back-office-policy.dto';
 import { PrismaService } from '../../../database/prisma.service';
+import { Prisma } from '@prisma/client';
 
 @ApiTags('Back Office Workbench & Policy Issuance')
 @ApiBearerAuth()
@@ -67,19 +68,54 @@ export class BackOfficeController {
   async issuePolicy(
     @Param('quotationId', ParseUUIDPipe) quotationId: string,
     @CurrentUser() user: RequestUser,
-    @Body() dto?: IssueMotorPolicyDto,
+    @Body() dto?: IssueBackOfficePolicyDto,
   ) {
-    // 1. Validate all hard gates with tenant context
-    await this.backOfficeQueueService.validateIssuanceGates(quotationId, user);
-
     const quotation = await this.prisma.quotation.findUnique({
       where: { id: quotationId },
-      select: { productType: true },
+      include: { motorPaymentRecord: true },
     });
 
     if (!quotation) {
       throw new NotFoundException(`Quotation with ID ${quotationId} not found.`);
     }
+
+    // If manual entry confirmed payment received with reference, ensure payment record is reconciled prior to gate checks
+    if (
+      dto?.confirmPaymentReceived &&
+      (dto?.paymentReference || dto?.actualPolicyNumber) &&
+      (!quotation.motorPaymentRecord || quotation.motorPaymentRecord.status !== 'PAID')
+    ) {
+      const rawRef = (dto.paymentReference || '').trim();
+      const refNumber = rawRef || `MANUAL-${dto.actualPolicyNumber || Date.now()}`;
+      const paidAmount = dto.actualPremium
+        ? new Prisma.Decimal(dto.actualPremium)
+        : new Prisma.Decimal(quotation.totalPremium);
+
+      await this.prisma.motorPaymentRecord.upsert({
+        where: { quotationId },
+        update: {
+          status: 'PAID',
+          amount: paidAmount,
+          referenceNumber: refNumber,
+          paymentMethod: (dto.paymentMethod || 'DIRECT_SETTLEMENT') as any,
+          paidAt: new Date(),
+          recordedById: user.userId || user.id,
+        },
+        create: {
+          companyId: quotation.companyId,
+          quotationId,
+          status: 'PAID',
+          amount: paidAmount,
+          referenceNumber: refNumber,
+          paymentMethod: (dto.paymentMethod || 'DIRECT_SETTLEMENT') as any,
+          paidAt: new Date(),
+          recordedById: user.userId || user.id,
+        },
+      });
+    }
+
+    // 1. Validate all hard gates with tenant context
+    await this.backOfficeQueueService.validateIssuanceGates(quotationId, user);
 
     let policy: any;
 
@@ -102,6 +138,8 @@ export class BackOfficeController {
                 ? 'Life Insurance'
                 : 'General Policy',
           ...dto,
+          effectiveDate: dto?.effectiveDate || dto?.startDate,
+          expiryDate: dto?.expiryDate || dto?.endDate,
         },
         user.id,
         user,
