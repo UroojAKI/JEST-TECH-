@@ -44,7 +44,7 @@ export const documentsRepository = {
     if (extra?.tags) formData.append('tags', extra.tags);
 
     const response = await apiClient.post('/documents/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+      headers: { 'Content-Type': undefined },
     });
     return response.data;
   },

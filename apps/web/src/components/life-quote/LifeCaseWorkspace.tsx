@@ -225,6 +225,16 @@ export function LifeCaseWorkspace({ caseId }: { caseId: string }) {
     },
   });
 
+  const getErrorMessage = (err: any, fallback: string): string => {
+    const data = err?.response?.data;
+    if (data?.message) {
+      if (Array.isArray(data.message)) return data.message.join(', ');
+      if (typeof data.message === 'string') return data.message;
+    }
+    if (data?.error && typeof data.error === 'string') return data.error;
+    return err?.message || fallback;
+  };
+
   // Mutation: Record Payment
   const recordPaymentMutation = useMutation({
     mutationFn: (payload: any) => lifeQuotationRepository.recordPayment(caseId, selectedQuote!.id, payload),
@@ -234,7 +244,7 @@ export function LifeCaseWorkspace({ caseId }: { caseId: string }) {
       refetchCase();
     },
     onError: (err: any) => {
-      toast.error(err?.response?.data?.message || err?.message || 'Failed to record payment');
+      toast.error(getErrorMessage(err, 'Failed to record payment'));
     },
   });
 
@@ -248,7 +258,7 @@ export function LifeCaseWorkspace({ caseId }: { caseId: string }) {
       refetchCase();
     },
     onError: (err: any) => {
-      toast.error(err?.response?.data?.message || err?.message || 'Failed to verify document');
+      toast.error(getErrorMessage(err, 'Failed to verify document'));
     },
   });
 
@@ -263,7 +273,6 @@ export function LifeCaseWorkspace({ caseId }: { caseId: string }) {
         caseId,
         file,
         docType,
-        selectedQuote?.id,
       );
 
       toast.success(`${file.name} uploaded and attached successfully!`);
@@ -271,7 +280,7 @@ export function LifeCaseWorkspace({ caseId }: { caseId: string }) {
       refetchCase();
       setIsUploadDocModalOpen(false);
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || err?.message || 'Failed to upload document');
+      toast.error(getErrorMessage(err, 'Failed to upload document'));
     } finally {
       setIsUploadingDoc(false);
       event.target.value = '';
@@ -282,6 +291,13 @@ export function LifeCaseWorkspace({ caseId }: { caseId: string }) {
   const handleIssuePolicy = async () => {
     if (!selectedQuote) {
       toast.error('A winning quotation must be selected before policy issuance.');
+      setActiveTab('QUOTES');
+      return;
+    }
+
+    if (selectedQuote.motorPaymentRecord?.status !== 'PAID') {
+      toast.error('Authoritative payment must be recorded and confirmed as PAID before issuing the policy.');
+      setActiveTab('PAYMENT_ISSUANCE');
       return;
     }
 
@@ -327,7 +343,7 @@ export function LifeCaseWorkspace({ caseId }: { caseId: string }) {
       refetchCase();
       setActiveTab('PAYMENT_ISSUANCE');
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || err?.message || 'Failed to issue life insurance policy');
+      toast.error(getErrorMessage(err, 'Failed to issue life insurance policy'));
     } finally {
       setIsIssuingPolicy(false);
     }

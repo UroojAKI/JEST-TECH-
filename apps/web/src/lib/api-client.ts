@@ -126,6 +126,16 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
     }
   }
 
+  // If sending FormData, remove Content-Type so browser automatically generates multipart boundary
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+    if (config.headers) {
+      delete (config.headers as any)['Content-Type'];
+      if (typeof (config.headers as any).delete === 'function') {
+        (config.headers as any).delete('Content-Type');
+      }
+    }
+  }
+
   return config;
 });
 

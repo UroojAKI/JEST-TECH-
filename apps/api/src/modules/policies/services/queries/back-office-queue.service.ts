@@ -383,18 +383,22 @@ export class BackOfficeQueueService {
         const isLife = q.productType === 'LIFE' || !!(q as any).lifeCaseId;
         const isMotor = !isHealth && !isLife && (q.productType === 'MOTOR' || (q as any).lineOfBusiness === 'MOTOR');
 
-        // 1. Customer Gate (PAN details are optional for motor, mandatory for health)
+        // 1. Customer Gate (PAN details are optional for motor, mandatory for health, PAN/Aadhaar for life)
         const hasCustomer = !!q.contact || !!(q as any).account;
         const hasContactDetails = !!(q.contact?.phone || q.contact?.email);
-        const hasPan = Boolean(q.contact?.panNumber);
-        const hasAadhaar = Boolean(q.contact?.aadhaarNumber);
+        const lifeKyc = (q as any).lifeCase?.customerSnapshot?.proposerKyc || (q as any).lifeCase?.customerSnapshot || {};
+        const hasPan = Boolean(q.contact?.panNumber || lifeKyc?.panNumber);
+        const hasAadhaar = Boolean(q.contact?.aadhaarNumber || lifeKyc?.aadhaarNumber);
         const isKycRejected = (q as any).account?.kycStatus === 'REJECTED';
 
         // For Health, policy issuance strictly requires both PAN and Aadhaar on file and KYC not rejected
+        // For Life, policy issuance requires customer KYC (PAN or Aadhaar on file) and KYC not rejected
         // For Motor, PAN details are optional in issuance as long as KYC is not rejected
-        const hasKyc = (isHealth || isLife)
+        const hasKyc = isHealth
           ? hasPan && hasAadhaar && !isKycRejected
-          : !isKycRejected;
+          : isLife
+            ? (hasPan || hasAadhaar) && !isKycRejected
+            : !isKycRejected;
         const customerPassed = hasCustomer && hasContactDetails && hasKyc;
         const customerGate: GateStatus = {
           passed: customerPassed,
@@ -406,14 +410,18 @@ export class BackOfficeQueueService {
               : isKycRejected
                 ? 'Customer KYC has been rejected'
                 : !hasKyc
-                  ? (!hasPan && !hasAadhaar
-                      ? 'Customer PAN and Aadhaar required for Health policy issuance'
-                      : !hasPan
-                        ? 'Customer PAN required for Health policy issuance'
-                        : 'Customer Aadhaar required for Health policy issuance')
-                  : (isHealth || isLife)
+                  ? isLife
+                    ? 'Customer PAN or Aadhaar required for Life policy issuance'
+                    : (!hasPan && !hasAadhaar
+                        ? 'Customer PAN and Aadhaar required for Health policy issuance'
+                        : !hasPan
+                          ? 'Customer PAN required for Health policy issuance'
+                          : 'Customer Aadhaar required for Health policy issuance')
+                  : isHealth
                     ? 'Customer KYC verified (PAN & Aadhaar on file)'
-                    : 'Customer verified (PAN optional)',
+                    : isLife
+                      ? 'Customer KYC verified (PAN/Aadhaar on file)'
+                      : 'Customer verified (PAN optional)',
         };
 
         // 2. Vehicle Integrity Gate (only applicable to MOTOR)
