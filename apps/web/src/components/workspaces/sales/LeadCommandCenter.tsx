@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { StepTracker } from './StepTracker';
 import { useSalesWorkspace } from '../../../hooks/useSalesWorkspace';
 import { apiClient } from '../../../lib/api-client';
@@ -15,6 +15,7 @@ import type { SavedMotorQuote } from '../../leads/motor-quote/motorFormTypes';
 import { MarkLostModal } from '../../leads/drawers/MarkLostModal';
 import { leadsRepository } from '../../../repositories/leads.repository';
 import { telephonyRepository } from '../../../repositories/telephony.repository';
+import { CallHistoryPanel } from '../../telephony/CallHistoryPanel';
 import type { LostReason } from '../../../types/leads';
 import {
   User,
@@ -54,6 +55,7 @@ interface LeadCommandCenterProps {
 
 export function LeadCommandCenter({ lead, onRefresh }: LeadCommandCenterProps) {
   const { moveStage, isMovingStage, createReferral } = useSalesWorkspace();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<
     'OVERVIEW' | 'CUSTOMER_360' | 'DOCUMENTS' | 'QUOTATION' | 'PROPOSAL' | 'ACTIVITIES' | 'REFERRAL'
   >('OVERVIEW');
@@ -230,6 +232,7 @@ export function LeadCommandCenter({ lead, onRefresh }: LeadCommandCenterProps) {
     setIsCalling(true);
     try {
       await telephonyRepository.callLead(lead.id);
+      queryClient.invalidateQueries({ queryKey: ['lead-calls', lead.id] });
       toast.success('Calling… your phone will ring first. Answer it to connect to the customer.');
       if (onRefresh) onRefresh();
     } catch (err: any) {
@@ -893,6 +896,8 @@ export function LeadCommandCenter({ lead, onRefresh }: LeadCommandCenterProps) {
       )}
 
       {/* ACTIVITIES & CALL LOGS TAB */}
+      {activeTab === 'ACTIVITIES' && <CallHistoryPanel leadId={lead.id} />}
+
       {activeTab === 'ACTIVITIES' && (
         <div className="p-5 rounded-2xl border bg-card space-y-4">
           <h3 className="text-xs font-extrabold uppercase text-muted-foreground tracking-wider">

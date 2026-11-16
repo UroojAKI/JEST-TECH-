@@ -64,6 +64,10 @@ export const envSchema = z
     EXOTEL_CALLER_ID: z.string().optional(),
     EXOTEL_WEBHOOK_SECRET: z.string().optional(),
     EXOTEL_WEBHOOK_BASE_URL: z.string().optional(),
+    // Company that owns the ExoPhone (used to match incoming callers to leads)
+    EXOTEL_COMPANY_ID: z.string().optional(),
+    // How many days call recordings are kept before automatic deletion
+    RECORDING_RETENTION_DAYS: z.string().default('365'),
   })
 
   .refine(

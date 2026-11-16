@@ -1,11 +1,9 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
+import type { ActorContext } from '../../common/interfaces/actor-context.interface';
 import { ExotelClient } from './exotel.client';
 import { ExotelWebhookService } from './exotel-webhook.service';
+import { CallHistoryService } from './call-history.service';
 
 @Injectable()
 export class ClickToCallService {
@@ -13,21 +11,12 @@ export class ClickToCallService {
     private readonly prisma: PrismaService,
     private readonly exotel: ExotelClient,
     private readonly webhooks: ExotelWebhookService,
+    private readonly callHistory: CallHistoryService,
   ) {}
 
-  async callLead(leadId: string, userId: string, companyId: string) {
-    // 1. Find the lead (only inside the agent's own company)
-    const lead = await this.prisma.lead.findFirst({
-      where: { id: leadId, companyId },
-      select: {
-        id: true,
-        contactId: true,
-        contact: { select: { phone: true } },
-      },
-    });
-    if (!lead) {
-      throw new NotFoundException('Lead not found');
-    }
+  async callLead(leadId: string, user: ActorContext & { id: string }) {
+    // 1. Find the lead — only if this user is allowed to see it
+    const lead = await this.callHistory.getAuthorizedLead(leadId, user);
     const customerNumber = lead.contact.phone;
     if (!customerNumber) {
       throw new BadRequestException('This lead has no phone number');
@@ -35,7 +24,7 @@ export class ClickToCallService {
 
     // 2. Find the agent's own phone number
     const agent = await this.prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: user.id },
       select: { phone: true },
     });
     if (!agent?.phone) {
@@ -49,7 +38,7 @@ export class ClickToCallService {
       data: {
         leadId: lead.id,
         contactId: lead.contactId,
-        userId,
+        userId: user.id,
         callType: 'OUTBOUND',
         callOutcome: 'INITIATED',
         provider: 'EXOTEL',

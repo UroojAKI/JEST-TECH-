@@ -99,4 +99,54 @@ export class ExotelClient {
 
     return { callSid: data.Call.Sid, status: data.Call.Status };
   }
+
+  /**
+   * Downloads a call recording from Exotel. Recording links need our API
+   * key, so the browser can't open them directly — the backend fetches them.
+   */
+  async fetchRecording(
+    recordingUrl: string,
+  ): Promise<{ body: Buffer; contentType: string }> {
+    if (!this.isConfigured()) {
+      throw new ServiceUnavailableException('Exotel is not configured');
+    }
+
+    // Only ever send our credentials to Exotel's own recording host
+    let parsed: URL;
+    try {
+      parsed = new URL(recordingUrl);
+    } catch {
+      throw new BadGatewayException('Invalid recording link');
+    }
+    if (
+      parsed.protocol !== 'https:' ||
+      !parsed.hostname.endsWith('.exotel.com')
+    ) {
+      throw new BadGatewayException('Unexpected recording host');
+    }
+
+    const apiKey = this.config.get<string>('EXOTEL_API_KEY') as string;
+    const apiToken = this.config.get<string>('EXOTEL_API_TOKEN') as string;
+    const auth = Buffer.from(`${apiKey}:${apiToken}`).toString('base64');
+
+    let res: Response;
+    try {
+      res = await fetch(parsed, {
+        headers: { Authorization: `Basic ${auth}` },
+        signal: AbortSignal.timeout(30000),
+      });
+    } catch (err) {
+      this.logger.error(`Recording download failed: ${(err as Error).message}`);
+      throw new BadGatewayException('Could not reach Exotel');
+    }
+    if (!res.ok) {
+      this.logger.error(`Recording download failed (${res.status})`);
+      throw new BadGatewayException('Recording is not available');
+    }
+
+    return {
+      body: Buffer.from(await res.arrayBuffer()),
+      contentType: res.headers.get('content-type') || 'audio/mpeg',
+    };
+  }
 }

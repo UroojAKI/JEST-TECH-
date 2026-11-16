@@ -2,6 +2,7 @@ import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { timingSafeEqual } from 'crypto';
 import { PrismaService } from '../../database/prisma.service';
+import { RecordingArchiveService } from './recording-archive.service';
 
 /** Exotel status → our CallLog.callOutcome */
 const OUTCOME_BY_STATUS: Record<string, string> = {
@@ -19,6 +20,7 @@ export class ExotelWebhookService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly recordings: RecordingArchiveService,
   ) {}
 
   /** Full URL we give Exotel; undefined if not configured yet */
@@ -61,6 +63,8 @@ export class ExotelWebhookService {
     }
 
     const status = String(payload.Status ?? '').toLowerCase();
+    const startedAt = this.parseExotelTime(payload.StartTime);
+    const recordingUrl: string | undefined = payload.RecordingUrl || undefined;
     await this.prisma.callLog.update({
       where: { id: callLog.id },
       data: {
@@ -68,11 +72,20 @@ export class ExotelWebhookService {
         callStatus: status || undefined,
         callOutcome: OUTCOME_BY_STATUS[status] ?? 'FAILED',
         durationSeconds: Number(payload.ConversationDuration) || 0,
-        startedAt: this.parseExotelTime(payload.StartTime),
+        startedAt,
         endedAt: this.parseExotelTime(payload.EndTime),
-        recordingUrl: payload.RecordingUrl || undefined,
+        recordingUrl,
+        // Recordings are kept for RECORDING_RETENTION_DAYS, then deleted
+        recordingExpiresAt: recordingUrl
+          ? this.recordings.expiryFor(startedAt ?? new Date())
+          : undefined,
       },
     });
+
+    // Copy the recording into our own storage (Exotel only keeps it for a while)
+    if (recordingUrl) {
+      this.recordings.archiveInBackground(callLog.id);
+    }
   }
 
   /** Exotel sends "2026-11-12 14:05:00" in Indian time */

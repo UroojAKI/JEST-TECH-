@@ -1010,7 +1010,7 @@ model CallLog {
   id                String    @id @default(uuid())
   leadId            String?
   contactId         String?
-  userId            String
+  userId            String? // agent; empty for incoming calls nobody answered
   callType          String    @default("OUTBOUND") // OUTBOUND, INBOUND
   callOutcome       String // CONNECTED, NO_ANSWER, BUSY, SCHEDULED_CALLBACK, INTERESTED, NOT_INTERESTED
   durationSeconds   Int       @default(0)
@@ -1033,9 +1033,12 @@ model CallLog {
   recordingExpiresAt  DateTime?
   recordingDeletedAt  DateTime?
 
+  // Incoming calls (IVR)
+  ivrOption           String?   // key the caller pressed in the IVR menu
+
 
   lead Lead? @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  user User  @relation(fields: [userId], references: [id])
+  user User? @relation(fields: [userId], references: [id])
 
   @@index([leadId])
   @@index([userId])
