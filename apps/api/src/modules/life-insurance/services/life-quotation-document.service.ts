@@ -178,7 +178,7 @@ export class LifeQuotationDocumentService {
       throw new BadRequestException('A reason is mandatory when rejecting a document');
     }
 
-    return this.prisma.lifeQuotationDocument.update({
+    const updated = await this.prisma.lifeQuotationDocument.update({
       where: { id: documentRecordId },
       data: {
         verificationStatus: dto.verificationStatus,
@@ -190,6 +190,21 @@ export class LifeQuotationDocumentService {
         verifiedAt: new Date(),
       },
     });
+
+    if (docRecord.documentId) {
+      try {
+        await this.prisma.document.update({
+          where: { id: docRecord.documentId },
+          data: {
+            verificationStatus: dto.verificationStatus,
+          },
+        });
+      } catch {
+        // Non-blocking sync
+      }
+    }
+
+    return updated;
   }
 
   async getCaseDocuments(caseId: string, user: RequestUser) {

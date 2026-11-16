@@ -978,11 +978,16 @@ export function LifeCaseWorkspace({ caseId }: { caseId: string }) {
 
                 {/* Gate 2: Document Verification */}
                 <div className="flex items-center justify-between text-xs p-2.5 rounded-xl border border-border bg-muted/20">
-                  <span className="font-semibold text-foreground">Mandatory Documents Cleared</span>
-                  {checklist?.allMandatoryVerified ? (
+                  <span className="font-semibold text-foreground">Documents Cleared (Optional)</span>
+                  {checklist?.complianceStatus === 'REJECTED' ? (
+                    <AlertCircle className="h-4 w-4 text-rose-600" />
+                  ) : checklist?.allMandatoryVerified ? (
                     <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                   ) : (
-                    <AlertCircle className="h-4 w-4 text-amber-500" />
+                    <div className="flex items-center gap-1 text-[11px] text-muted-foreground font-semibold">
+                      <span>Optional</span>
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                    </div>
                   )}
                 </div>
 

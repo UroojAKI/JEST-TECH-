@@ -543,16 +543,28 @@ export class BackOfficeQueueService {
         let documentsDetail = 'All mandatory documents verified';
 
         // Check for explicitly rejected Life documents (which block issuance)
+        const rejectedGenericDocs = documents.filter(
+          (d) => d.verificationStatus === DocumentVerificationStatus.REJECTED,
+        );
         const rejectedLifeDocs = lifeDocs.filter(
           (d: any) =>
             d.verificationStatus === 'REJECTED' ||
             d.verificationStatus === DocumentVerificationStatus.REJECTED,
         );
 
+        // For Life Insurance, document uploadation is optional for policy issuance.
+        // Only explicitly REJECTED documents block issuance.
         const unverified = [
-          ...documents.filter(
-            (d) => d.verificationStatus !== DocumentVerificationStatus.VERIFIED,
-          ),
+          ...(isLife
+            ? [...rejectedGenericDocs, ...rejectedLifeDocs]
+            : [
+                ...documents.filter(
+                  (d) => d.verificationStatus !== DocumentVerificationStatus.VERIFIED,
+                ),
+                ...lifeDocs.filter(
+                  (d: any) => d.verificationStatus !== 'VERIFIED',
+                ),
+              ]),
           ...motorDocs.filter(
             (d: any) => d.verificationStatus !== 'VERIFIED',
           ),
@@ -560,18 +572,6 @@ export class BackOfficeQueueService {
             (d: any) => d.verificationStatus !== DocumentVerificationStatus.VERIFIED,
           ),
         ];
-
-        // For Life Insurance, document uploadation is optional for policy issuance.
-        // If an underwriter explicitly rejects an uploaded document, issuance is blocked until resolved.
-        if (isLife) {
-          if (rejectedLifeDocs.length > 0) {
-            unverified.push(...rejectedLifeDocs);
-          }
-        } else {
-          unverified.push(
-            ...lifeDocs.filter((d: any) => d.verificationStatus !== 'VERIFIED'),
-          );
-        }
 
         // Health requirements are driven by the configured category and policy form.
         // A missing case/rule context fails closed instead of silently passing issuance.
