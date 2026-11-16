@@ -41,6 +41,7 @@ export class PolicyAddressResolverService {
             customer: true,
           },
         },
+        lifeCase: true,
       },
     });
 
@@ -100,6 +101,27 @@ export class PolicyAddressResolverService {
         }
         if (source === 'FALLBACK') source = 'QUOTATION_SNAPSHOT';
       }
+    }
+
+    // 2b. Life Proposal Case Address Snapshot
+    const lifeCaseAddr = (quotation as any).lifeCase?.addressSnapshot as any;
+    if (lifeCaseAddr && !this.isComplete(resolved)) {
+      if (!resolved.addressLine1 && (lifeCaseAddr.addressLine1 || lifeCaseAddr.address)) {
+        resolved.addressLine1 = String(lifeCaseAddr.addressLine1 || lifeCaseAddr.address).trim();
+      }
+      if (!resolved.addressLine2 && lifeCaseAddr.addressLine2) {
+        resolved.addressLine2 = String(lifeCaseAddr.addressLine2).trim();
+      }
+      if (!resolved.city && lifeCaseAddr.city) {
+        resolved.city = String(lifeCaseAddr.city).trim();
+      }
+      if (!resolved.state && lifeCaseAddr.state) {
+        resolved.state = String(lifeCaseAddr.state).trim();
+      }
+      if (!resolved.pincode && lifeCaseAddr.pincode) {
+        resolved.pincode = String(lifeCaseAddr.pincode).replace(/\D/g, '').trim();
+      }
+      if (source === 'FALLBACK') source = 'QUOTATION_SNAPSHOT';
     }
 
     // 3. Linked Customer Profile

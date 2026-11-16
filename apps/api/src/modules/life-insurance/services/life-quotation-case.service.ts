@@ -678,13 +678,24 @@ export class LifeQuotationCaseService {
           id: { not: quotationId },
           status: QuotationStatus.ACCEPTED,
         },
-        data: { status: QuotationStatus.PENDING_APPROVAL },
+        data: {
+          status: QuotationStatus.PENDING_APPROVAL,
+          backOfficeSubmittedAt: null,
+          backOfficeSubmittedById: null,
+        },
       });
 
-      // 2. Mark winning quotation as ACCEPTED
+      // 2. Mark winning quotation as ACCEPTED and explicitly submit to Back Office
+      const now = new Date();
       await tx.quotation.update({
         where: { id: quotationId },
-        data: { status: QuotationStatus.ACCEPTED },
+        data: {
+          status: QuotationStatus.ACCEPTED,
+          backOfficeSubmittedAt: now,
+          backOfficeSubmittedById: user.userId || user.id,
+          workflowState: 'PROPOSAL_APPROVED' as any,
+          issuanceStatus: 'PAYMENT_PENDING' as any,
+        },
       });
 
       // 3. Update Case selectedQuoteId and status
@@ -730,6 +741,10 @@ export class LifeQuotationCaseService {
 
     const payableAmount = Number(quotation.totalPremium);
     const submittedAmount = dto.amount !== undefined ? Number(dto.amount) : payableAmount;
+    const rawRef = dto.referenceNumber || (dto as any).transactionRef || '';
+    const referenceNumber = String(rawRef).trim();
+    const rawMethod = dto.paymentMethod || 'NET_BANKING';
+    const paymentMethod = String(rawMethod).trim();
 
     if (targetStatus === PaymentTrackingStatus.PAID) {
       if (Math.abs(submittedAmount - payableAmount) > 0.01) {
@@ -737,7 +752,7 @@ export class LifeQuotationCaseService {
           `Payment amount ₹${submittedAmount} does not match authoritative quotation premium ₹${payableAmount}`,
         );
       }
-      if (!dto.referenceNumber?.trim()) {
+      if (!referenceNumber) {
         throw new BadRequestException('Payment reference number / UTR is mandatory before marking as PAID');
       }
     }
@@ -751,8 +766,8 @@ export class LifeQuotationCaseService {
         companyId: user.companyId,
         status: targetStatus,
         amount: new Prisma.Decimal(submittedAmount),
-        paymentMethod: dto.paymentMethod.trim() as any,
-        referenceNumber: dto.referenceNumber.trim(),
+        paymentMethod: paymentMethod as any,
+        referenceNumber: referenceNumber || null,
         paidAt:
           targetStatus === PaymentTrackingStatus.PAID
             ? (dto.paidAt ? new Date(dto.paidAt) : new Date())
@@ -771,6 +786,28 @@ export class LifeQuotationCaseService {
           data: {
             ...paymentData,
             quotationId: quotation.id,
+          },
+        });
+      }
+
+      // Propagate payment state onto quotation and life proposal
+      const paid = targetStatus === PaymentTrackingStatus.PAID;
+      await tx.quotation.update({
+        where: { id: quotation.id },
+        data: {
+          status: paid ? QuotationStatus.ACCEPTED : quotation.status,
+          workflowState: (paid ? 'PAYMENT_DONE' : 'PAYMENT_UNDER_PROCESS') as any,
+          issuanceStatus: (paid ? 'ISSUANCE_PENDING' : 'PAYMENT_PENDING') as any,
+          backOfficeSubmittedAt: quotation.backOfficeSubmittedAt || new Date(),
+          backOfficeSubmittedById: quotation.backOfficeSubmittedById || user.userId || user.id,
+        },
+      });
+
+      if (paid && lifeCase.status !== LifeCaseStatus.CONVERTED) {
+        await tx.lifeQuotationCase.update({
+          where: { id: lifeCase.id },
+          data: {
+            status: LifeCaseStatus.APPROVED,
           },
         });
       }

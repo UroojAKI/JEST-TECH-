@@ -467,15 +467,20 @@ export class RecordLifePaymentDto {
   @IsNumber()
   amount?: number;
 
-  @ApiProperty({ description: 'Payment reference / transaction number / UTR', example: 'HDFC982347102' })
+  @ApiPropertyOptional({ description: 'Payment reference / transaction number / UTR', example: 'HDFC982347102' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  referenceNumber: string;
+  referenceNumber?: string;
 
-  @ApiProperty({ description: 'Payment method (e.g. NET_BANKING, UPI, CHEQUE, DEBIT_CARD)', example: 'NET_BANKING' })
+  @ApiPropertyOptional({ description: 'Transaction reference alias (UI alternative to referenceNumber)', example: 'TXN-LIFE-123456' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  paymentMethod: string;
+  transactionRef?: string;
+
+  @ApiPropertyOptional({ description: 'Payment method (e.g. NET_BANKING, UPI, CHEQUE, DEBIT_CARD)', example: 'NET_BANKING' })
+  @IsOptional()
+  @IsString()
+  paymentMethod?: string;
 
   @ApiPropertyOptional({
     enum: PaymentTrackingStatus,

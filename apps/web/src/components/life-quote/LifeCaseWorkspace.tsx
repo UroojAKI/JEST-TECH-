@@ -267,6 +267,23 @@ export function LifeCaseWorkspace({ caseId }: { caseId: string }) {
         quotationId: selectedQuote.id,
         policyType: 'LIFE',
         effectiveDate: new Date().toISOString(),
+        customerPan: (lifeCase as any)?.contact?.panNumber || undefined,
+        customerAadhaar: (lifeCase as any)?.contact?.aadhaarNumber || undefined,
+        structuredAddress: (lifeCase as any)?.addressSnapshot || ((lifeCase as any)?.contact?.addressLine1 ? {
+          addressLine1: (lifeCase as any).contact.addressLine1,
+          addressLine2: (lifeCase as any).contact.addressLine2,
+          city: (lifeCase as any).contact.city,
+          state: (lifeCase as any).contact.state,
+          pincode: (lifeCase as any).contact.pincode,
+        } : undefined),
+        nominees: (lifeCase as any)?.nomineeName ? [
+          {
+            firstName: (lifeCase as any).nomineeName.trim().split(' ')[0] || 'Nominee',
+            lastName: (lifeCase as any).nomineeName.trim().split(' ').slice(1).join(' ') || '',
+            relation: (lifeCase as any).nomineeRelation || 'SPOUSE',
+            percentage: 100,
+          },
+        ] : undefined,
         payment: {
           amount: Number(selectedQuote.totalPremium),
           status: 'PAID',
@@ -798,7 +815,14 @@ export function LifeCaseWorkspace({ caseId }: { caseId: string }) {
                   {selectedQuote.motorPaymentRecord?.status !== 'PAID' && (
                     <div className="pt-2">
                       <button
-                        onClick={() => setIsRecordPaymentModalOpen(true)}
+                        onClick={() => {
+                          setPaymentData((prev) => ({
+                            ...prev,
+                            amount: Number(selectedQuote.totalPremium || 0),
+                            transactionRef: prev.transactionRef || `TXN-LIFE-${Date.now().toString().slice(-6)}`,
+                          }));
+                          setIsRecordPaymentModalOpen(true);
+                        }}
                         className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:opacity-95 transition"
                       >
                         Record Reconciled Payment
@@ -1477,7 +1501,14 @@ export function LifeCaseWorkspace({ caseId }: { caseId: string }) {
               </button>
               <button
                 type="button"
-                onClick={() => recordPaymentMutation.mutate(paymentData)}
+                onClick={() =>
+                  recordPaymentMutation.mutate({
+                    ...paymentData,
+                    amount: paymentData.amount || Number(selectedQuote?.totalPremium || 0),
+                    referenceNumber: paymentData.transactionRef,
+                    status: 'PAID',
+                  })
+                }
                 disabled={recordPaymentMutation.isPending}
                 className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:opacity-95"
               >

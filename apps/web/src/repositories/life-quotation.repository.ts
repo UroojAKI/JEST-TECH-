@@ -192,12 +192,18 @@ export const lifeQuotationRepository = {
   },
 
   async recordPayment(caseId: string, quoteId: string, payload: Record<string, any>): Promise<any> {
+    const ref = payload.referenceNumber || payload.transactionRef || '';
+    const body = {
+      ...payload,
+      referenceNumber: ref,
+      transactionRef: ref,
+    };
     try {
-      const response = await apiClient.post(`/life/quotation-cases/${caseId}/quotes/${quoteId}/payment`, payload);
+      const response = await apiClient.post(`/life/quotation-cases/${caseId}/quotes/${quoteId}/payment`, body);
       return response.data;
     } catch (err: any) {
       if (err?.response?.status === 404) {
-        const response = await apiClient.post(`/life/quotation-cases/${caseId}/payment`, { quotationId: quoteId, ...payload });
+        const response = await apiClient.post(`/life/quotation-cases/${caseId}/payment`, { quotationId: quoteId, ...body });
         return response.data;
       }
       throw err;
