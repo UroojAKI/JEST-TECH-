@@ -193,7 +193,10 @@ export const lifeQuotationRepository = {
       caseId,
       { name: file.name, category: `LIFE_${documentType}` },
     );
-    const docId = stored.id || (stored as any).document?.id || (stored as any).data?.id;
+    const docId = (stored as any)?.id || (stored as any)?.document?.id || (stored as any)?.data?.id;
+    if (!docId) {
+      throw new Error('Failed to retrieve uploaded document ID');
+    }
     const response = await apiClient.post(`/life/quotation-cases/${caseId}/documents`, {
       documentId: docId,
       documentType,

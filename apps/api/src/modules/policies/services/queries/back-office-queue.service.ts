@@ -383,22 +383,19 @@ export class BackOfficeQueueService {
         const isLife = q.productType === 'LIFE' || !!(q as any).lifeCaseId;
         const isMotor = !isHealth && !isLife && (q.productType === 'MOTOR' || (q as any).lineOfBusiness === 'MOTOR');
 
-        // 1. Customer Gate (PAN details are optional for motor, mandatory for health, PAN/Aadhaar for life)
+        // 1. Customer Gate (PAN details are optional for motor & life, mandatory for health)
         const hasCustomer = !!q.contact || !!(q as any).account;
         const hasContactDetails = !!(q.contact?.phone || q.contact?.email);
         const lifeKyc = (q as any).lifeCase?.customerSnapshot?.proposerKyc || (q as any).lifeCase?.customerSnapshot || {};
-        const hasPan = Boolean(q.contact?.panNumber || lifeKyc?.panNumber);
-        const hasAadhaar = Boolean(q.contact?.aadhaarNumber || lifeKyc?.aadhaarNumber);
+        const hasPan = Boolean(q.contact?.panNumber || lifeKyc?.panNumber || lifeKyc?.hasPan);
+        const hasAadhaar = Boolean(q.contact?.aadhaarNumber || lifeKyc?.aadhaarNumber || lifeKyc?.hasAadhaar);
         const isKycRejected = (q as any).account?.kycStatus === 'REJECTED';
 
         // For Health, policy issuance strictly requires both PAN and Aadhaar on file and KYC not rejected
-        // For Life, policy issuance requires customer KYC (PAN or Aadhaar on file) and KYC not rejected
-        // For Motor, PAN details are optional in issuance as long as KYC is not rejected
+        // For Life and Motor, PAN/Aadhaar document uploadation is optional in issuance as long as KYC is not rejected
         const hasKyc = isHealth
           ? hasPan && hasAadhaar && !isKycRejected
-          : isLife
-            ? (hasPan || hasAadhaar) && !isKycRejected
-            : !isKycRejected;
+          : !isKycRejected;
         const customerPassed = hasCustomer && hasContactDetails && hasKyc;
         const customerGate: GateStatus = {
           passed: customerPassed,
@@ -410,17 +407,17 @@ export class BackOfficeQueueService {
               : isKycRejected
                 ? 'Customer KYC has been rejected'
                 : !hasKyc
-                  ? isLife
-                    ? 'Customer PAN or Aadhaar required for Life policy issuance'
-                    : (!hasPan && !hasAadhaar
-                        ? 'Customer PAN and Aadhaar required for Health policy issuance'
-                        : !hasPan
-                          ? 'Customer PAN required for Health policy issuance'
-                          : 'Customer Aadhaar required for Health policy issuance')
+                  ? (!hasPan && !hasAadhaar
+                      ? 'Customer PAN and Aadhaar required for Health policy issuance'
+                      : !hasPan
+                        ? 'Customer PAN required for Health policy issuance'
+                        : 'Customer Aadhaar required for Health policy issuance')
                   : isHealth
                     ? 'Customer KYC verified (PAN & Aadhaar on file)'
                     : isLife
-                      ? 'Customer KYC verified (PAN/Aadhaar on file)'
+                      ? (hasPan || hasAadhaar
+                          ? 'Customer KYC verified (PAN/Aadhaar on file)'
+                          : 'Customer verified (PAN/Aadhaar optional for life)')
                       : 'Customer verified (PAN optional)',
         };
 
@@ -545,6 +542,13 @@ export class BackOfficeQueueService {
         let documentsPassed = true;
         let documentsDetail = 'All mandatory documents verified';
 
+        // Check for explicitly rejected Life documents (which block issuance)
+        const rejectedLifeDocs = lifeDocs.filter(
+          (d: any) =>
+            d.verificationStatus === 'REJECTED' ||
+            d.verificationStatus === DocumentVerificationStatus.REJECTED,
+        );
+
         const unverified = [
           ...documents.filter(
             (d) => d.verificationStatus !== DocumentVerificationStatus.VERIFIED,
@@ -555,10 +559,19 @@ export class BackOfficeQueueService {
           ...allHealthDocs.filter(
             (d: any) => d.verificationStatus !== DocumentVerificationStatus.VERIFIED,
           ),
-          ...lifeDocs.filter(
-            (d: any) => d.verificationStatus !== 'VERIFIED',
-          ),
         ];
+
+        // For Life Insurance, document uploadation is optional for policy issuance.
+        // If an underwriter explicitly rejects an uploaded document, issuance is blocked until resolved.
+        if (isLife) {
+          if (rejectedLifeDocs.length > 0) {
+            unverified.push(...rejectedLifeDocs);
+          }
+        } else {
+          unverified.push(
+            ...lifeDocs.filter((d: any) => d.verificationStatus !== 'VERIFIED'),
+          );
+        }
 
         // Health requirements are driven by the configured category and policy form.
         // A missing case/rule context fails closed instead of silently passing issuance.
@@ -588,10 +601,18 @@ export class BackOfficeQueueService {
           documentsDetail = `Required health documents not verified: ${missingRequiredHealthDocuments.join(', ')}`;
         } else if (unverified.length > 0) {
           documentsPassed = false;
-          documentsDetail = `${unverified.length} document(s) pending or rejected underwriter verification`;
+          documentsDetail = isLife && rejectedLifeDocs.length > 0
+            ? `${rejectedLifeDocs.length} life document(s) rejected underwriter verification (re-upload required)`
+            : `${unverified.length} document(s) pending or rejected underwriter verification`;
         } else if ((isHealth || isLife) && (q.status === QuotationStatus.ACCEPTED || q.status === QuotationStatus.APPROVED)) {
           documentsPassed = true;
-          documentsDetail = isLife ? 'All mandatory life documents verified' : 'All mandatory health documents verified';
+          documentsDetail = isLife
+            ? (lifeDocs.length > 0
+                ? (lifeDocs.every((d: any) => d.verificationStatus === 'VERIFIED')
+                    ? 'All life documents verified'
+                    : 'Life documents on file (optional for issuance)')
+                : 'Life documents optional for issuance')
+            : 'All mandatory health documents verified';
         } else if (isMotor && documents.length === 0 && motorDocs.length === 0 && (q.motorPreviousPolicy?.ruleEvaluation?.inspectionRequired || q.workflowState === 'INSPECTION_REQUIRED')) {
           documentsPassed = false;
           documentsDetail = 'Inspection/Break-in documents required';

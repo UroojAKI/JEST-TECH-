@@ -70,12 +70,16 @@ export class LifeQuotationDocumentService {
       throw new NotFoundException(`LifeQuotationCase '${caseId}' not found or access denied`);
     }
 
-    // Verify document exists and belongs to company (via uploadedBy)
+    // Verify document exists and belongs to company (via uploadedBy, uploadedById, or entityId)
     const document = await this.prisma.document.findFirst({
       where: {
         id: dto.documentId,
-        uploadedBy: { companyId: user.companyId },
         deletedAt: null,
+        OR: [
+          { uploadedBy: { companyId: user.companyId } },
+          { uploadedById: user.userId || user.id },
+          { entityId: caseId },
+        ],
       },
     });
     if (!document) {
@@ -99,7 +103,7 @@ export class LifeQuotationDocumentService {
       }
     }
 
-    return this.prisma.lifeQuotationDocument.create({
+    const createdRecord = await this.prisma.lifeQuotationDocument.create({
       data: {
         companyId: user.companyId,
         caseId,
@@ -120,6 +124,29 @@ export class LifeQuotationDocumentService {
         },
       },
     });
+
+    // When PAN or Aadhaar document is attached, record presence in customerSnapshot
+    if (
+      dto.documentType === LifeDocumentType.PROPOSER_PAN ||
+      dto.documentType === LifeDocumentType.PROPOSER_AADHAAR
+    ) {
+      try {
+        const existingSnapshot = (lifeCase.customerSnapshot as Record<string, any>) || {};
+        const updatedSnapshot = {
+          ...existingSnapshot,
+          hasPan: dto.documentType === LifeDocumentType.PROPOSER_PAN ? true : Boolean(existingSnapshot.hasPan),
+          hasAadhaar: dto.documentType === LifeDocumentType.PROPOSER_AADHAAR ? true : Boolean(existingSnapshot.hasAadhaar),
+        };
+        await this.prisma.lifeQuotationCase.update({
+          where: { id: caseId },
+          data: { customerSnapshot: updatedSnapshot },
+        });
+      } catch {
+        // Non-blocking snapshot update
+      }
+    }
+
+    return createdRecord;
   }
 
   async verifyDocument(
@@ -127,7 +154,7 @@ export class LifeQuotationDocumentService {
     dto: VerifyLifeDocumentDto,
     user: RequestUser,
   ) {
-    if (user.role === RoleType.AGENT && process.env.NODE_ENV === 'production') {
+    if (user.role === RoleType.AGENT) {
       throw new ForbiddenException(
         'Agents cannot verify Life insurance documents. Back Office or Admin authorization required.',
       );

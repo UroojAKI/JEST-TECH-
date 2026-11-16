@@ -44,8 +44,8 @@ import {
 import { FieldLabel, inputCls } from './LifeFields';
 
 export const LIFE_DOCUMENT_TYPES = [
-  { value: 'PROPOSER_PAN', label: 'Proposer PAN Card (Mandatory)' },
-  { value: 'PROPOSER_AADHAAR', label: 'Proposer Aadhaar Card (Mandatory)' },
+  { value: 'PROPOSER_PAN', label: 'Proposer PAN Card (Optional)' },
+  { value: 'PROPOSER_AADHAAR', label: 'Proposer Aadhaar Card (Optional)' },
   { value: 'LIFE_ASSURED_AGE_PROOF', label: 'Life Assured Age Proof (Passport / Birth Cert / 10th Marksheet)' },
   { value: 'LIFE_ASSURED_PHOTO', label: 'Life Assured Photograph' },
   { value: 'INCOME_PROOF_ITR', label: 'Income Proof / ITR (Form 16 / 3Y ITR)' },
@@ -725,7 +725,7 @@ export function LifeCaseWorkspace({ caseId }: { caseId: string }) {
             {checklist?.requiredDocuments && checklist.requiredDocuments.length > 0 && (
               <div className="mt-5 space-y-2.5">
                 <div className="text-[11px] font-black uppercase tracking-wider text-muted-foreground">
-                  Required Verification Checklist ({checklist.requiredDocuments.length} mandatory)
+                  Verification Checklist ({checklist.requiredDocuments.length} optional documents)
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {checklist.requiredDocuments.map((reqDoc: string) => {
@@ -758,7 +758,7 @@ export function LifeCaseWorkspace({ caseId }: { caseId: string }) {
                                 ? 'Uploaded — Awaiting verification'
                                 : isRejected
                                   ? 'Rejected — Re-upload required'
-                                  : 'Mandatory — Not uploaded yet'}
+                                  : 'Optional — Not uploaded yet'}
                           </div>
                         </div>
 

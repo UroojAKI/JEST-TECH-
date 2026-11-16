@@ -10,8 +10,9 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { DocumentVerificationStatus, LifeDocumentType, RoleType } from '@prisma/client';
+import { IsEnum, IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -22,14 +23,32 @@ import {
   VerifyLifeDocumentDto,
 } from '../services/life-quotation-document.service';
 
-class AttachDocumentBodyDto implements AttachLifeDocumentDto {
+export class AttachDocumentBodyDto implements AttachLifeDocumentDto {
+  @ApiProperty({ description: 'Document ID returned by POST /documents/upload' })
+  @IsUUID()
+  @IsNotEmpty()
   documentId: string;
+
+  @ApiProperty({ enum: LifeDocumentType, example: LifeDocumentType.PROPOSER_PAN })
+  @IsEnum(LifeDocumentType)
+  @IsNotEmpty()
   documentType: LifeDocumentType;
+
+  @ApiPropertyOptional({ description: 'Quotation ID this document belongs to' })
+  @IsOptional()
+  @IsUUID()
   quotationId?: string;
 }
 
-class VerifyDocumentBodyDto implements VerifyLifeDocumentDto {
+export class VerifyDocumentBodyDto implements VerifyLifeDocumentDto {
+  @ApiProperty({ enum: DocumentVerificationStatus, example: DocumentVerificationStatus.VERIFIED })
+  @IsEnum(DocumentVerificationStatus)
+  @IsNotEmpty()
   verificationStatus: DocumentVerificationStatus;
+
+  @ApiPropertyOptional({ description: 'Rejection reason if rejected' })
+  @IsOptional()
+  @IsString()
   rejectionReason?: string;
 }
 
