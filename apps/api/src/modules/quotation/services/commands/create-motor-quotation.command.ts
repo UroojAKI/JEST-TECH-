@@ -45,7 +45,7 @@ export class CreateMotorQuotationCommand {
     if (!selectedInsurer || selectedInsurer.toLowerCase() === 'partner insurer') {
       throw new BadRequestException('Select a valid insurer before generating a Motor quotation');
     }
-    const matchingInsurers = await this.prisma.insurer.findMany({
+    let matchingInsurers = await this.prisma.insurer.findMany({
       where: {
         isActive: true,
         ...(dto.insurerId ? { id: dto.insurerId } : {}),
@@ -54,6 +54,17 @@ export class CreateMotorQuotationCommand {
       select: { id: true, name: true },
       take: 2,
     });
+    if (matchingInsurers.length === 0 && selectedInsurer) {
+      matchingInsurers = await this.prisma.insurer.findMany({
+        where: {
+          isActive: true,
+          ...(dto.insurerId ? { id: dto.insurerId } : {}),
+          name: { startsWith: selectedInsurer, mode: 'insensitive' },
+        },
+        select: { id: true, name: true },
+        take: 2,
+      });
+    }
     if (matchingInsurers.length !== 1) {
       throw new BadRequestException(
         matchingInsurers.length === 0
