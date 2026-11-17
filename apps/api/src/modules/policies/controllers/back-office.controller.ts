@@ -21,7 +21,7 @@ import type { RequestUser } from '../../auth/decorators/current-user.decorator';
 import { BackOfficeQueueService } from '../services/queries/back-office-queue.service';
 import { IssuePolicyService } from '../services/commands/issue-policy.service';
 import { MotorPolicyIssuanceService } from '../../motor/services/motor-policy-issuance.service';
-import { IssueMotorPolicyDto } from '../../motor/dto/issue-motor-policy.dto';
+import { IssueBackOfficePolicyDto } from '../dto/issue-back-office-policy.dto';
 import { PrismaService } from '../../../database/prisma.service';
 
 @ApiTags('Back Office Workbench & Policy Issuance')
@@ -67,7 +67,7 @@ export class BackOfficeController {
   async issuePolicy(
     @Param('quotationId', ParseUUIDPipe) quotationId: string,
     @CurrentUser() user: RequestUser,
-    @Body() dto?: IssueMotorPolicyDto,
+    @Body() dto?: IssueBackOfficePolicyDto,
   ) {
     // 1. Validate all hard gates with tenant context
     await this.backOfficeQueueService.validateIssuanceGates(quotationId, user);

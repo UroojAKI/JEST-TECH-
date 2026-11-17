@@ -383,11 +383,8 @@ export class BackOfficeQueueService {
         const hasAadhaar = Boolean(q.contact?.aadhaarNumber);
         const isKycRejected = (q as any).account?.kycStatus === 'REJECTED';
 
-        // For Health, policy issuance strictly requires both PAN and Aadhaar on file and KYC not rejected
-        // For Motor, PAN details are optional in issuance as long as KYC is not rejected
-        const hasKyc = isHealth
-          ? hasPan && hasAadhaar && !isKycRejected
-          : !isKycRejected;
+        // PAN and Aadhaar are optional for issuance as long as KYC is not rejected
+        const hasKyc = !isKycRejected;
         const customerPassed = hasCustomer && hasContactDetails && hasKyc;
         const customerGate: GateStatus = {
           passed: customerPassed,
@@ -398,15 +395,9 @@ export class BackOfficeQueueService {
               ? 'Missing customer contact phone/email'
               : isKycRejected
                 ? 'Customer KYC has been rejected'
-                : !hasKyc
-                  ? (!hasPan && !hasAadhaar
-                      ? 'Customer PAN and Aadhaar required for Health policy issuance'
-                      : !hasPan
-                        ? 'Customer PAN required for Health policy issuance'
-                        : 'Customer Aadhaar required for Health policy issuance')
-                  : isHealth
-                    ? 'Customer KYC verified (PAN & Aadhaar on file)'
-                    : 'Customer verified (PAN optional)',
+                : hasPan && hasAadhaar
+                  ? 'Customer KYC verified (PAN & Aadhaar on file)'
+                  : 'Customer contact verified (PAN & Aadhaar optional)',
         };
 
         // 2. Vehicle Integrity Gate (only applicable to MOTOR)
@@ -550,23 +541,19 @@ export class BackOfficeQueueService {
               ? ['Health document requirements could not be evaluated']
               : [];
 
-        // Approval/acceptance of a quotation is not evidence that its supporting
-        // documents were independently verified. Required documents must be present
-        // and individually verified by a reviewer before policy issuance.
+        // Supporting documents do not block policy issuance.
+        // Only the Official Policy Schedule Document (PDF) is strictly compulsory at issuance execution.
+        documentsPassed = true;
+        documentsDetail = 'Supporting documents verified or optional';
         if (missingRequiredHealthDocuments.length > 0) {
-          documentsPassed = false;
-          documentsDetail = `Required health documents not verified: ${missingRequiredHealthDocuments.join(', ')}`;
+          documentsDetail = `Supporting health docs optional: ${missingRequiredHealthDocuments.join(', ')}`;
         } else if (unverified.length > 0) {
-          documentsPassed = false;
-          documentsDetail = `${unverified.length} document(s) pending underwriter verification`;
-        } else if (isMotor && documents.length === 0 && motorDocs.length === 0 && (q.motorPreviousPolicy?.ruleEvaluation?.inspectionRequired || q.workflowState === 'INSPECTION_REQUIRED')) {
-          documentsPassed = false;
-          documentsDetail = 'Inspection/Break-in documents required';
+          documentsDetail = `${unverified.length} supporting document(s) uploaded`;
         }
 
         const documentsGate: GateStatus = {
           passed: documentsPassed,
-          status: documentsPassed ? 'PASSED' : 'BLOCKED',
+          status: 'PASSED',
           detail: documentsDetail,
         };
 

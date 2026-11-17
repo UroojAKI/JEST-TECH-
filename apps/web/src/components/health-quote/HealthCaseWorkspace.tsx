@@ -25,6 +25,7 @@ import {
 import { useAuthStore } from '../../store/auth-store';
 import { Address } from '../../types';
 import { apiClient } from '../../lib/api-client';
+import { useInsurers } from '../../hooks/useInsurers';
 import { healthApiError, healthQuotationRepository } from '../../repositories/health-quotation.repository';
 import {
   NOMINEE_RELATIONS,
@@ -206,16 +207,6 @@ export function HealthCaseWorkspace({ caseId }: { caseId: string }) {
   const paymentStatus = paymentRecord?.status || 'NOT_DONE';
 
   const handleIssuePolicy = (quotationId: string, quoteCode?: string) => {
-    const hasPan = Boolean(hc.contact?.panNumber);
-    const hasAadhaar = Boolean(hc.contact?.aadhaarNumber);
-
-    if (!hasPan || !hasAadhaar) {
-      const missing = !hasPan && !hasAadhaar ? 'PAN and Aadhaar numbers' : !hasPan ? 'PAN number' : 'Aadhaar number';
-      toast.error(`Customer ${missing} required before issuing Health policy. Please update leftover KYC entries.`);
-      setEditDetailsModalOpen(true);
-      return;
-    }
-
     if (confirm(`Confirm issuance of official Health Policy for quotation ${quoteCode || quotationId}?`)) {
       issuePolicyMutation.mutate(quotationId);
     }
@@ -1457,8 +1448,10 @@ function EditLeftoverDetailsModal({
 }
 
 function AddQuoteForm({ healthCase, onCancel, onSaved }: { healthCase: any; onCancel: () => void; onSaved: () => void }) {
+  const { activeInsurers, isLoading: insurersLoading } = useInsurers();
   const isRenewal = healthCase.policyForm === 'RENEWAL_PORTABILITY';
   const [form, setForm] = useState({
+    insurerId: '',
     insurerName: '',
     planName: healthCase.planDetails?.planName ?? '',
     uin: healthCase.planDetails?.uin ?? '',
@@ -1487,7 +1480,7 @@ function AddQuoteForm({ healthCase, onCancel, onSaved }: { healthCase: any; onCa
 
   const save = async () => {
     const missing = [
-      !form.insurerName && 'Insurer',
+      !form.insurerName && !form.insurerId && 'Insurer',
       !form.planName && 'Plan name',
       !form.uin && 'UIN',
       !form.sumInsured && 'Sum insured',
@@ -1504,6 +1497,7 @@ function AddQuoteForm({ healthCase, onCancel, onSaved }: { healthCase: any; onCa
     setSaving(true);
     try {
       await healthQuotationRepository.addQuote(healthCase.id, {
+        ...(form.insurerId ? { insurerId: form.insurerId } : {}),
         insurerName: form.insurerName,
         planName: form.planName,
         uin: form.uin,
@@ -1535,7 +1529,25 @@ function AddQuoteForm({ healthCase, onCancel, onSaved }: { healthCase: any; onCa
       <h3 className="font-black text-sm">New Quote — {isRenewal ? 'Renewal / Portability' : 'New Policy'}</h3>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <FieldLabel label="Insurer" required>
-          <input className={inputCls} value={form.insurerName} onChange={set('insurerName')} />
+          <select
+            className={inputCls}
+            value={form.insurerId}
+            onChange={(e) => {
+              const selected = activeInsurers.find((ins) => ins.id === e.target.value);
+              setForm({
+                ...form,
+                insurerId: e.target.value,
+                insurerName: selected ? selected.name : '',
+              });
+            }}
+          >
+            <option value="">{insurersLoading ? 'Loading partner insurers...' : '— Select Partner Insurer —'}</option>
+            {activeInsurers.map((ins) => (
+              <option key={ins.id} value={ins.id}>
+                {ins.name}
+              </option>
+            ))}
+          </select>
         </FieldLabel>
         <FieldLabel label="Plan Name" required>
           <input className={inputCls} value={form.planName} onChange={set('planName')} />

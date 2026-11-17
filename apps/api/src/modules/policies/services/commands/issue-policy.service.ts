@@ -312,16 +312,21 @@ export class IssuePolicyService {
       (dto as any).policyType === 'HEALTH' ||
       Boolean((quotation as any).healthCaseId);
 
+    // Customer PAN and Aadhaar are kept optional during issuance per user configuration
     if (isHealth) {
       const contactPan = quotation.contact?.panNumber || dto.customerPan?.trim();
       const contactAadhaar = quotation.contact?.aadhaarNumber || dto.customerAadhaar?.trim();
-      if (!contactPan || !contactAadhaar) {
-        const missing: string[] = [];
-        if (!contactPan) missing.push('PAN Number');
-        if (!contactAadhaar) missing.push('Aadhaar Number');
-        throw new BadRequestException(
-          `Health policy issuance is blocked until customer KYC is complete. Missing: ${missing.join(' and ')}. Please provide leftover entries before issuance.`,
-        );
+      if (contactPan && quotation.contactId && !quotation.contact?.panNumber) {
+        await this.prisma.contact.update({
+          where: { id: quotation.contactId },
+          data: { panNumber: contactPan.toUpperCase() },
+        });
+      }
+      if (contactAadhaar && quotation.contactId && !quotation.contact?.aadhaarNumber) {
+        await this.prisma.contact.update({
+          where: { id: quotation.contactId },
+          data: { aadhaarNumber: contactAadhaar },
+        });
       }
     }
 

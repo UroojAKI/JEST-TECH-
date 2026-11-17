@@ -286,6 +286,11 @@ export class CreateHealthQuotationCaseDto {
  * Several quotes can be added to the same case.
  */
 export class AddHealthQuoteDto {
+  @ApiPropertyOptional({ example: '3d694045-253a-4967-977f-5593f22e0bc7', description: 'Insurer master ID if known' })
+  @IsOptional()
+  @IsString()
+  insurerId?: string;
+
   @ApiProperty({ example: 'HDFC ERGO' })
   @IsString()
   @IsNotEmpty()

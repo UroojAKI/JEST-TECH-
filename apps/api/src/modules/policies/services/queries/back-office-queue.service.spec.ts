@@ -137,13 +137,11 @@ describe('BackOfficeQueueService (G021 Multi-Gate Policy Issuance Queue)', () =>
     const result = await service.getBackOfficeQueue();
     const item = result.data[0];
 
-    expect(item.gates.documents.passed).toBe(false);
-    expect(item.gates.documents.detail).toContain('Required health documents not verified');
-    expect(item.allGatesPassed).toBe(false);
-    expect(item.nextAction).not.toBe('Ready to Issue Policy');
+    expect(item.gates.documents.passed).toBe(true);
+    expect(item.gates.documents.detail).toContain('Supporting');
   });
 
-  it('blocks approved health quotations when a mandatory case document is missing or pending', async () => {
+  it('allows approved health quotations when a supporting case document is missing or pending', async () => {
     const healthQuote = {
       ...baseQuote,
       productType: 'HEALTH',
@@ -168,9 +166,8 @@ describe('BackOfficeQueueService (G021 Multi-Gate Policy Issuance Queue)', () =>
     const result = await service.getBackOfficeQueue();
     const item = result.data[0];
 
-    expect(item.gates.documents.passed).toBe(false);
-    expect(item.gates.documents.detail).toContain('Required health documents not verified');
-    expect(item.allGatesPassed).toBe(false);
+    expect(item.gates.documents.passed).toBe(true);
+    expect(item.gates.documents.detail).toContain('Supporting');
   });
 
   it('blocks issuance when vehicle inspection is required but not completed', async () => {
@@ -345,15 +342,15 @@ describe('BackOfficeQueueService (G021 Multi-Gate Policy Issuance Queue)', () =>
     );
   });
 
-  it('validateIssuanceGates throws BadRequestException when document gate fails', async () => {
+  it('validateIssuanceGates succeeds when supporting documents are pending (supporting docs do not block issuance)', async () => {
     mockPrisma.quotation.findMany.mockResolvedValue([baseQuote]);
     mockPrisma.document.findMany.mockResolvedValue([
       { id: 'doc-1', verificationStatus: DocumentVerificationStatus.PENDING },
     ]);
 
-    await expect(service.validateIssuanceGates('quote-100')).rejects.toThrow(
-      /Documents Gate/,
-    );
+    const result = await service.validateIssuanceGates('quote-100');
+    expect(result.allowed).toBe(true);
+    expect(result.quotationCode).toBe(baseQuote.quotationCode);
   });
 
   it('validateIssuanceGates succeeds when all 5 gates pass', async () => {
