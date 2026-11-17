@@ -7,6 +7,7 @@ import { canUserSubmitToBackOffice, canQuotationRecordPayment } from '../../repo
 import { toast } from 'sonner';
 import {
   AlertCircle,
+  ArrowLeft,
   CheckCircle2,
   Clock,
   Edit3,
@@ -180,7 +181,21 @@ export function HealthCaseWorkspace({ caseId }: { caseId: string }) {
   });
 
   if (caseQuery.isLoading) return <div className="p-8 text-center text-xs text-muted-foreground animate-pulse">Loading Health proposal...</div>;
-  if (caseQuery.isError || !caseQuery.data) return <div className="p-8 text-center text-xs text-rose-500">Health proposal not found.</div>;
+  if (caseQuery.isError || !caseQuery.data) {
+    return (
+      <div className="max-w-5xl mx-auto space-y-5">
+        <div>
+          <Link
+            href="/sales/health-quotations"
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" /> Back to Health Proposals
+          </Link>
+        </div>
+        <div className="p-8 text-center text-xs text-rose-500">Health proposal not found.</div>
+      </div>
+    );
+  }
 
   const hc = caseQuery.data;
   const checklist = checklistQuery.data;
@@ -223,6 +238,14 @@ export function HealthCaseWorkspace({ caseId }: { caseId: string }) {
 
   return (
     <div className="max-w-5xl mx-auto space-y-5">
+      <div>
+        <Link
+          href="/sales/health-quotations"
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to Health Proposals
+        </Link>
+      </div>
       <div className="p-5 rounded-2xl border bg-card flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="p-3 rounded-xl bg-primary/10 text-primary">
