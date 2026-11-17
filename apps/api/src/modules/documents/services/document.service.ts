@@ -39,7 +39,7 @@ export class DocumentService {
     const actorOrg = actor?.organizationId || (actor as any)?.companyId;
     if (!actor?.userId || !actorOrg)
       throw new ForbiddenException('Actor organizational context is required');
-    const doc = await this.prisma.document.findUnique({
+    let doc = await this.prisma.document.findUnique({
       where: { id },
       include: {
         uploadedBy: {
@@ -54,6 +54,31 @@ export class DocumentService {
         },
       },
     });
+
+    if (!doc && (this.prisma as any).policyDocument) {
+      // Fallback: Check if the identifier is a PolicyDocument ID and resolve its underlying storageKey
+      const policyDoc = await (this.prisma as any).policyDocument.findUnique({
+        where: { id },
+        include: { policy: true },
+      });
+      if (policyDoc?.fileKey) {
+        doc = await this.prisma.document.findFirst({
+          where: { storageKey: policyDoc.fileKey, deletedAt: null },
+          include: {
+            uploadedBy: {
+              include: {
+                branch: {
+                  include: {
+                    zone: { include: { region: { include: { company: true } } } },
+                  },
+                },
+                team: true,
+              },
+            },
+          },
+        });
+      }
+    }
     if (!doc || doc.status === DocumentStatus.DELETED)
       throw new NotFoundException('Document not found');
     const owner = doc.uploadedBy;
@@ -502,7 +527,7 @@ export class DocumentService {
     if (actor.role !== RoleType.ADMIN && actor.role !== RoleType.BACK_OFFICE)
       throw new ForbiddenException('Only administrators can restore documents');
 
-    const doc = await this.prisma.document.findUnique({
+    let doc = await this.prisma.document.findUnique({
       where: { id },
       include: {
         uploadedBy: {
@@ -517,6 +542,31 @@ export class DocumentService {
         },
       },
     });
+
+    if (!doc && (this.prisma as any).policyDocument) {
+      // Fallback: Check if the identifier is a PolicyDocument ID and resolve its underlying storageKey
+      const policyDoc = await (this.prisma as any).policyDocument.findUnique({
+        where: { id },
+        include: { policy: true },
+      });
+      if (policyDoc?.fileKey) {
+        doc = await this.prisma.document.findFirst({
+          where: { storageKey: policyDoc.fileKey, deletedAt: null },
+          include: {
+            uploadedBy: {
+              include: {
+                branch: {
+                  include: {
+                    zone: { include: { region: { include: { company: true } } } },
+                  },
+                },
+                team: true,
+              },
+            },
+          },
+        });
+      }
+    }
     if (!doc) throw new NotFoundException('Document not found');
 
     const owner = doc.uploadedBy;

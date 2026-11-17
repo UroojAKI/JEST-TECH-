@@ -155,4 +155,16 @@ export class CreatePolicyDto {
   @ValidateNested()
   @Type(() => PolicyAddressDto)
   structuredAddress?: PolicyAddressDto;
+
+  @IsOptional()
+  @IsString()
+  documentFileKey?: string;
+
+  @IsOptional()
+  @IsString()
+  documentFileName?: string;
+
+  @IsOptional()
+  @IsNumber()
+  documentFileSize?: number;
 }

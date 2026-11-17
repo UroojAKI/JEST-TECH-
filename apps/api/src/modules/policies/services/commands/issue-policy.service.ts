@@ -616,135 +616,74 @@ export class IssuePolicyService {
       return newPolicy;
     });
 
-    // Decoupled Document Generation (§26, Task 4.6)
-    // Policy issuance is already committed and durable in DB. PDF generation failures do not abort issuance.
+    // Link official policy document if uploaded (do not generate mock/dummy documents)
     try {
-      const insuredName = quotation.contact
-        ? `${quotation.contact.firstName || ''} ${quotation.contact.lastName || ''}`.trim()
-        : 'Insured Customer';
+      const existingPolicyDoc =
+        (quotation as any).documents?.find(
+          (d: any) =>
+            (d.documentType === 'POLICY_DOCUMENT' || d.documentType === 'POLICY_SCHEDULE') &&
+            d.fileKey,
+        ) ||
+        (quotation as any).motorDocuments?.find(
+          (d: any) =>
+            (d.documentType === 'POLICY_DOCUMENT' || d.documentType === 'POLICY_SCHEDULE') &&
+            d.fileKey,
+        ) ||
+        (quotation as any).healthDocuments?.find(
+          (d: any) =>
+            (d.documentType === 'POLICY_DOCUMENT' || d.documentType === 'POLICY_SCHEDULE') &&
+            (d.document?.storageKey || d.fileKey),
+        );
 
-      const isHealth = quotation.productType === 'HEALTH' || !!(quotation as any).healthCaseId;
-      const scheduleDetails: Record<string, any> = isHealth
-        ? {
-            'Policy Number': policyNumber,
-            'Quotation Code': quotation.quotationCode,
-            'Insured Name': insuredName,
-            'Insurance Type': 'Health Insurance',
-            'Plan Name': healthMeta.planName || quotation.title || 'Comprehensive Health Plan',
-            'Plan UIN': healthMeta.uin || quotation.productCode || 'N/A',
-            Insurer: quotation.insurerName,
-            'Sum Insured': `Rs. ${(quotation.sumInsured ?? 0).toString()}`,
-            'Coverage Period': `${effectiveDate.toISOString().slice(0, 10)} to ${expiryDate.toISOString().slice(0, 10)}`,
-            'Policy Tenure': `${tenure} Year(s)`,
-            'Net Base Premium': `Rs. ${(quotation.basePremium ?? 0).toString()}`,
-            'Total GST (18%)': `Rs. ${(quotation.gstAmount ?? 0).toString()}`,
-            'Total Premium Paid': `Rs. ${paymentAmount.toString()}`,
-            'Payment Reference': paymentRecord.referenceNumber,
-          }
-        : {
-            'Policy Number': policyNumber,
-            'Quotation Code': quotation.quotationCode,
-            'Insured Name': insuredName,
-            'Vehicle Registration': regNumber,
-            'Chassis Number': chassis,
-            'Engine Number': engine,
-            Insurer: quotation.insurerName,
-            'Coverage Period': `${effectiveDate.toISOString().slice(0, 10)} to ${expiryDate.toISOString().slice(0, 10)}`,
-            'Insured Amount (IDV)': `Rs. ${(quotation.sumInsured ?? 0).toString()}`,
-            'Net Customer Premium': `Rs. ${(quotation.basePremium ?? 0).toString()}`,
-            'Total GST': `Rs. ${(quotation.gstAmount ?? 0).toString()}`,
-            'Total Premium Paid': `Rs. ${paymentAmount.toString()}`,
-            'Payment Transaction': paymentRecord.referenceNumber,
-          };
+      const realFileKey =
+        (dto as any).documentFileKey?.trim() ||
+        existingPolicyDoc?.fileKey ||
+        existingPolicyDoc?.document?.storageKey;
 
-      const schedulePdf = await this.pdfService.generateDocumentPdf(
-        isHealth ? 'Health Insurance Policy Schedule' : 'Policy Schedule',
-        policyNumber,
-        scheduleDetails,
-      );
+      if (realFileKey) {
+        const realFileName =
+          (dto as any).documentFileName?.trim() ||
+          existingPolicyDoc?.fileName ||
+          existingPolicyDoc?.document?.originalFileName ||
+          `Policy_${policyNumber}.pdf`;
 
-      const taxCertificatePdf = await this.pdfService.generateDocumentPdf(
-        'Tax Exemption / GST Certificate',
-        `${policyNumber}_TAX`,
-        {
-          'Policy Number': policyNumber,
-          'GST Amount': `Rs. ${(quotation.gstAmount ?? 0).toString()}`,
-          'Tax Component': 'Statutory 18% GST on Gross Base Premium',
-          'Invoice Date': new Date().toISOString().slice(0, 10),
-        },
-      );
+        const realFileSize =
+          (dto as any).documentFileSize ||
+          existingPolicyDoc?.fileSize ||
+          existingPolicyDoc?.document?.size ||
+          0;
 
-      const [scheduleDoc] = await Promise.all([
-        this.policyRepository.addDocument({
+        const scheduleDoc = await this.policyRepository.addDocument({
           policy: { connect: { id: policy.id } },
           documentType: 'POLICY_SCHEDULE',
-          fileKey: (dto as any).documentFileKey || schedulePdf.fileKey,
-          fileName: (dto as any).documentFileName || schedulePdf.fileName,
-          fileSize: (dto as any).documentFileSize || schedulePdf.fileSize,
-        }),
-        this.policyRepository.addDocument({
-          policy: { connect: { id: policy.id } },
-          documentType: 'TAX_CERTIFICATE',
-          fileKey: taxCertificatePdf.fileKey,
-          fileName: taxCertificatePdf.fileName,
-          fileSize: taxCertificatePdf.fileSize,
-        }),
-      ]);
+          fileKey: realFileKey,
+          fileName: realFileName,
+          fileSize: realFileSize,
+        });
 
-      if (this.prisma.policy?.update) {
-        await this.prisma.policy.update({
-        where: { id: policy.id },
-        data: {
-          issuedPolicyDocumentId: scheduleDoc.id,
-          documentComplianceStatus: 'VERIFIED' as any,
-        },
-      });
+        if (this.prisma.policy?.update) {
+          await this.prisma.policy.update({
+            where: { id: policy.id },
+            data: {
+              issuedPolicyDocumentId: scheduleDoc.id,
+              documentComplianceStatus: 'VERIFIED' as any,
+            },
+          });
+        }
+
+        // Also update any matching Document record to associate directly with this Policy
+        if (this.prisma.document?.updateMany) {
+          await this.prisma.document.updateMany({
+            where: { storageKey: realFileKey, entityType: 'QUOTATION' },
+            data: { entityId: policy.id, entityType: 'POLICY' },
+          });
+        }
       }
     } catch (docErr: any) {
       this.logger.error(
-        `[PDF-GENERATION-FAILED] Failed to generate policy documents for policy ${policy.id} (${policyNumber}): ${docErr?.message}`,
+        `[POLICY-DOCUMENT-LINKING-FAILED] Failed to link policy document for policy ${policy.id} (${policyNumber}): ${docErr?.message}`,
         docErr?.stack,
       );
-
-      try {
-        await this.prisma.outboxEvent.create({
-          data: {
-            aggregateType: 'POLICY_DOCUMENT',
-            aggregateId: policy.id,
-            eventType: 'POLICY_DOCUMENT_GENERATION_FAILED',
-            payload: {
-              policyId: policy.id,
-              policyNumber,
-              reason: docErr?.message || 'PDF generation failure',
-              attemptedAt: new Date().toISOString(),
-            },
-          },
-        });
-      } catch (outboxErr: any) {
-        this.logger.warn(
-          `Failed to record outbox event for document generation failure: ${outboxErr?.message}`,
-        );
-      }
-
-      try {
-        const taskCode = `BOT-DOC-${policyNumber}-${Date.now().toString().slice(-4)}`;
-        await this.prisma.backOfficeTask.create({
-          data: {
-            companyId: quotation.companyId,
-            taskCode,
-            taskType: 'DOCUMENT_REGENERATION',
-            status: 'PENDING',
-            priority: 'HIGH',
-            verificationNotes: `Automated PDF generation failed during issuance: ${docErr?.message || 'Unknown error'}. Requires document regeneration.`,
-            leadId: quotation.leadId || null,
-            createdById,
-          },
-        });
-      } catch (taskErr: any) {
-        this.logger.warn(
-          `Failed to create BackOfficeTask for document regeneration: ${taskErr?.message}`,
-        );
-      }
     }
 
     const finalPolicy = await this.policyRepository.findDetail(policy.id);
