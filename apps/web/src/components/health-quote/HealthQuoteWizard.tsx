@@ -545,7 +545,11 @@ export function HealthQuoteWizard({
         address: effectiveAddress,
         nomineeName: nominee.name,
         nomineeRelation: nominee.relation,
-        planDetails: toPayload(sectionAFields, planValues),
+        planDetails: (() => {
+          const raw = toPayload(sectionAFields, planValues);
+          const { membersCount: _unused, ...clean } = raw;
+          return clean;
+        })(),
         ...(policyForm === 'RENEWAL_PORTABILITY' ? { previousPolicySnapshot: { ...toPayload(RENEWAL_FIELDS, renewalValues), ...(renewPolicyId ? { sourcePolicyId: renewPolicyId } : {}) } } : {}),
         ...(Object.keys(proposerKyc).length ? { proposerKyc } : {}),
         members: finalMembers,

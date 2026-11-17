@@ -89,6 +89,22 @@ describe('HealthPlanValidationService', () => {
       ).toThrow('deductible');
     });
 
+    it('accepts Family Floater planDetails with or without membersCount', () => {
+      const withMembersCount = service.validatePlanDetails(
+        'FAMILY_FLOATER',
+        { ...identity, roomRentCategory: 'NO_CAPPING', membersCount: 2, maternityCoverRequired: false },
+        [member(), member({ relation: 'SPOUSE' })],
+      );
+      expect(withMembersCount.derived.memberCount).toBe(2);
+
+      const withoutMembersCount = service.validatePlanDetails(
+        'FAMILY_FLOATER',
+        { ...identity, roomRentCategory: 'NO_CAPPING', maternityCoverRequired: false },
+        [member(), member({ relation: 'SPOUSE' })],
+      );
+      expect(withoutMembersCount.derived.memberCount).toBe(2);
+    });
+
     it('requires grade-wise sum insured only for graded Group schemes', () => {
       const group = {
         schemeType: 'EMPLOYER_EMPLOYEE',
