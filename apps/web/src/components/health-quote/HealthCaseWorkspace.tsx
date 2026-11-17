@@ -923,7 +923,8 @@ function RecordPaymentModal({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (!form.referenceNumber?.trim()) {
+            const isCash = form.paymentMethod === 'CASH';
+            if (!isCash && !form.referenceNumber?.trim()) {
               toast.error('Please enter the transaction reference / UTR number');
               return;
             }
@@ -931,10 +932,11 @@ function RecordPaymentModal({
               toast.error('Please enter a valid payment amount');
               return;
             }
+            const cleanRef = form.referenceNumber?.trim();
             onSubmit({
               amount: Number(form.amount),
               paymentMethod: form.paymentMethod,
-              referenceNumber: form.referenceNumber.trim(),
+              referenceNumber: cleanRef || (isCash ? undefined : ''),
               status: form.status,
               notes: form.notes?.trim() || undefined,
             });
@@ -1000,18 +1002,29 @@ function RecordPaymentModal({
 
           <div>
             <label className="block font-black text-[11px] mb-1">
-              Transaction Reference / UTR / Cheque No. <span className="text-rose-500">*</span>
+              Transaction Reference / UTR / Cheque No.{' '}
+              {form.paymentMethod === 'CASH' ? (
+                <span className="text-muted-foreground font-normal">(Optional for Cash Deposit)</span>
+              ) : (
+                <span className="text-rose-500">*</span>
+              )}
             </label>
             <input
               type="text"
               value={form.referenceNumber}
               onChange={(e) => setForm({ ...form, referenceNumber: e.target.value })}
               className={inputCls}
-              placeholder="e.g. UTR / Bank Reference No / UPI Ref ID"
-              required
+              placeholder={
+                form.paymentMethod === 'CASH'
+                  ? 'e.g. Receipt No / Slip No (Optional)'
+                  : 'e.g. UTR / Bank Reference No / UPI Ref ID'
+              }
+              required={form.paymentMethod !== 'CASH'}
             />
             <p className="text-[10px] text-muted-foreground mt-1">
-              Used for audit trail and finance bank reconciliation.
+              {form.paymentMethod === 'CASH'
+                ? 'Optional for Cash deposits. A cash receipt reference will be auto-generated if left blank.'
+                : 'Used for audit trail and finance bank reconciliation.'}
             </p>
           </div>
 

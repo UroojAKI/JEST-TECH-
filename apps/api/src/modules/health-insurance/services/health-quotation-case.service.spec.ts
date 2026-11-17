@@ -274,6 +274,59 @@ describe('HealthQuotationCaseService access and integrity', () => {
     );
   });
 
+  it('allows recording cash payment without transaction reference and auto-generates reference', async () => {
+    const tx = {
+      healthQuotationCase: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'case-1', selectedQuoteId: 'quote-1' }),
+      },
+      quotation: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'quote-1',
+          totalPremium: 1000,
+          status: 'APPROVED',
+          workflowState: 'PROPOSAL_APPROVED',
+          backOfficeSubmittedAt: new Date('2026-11-11T00:00:00.000Z'),
+        }),
+        update: jest.fn(),
+      },
+      motorPaymentRecord: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        update: jest.fn(),
+        create: jest.fn(),
+      },
+    };
+    const prisma = {
+      $transaction: jest.fn().mockImplementation(async (cb) => cb(tx)),
+      healthQuotationCase: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'case-1',
+          companyId: 'company-1',
+          contact: null,
+          customerSnapshot: {},
+          quotations: [],
+          selectedQuote: null,
+        }),
+      },
+    };
+    const service = makeService(prisma);
+
+    await service.recordPayment(
+      'case-1',
+      { amount: 1000, paymentMethod: 'CASH' } as any,
+      { id: 'ops-1', userId: 'ops-1', companyId: 'company-1', role: 'BACK_OFFICE' } as any,
+    );
+
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(tx.motorPaymentRecord.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          paymentMethod: 'CASH',
+          referenceNumber: expect.stringMatching(/^CASH-/),
+        }),
+      }),
+    );
+  });
+
   it('does not downgrade an already verified payment', async () => {
     const tx = {
       healthQuotationCase: {

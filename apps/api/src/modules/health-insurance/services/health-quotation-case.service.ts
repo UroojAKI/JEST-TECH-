@@ -658,8 +658,9 @@ export class HealthQuotationCaseService {
       );
     }
     const amount = dto.amount !== undefined ? Number(dto.amount) : undefined;
-    const referenceNumber = dto.referenceNumber.trim();
     const paymentMethod = dto.paymentMethod.trim();
+    const isCash = paymentMethod.toUpperCase() === 'CASH';
+    const rawRef = dto.referenceNumber ? dto.referenceNumber.trim() : '';
 
     await this.prisma.$transaction(async (tx) => {
       const healthCase = await tx.healthQuotationCase.findFirst({
@@ -701,24 +702,30 @@ export class HealthQuotationCaseService {
 
       const payableAmount = Number(quotation.totalPremium);
       const submittedAmount = amount ?? payableAmount;
+      const existingPayment = await tx.motorPaymentRecord.findUnique({
+        where: { quotationId: quotation.id },
+      });
+
+      const referenceNumber =
+        rawRef ||
+        (isCash && existingPayment?.referenceNumber ? existingPayment.referenceNumber : '') ||
+        (isCash ? `CASH-${Date.now().toString().slice(-6)}` : '');
+
       if (targetStatus === PaymentTrackingStatus.PAID) {
         if (Math.abs(submittedAmount - payableAmount) > 0.01) {
           throw new BadRequestException(
             `Payment amount ₹${submittedAmount} does not match authoritative quotation premium ₹${payableAmount}`,
           );
         }
-        if (!referenceNumber) {
+        if (!isCash && !referenceNumber) {
           throw new BadRequestException('Payment reference number / UTR is required before marking as PAID');
         }
       }
 
-      const existingPayment = await tx.motorPaymentRecord.findUnique({
-        where: { quotationId: quotation.id },
-      });
       const samePayment = Boolean(
         existingPayment &&
         Number(existingPayment.amount) === submittedAmount &&
-        existingPayment.referenceNumber === referenceNumber &&
+        (existingPayment.referenceNumber === referenceNumber || (isCash && existingPayment.referenceNumber?.startsWith('CASH-'))) &&
         existingPayment.paymentMethod === paymentMethod,
       );
 

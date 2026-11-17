@@ -424,10 +424,10 @@ export class RecordHealthPaymentDto {
   @IsNotEmpty()
   paymentMethod: string;
 
-  @ApiProperty({ example: 'UPI123456789012', description: 'Transaction UTR, UPI reference number, or Cheque number' })
+  @ApiPropertyOptional({ example: 'UPI123456789012', description: 'Transaction UTR, UPI reference number, Cheque number, or optional for Cash' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  referenceNumber: string;
+  referenceNumber?: string;
 
   @ApiPropertyOptional({ enum: ['PAID', 'UNDER_PROCESS'], default: 'UNDER_PROCESS' })
   @IsOptional()
