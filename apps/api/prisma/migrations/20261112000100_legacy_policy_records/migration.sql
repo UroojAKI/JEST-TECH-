@@ -50,6 +50,6 @@ CREATE INDEX "legacy_policy_renewal_reminders_legacyPolicyId_idx" ON "legacy_pol
 
 ALTER TABLE "legacy_policy_records" ADD CONSTRAINT "legacy_policy_records_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "customers"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "legacy_policy_records" ADD CONSTRAINT "legacy_policy_records_contactId_fkey" FOREIGN KEY ("contactId") REFERENCES "contacts"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "legacy_policy_records" ADD CONSTRAINT "legacy_policy_records_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "companies"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "legacy_policy_records" ADD CONSTRAINT "legacy_policy_records_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "Company"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "legacy_policy_records" ADD CONSTRAINT "legacy_policy_records_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "legacy_policy_renewal_reminders" ADD CONSTRAINT "legacy_policy_renewal_reminders_legacyPolicyId_fkey" FOREIGN KEY ("legacyPolicyId") REFERENCES "legacy_policy_records"("id") ON DELETE CASCADE ON UPDATE CASCADE;

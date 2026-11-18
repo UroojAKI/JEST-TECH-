@@ -232,7 +232,10 @@ describe('Phase 12 Two-Company Adversarial Tenant Isolation Audit (12.3 & 12.5)'
       expect(prismaMock.commission.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            OR: [{ companyId: COMPANY_A }, { user: { companyId: COMPANY_A } }],
+            OR: [
+              { companyId: COMPANY_A },
+              { companyId: null, user: { companyId: COMPANY_A } },
+            ],
           }),
         }),
       );
@@ -264,7 +267,7 @@ describe('Phase 12 Two-Company Adversarial Tenant Isolation Audit (12.3 & 12.5)'
         ForbiddenException,
       );
       await expect(commissionEngine.approveCommission('comm-b-1', adminA)).rejects.toThrow(
-        'Commission belongs to another organization',
+        'Commission tenant could not be verified for this organization',
       );
     });
 
@@ -290,7 +293,7 @@ describe('Phase 12 Two-Company Adversarial Tenant Isolation Audit (12.3 & 12.5)'
       expect(bulkResult.results[0]).toMatchObject({
         id: 'comm-b-99',
         status: 'FORBIDDEN',
-        message: 'Commission belongs to another organization',
+        message: 'Commission tenant could not be verified for this organization',
       });
     });
   });

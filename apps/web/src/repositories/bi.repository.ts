@@ -80,7 +80,7 @@ export interface AgentPerformanceAnalytics {
 
 export interface ActionCentreItem {
   id: string;
-  category: 'OVERDUE_TASK' | 'PENDING_INSPECTION' | 'PAYMENT_VERIFICATION' | 'COMPLIANCE_BLOCK';
+  category: 'OVERDUE_TASK' | 'BACK_OFFICE_TASK' | 'PENDING_INSPECTION' | 'PAYMENT_VERIFICATION' | 'COMPLIANCE_BLOCK';
   title: string;
   referenceCode?: string;
   severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
@@ -99,6 +99,7 @@ export interface OperationalActionCentre {
     pendingInspectionsCount: number;
     pendingPaymentsCount: number;
     complianceBlocksCount: number;
+    backOfficeTasksCount?: number;
   };
   criticalItems: ActionCentreItem[];
   itemsByCategory: {
@@ -106,6 +107,7 @@ export interface OperationalActionCentre {
     pendingInspections: ActionCentreItem[];
     pendingPayments: ActionCentreItem[];
     complianceBlocks: ActionCentreItem[];
+    backOfficeTasks?: ActionCentreItem[];
   };
 }
 

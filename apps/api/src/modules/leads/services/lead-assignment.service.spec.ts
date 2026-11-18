@@ -19,6 +19,7 @@ describe('LeadAssignmentService (Iteration 11)', () => {
     authzService = new ResourceAuthorizationService();
     prisma = {
       lead: {
+        findFirst: jest.fn(),
         findUnique: jest.fn(),
         findMany: jest.fn().mockResolvedValue([]),
         update: jest.fn(),
@@ -29,6 +30,7 @@ describe('LeadAssignmentService (Iteration 11)', () => {
         create: jest.fn().mockResolvedValue({ id: 'assignment-history-1' }),
       },
       user: {
+        findFirst: jest.fn(),
         findUnique: jest.fn(),
         findMany: jest.fn(),
       },
@@ -91,8 +93,8 @@ describe('LeadAssignmentService (Iteration 11)', () => {
         status: UserStatus.ACTIVE,
       };
 
-      prisma.lead.findUnique.mockResolvedValue(mockLead);
-      prisma.user.findUnique.mockResolvedValue(targetAgent);
+      prisma.lead.findFirst.mockResolvedValue(mockLead);
+      prisma.user.findFirst.mockResolvedValue(targetAgent);
       prisma.lead.update.mockResolvedValue({
         ...mockLead,
         assignedToId: 'agent-1',
@@ -107,12 +109,12 @@ describe('LeadAssignmentService (Iteration 11)', () => {
 
     it('stores canonical Agent identity and immutable assignment history', async () => {
       const actor = createActor(RoleType.BACK_OFFICE);
-      prisma.lead.findUnique.mockResolvedValue({
+      prisma.lead.findFirst.mockResolvedValue({
         ...mockLead,
         companyId: actor.companyId,
         agentId: null,
       });
-      prisma.user.findUnique.mockResolvedValue({
+      prisma.user.findFirst.mockResolvedValue({
         id: 'user-agent-1',
         firstName: 'John',
         lastName: 'Agent',
@@ -160,8 +162,8 @@ describe('LeadAssignmentService (Iteration 11)', () => {
         status: UserStatus.ACTIVE,
       };
 
-      prisma.lead.findUnique.mockResolvedValue(mockLead);
-      prisma.user.findUnique.mockResolvedValue(targetAgent);
+      prisma.lead.findFirst.mockResolvedValue(mockLead);
+      prisma.user.findFirst.mockResolvedValue(targetAgent);
 
       await expect(
         service.assignLead('lead-1', 'agent-2', actor),
@@ -179,8 +181,8 @@ describe('LeadAssignmentService (Iteration 11)', () => {
         status: UserStatus.ACTIVE,
       };
 
-      prisma.lead.findUnique.mockResolvedValue(mockLead);
-      prisma.user.findUnique.mockResolvedValue(targetAgent);
+      prisma.lead.findFirst.mockResolvedValue(mockLead);
+      prisma.user.findFirst.mockResolvedValue(targetAgent);
       prisma.lead.update.mockResolvedValue({
         ...mockLead,
         assignedToId: 'agent-3',
@@ -199,8 +201,8 @@ describe('LeadAssignmentService (Iteration 11)', () => {
         status: UserStatus.ACTIVE,
       };
 
-      prisma.lead.findUnique.mockResolvedValue(mockLead);
-      prisma.user.findUnique.mockResolvedValue(targetAgent);
+      prisma.lead.findFirst.mockResolvedValue(mockLead);
+      prisma.user.findFirst.mockResolvedValue(targetAgent);
 
       await expect(
         service.assignLead('lead-1', 'agent-4', actor),
@@ -215,8 +217,8 @@ describe('LeadAssignmentService (Iteration 11)', () => {
         status: UserStatus.INACTIVE, // Inactive!
       };
 
-      prisma.lead.findUnique.mockResolvedValue(mockLead);
-      prisma.user.findUnique.mockResolvedValue(targetAgent);
+      prisma.lead.findFirst.mockResolvedValue(mockLead);
+      prisma.user.findFirst.mockResolvedValue(targetAgent);
 
       await expect(
         service.assignLead('lead-1', 'agent-5', actor),
@@ -240,7 +242,7 @@ describe('LeadAssignmentService (Iteration 11)', () => {
         leadsAssigned: [{ id: 'l4' }], // 1 lead
       };
 
-      prisma.lead.findUnique.mockResolvedValue(mockLead);
+      prisma.lead.findFirst.mockResolvedValue(mockLead);
       prisma.user.findMany.mockResolvedValue([agentBusy, agentFree]);
       prisma.lead.update.mockResolvedValue({
         ...mockLead,
@@ -269,7 +271,7 @@ describe('LeadAssignmentService (Iteration 11)', () => {
         status: UserStatus.ACTIVE,
       };
 
-      prisma.user.findUnique.mockResolvedValue(targetAgent);
+      prisma.user.findFirst.mockResolvedValue(targetAgent);
       prisma.lead.findMany.mockResolvedValue(
         ['l1', 'l2', 'l3', 'l4', 'l5'].map((id) => ({
           ...mockLead,
