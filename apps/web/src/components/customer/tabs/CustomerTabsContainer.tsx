@@ -30,11 +30,16 @@ import {
   X,
   History,
   ExternalLink,
+  Download,
+  Upload,
+  FileImage,
+  File,
 } from 'lucide-react';
 import { StatusBadge } from '../../ui/status-badge';
 import { UnifiedChart } from '../../charts/unified-chart';
 import { useCustomerWorkspace } from '../../../hooks/useCustomer360';
 import { customerRepository } from '../../../repositories/customer.repository';
+import { documentsRepository } from '../../../repositories/documents.repository';
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { apiClient } from '../../../lib/api-client';
@@ -401,6 +406,28 @@ function PaymentsListView({ payments }: { payments: any[] }) {
   );
 }
 
+function getCustomerDocIcon(fileName?: string, mimeType?: string | null) {
+  const name = (fileName || '').toLowerCase();
+  const mime = (mimeType || '').toLowerCase();
+  if (mime.includes('image') || name.match(/\.(jpg|jpeg|png|webp|gif)$/)) {
+    return <FileImage className="h-4 w-4 text-purple-500 shrink-0" />;
+  }
+  if (mime.includes('spreadsheet') || mime.includes('excel') || name.match(/\.(xlsx|xls|csv)$/)) {
+    return <FileSpreadsheet className="h-4 w-4 text-emerald-600 shrink-0" />;
+  }
+  if (mime.includes('pdf') || name.endsWith('.pdf')) {
+    return <FileText className="h-4 w-4 text-rose-500 shrink-0" />;
+  }
+  return <File className="h-4 w-4 text-primary shrink-0" />;
+}
+
+function formatCustomerDocBytes(bytes?: number): string {
+  if (!bytes || bytes <= 0) return '0 KB';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 function DocumentsListView({
   documents,
   customerId,
@@ -410,33 +437,451 @@ function DocumentsListView({
   customerId: string;
   refetch: () => void;
 }) {
-  if (!documents || documents.length === 0) {
-    return (
-      <div className="p-8 text-center text-muted-foreground border rounded-xl bg-card">
-        <Folder className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
-        No customer documents uploaded yet.
-      </div>
-    );
-  }
+  const [isPreviewing, setIsPreviewing] = useState<string | null>(null);
+  const [isDownloading, setIsDownloading] = useState<string | null>(null);
+  const [previewState, setPreviewState] = useState<{
+    doc: any;
+    url: string;
+    mimeType: string;
+  } | null>(null);
+
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadCategory, setUploadCategory] = useState('KYC');
+  const [isUploading, setIsUploading] = useState(false);
+  const [searchFilter, setSearchFilter] = useState('');
+
+  const handlePreview = async (doc: any) => {
+    if (!doc?.id) {
+      toast.error('Document identifier missing');
+      return;
+    }
+    setIsPreviewing(doc.id);
+    try {
+      const blob = await documentsRepository.downloadDocument(doc.id);
+      const url = URL.createObjectURL(blob);
+      setPreviewState({
+        doc,
+        url,
+        mimeType: doc.mimeType || blob.type || 'application/pdf',
+      });
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to preview document. Try downloading directly.');
+    } finally {
+      setIsPreviewing(null);
+    }
+  };
+
+  const closePreview = () => {
+    if (previewState?.url) {
+      URL.revokeObjectURL(previewState.url);
+    }
+    setPreviewState(null);
+  };
+
+  const handleDownload = async (doc: any) => {
+    if (!doc?.id) {
+      toast.error('Document identifier missing');
+      return;
+    }
+    setIsDownloading(doc.id);
+    try {
+      const blob = await documentsRepository.downloadDocument(doc.id);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = doc.originalFileName || doc.name || 'document';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success('Document downloaded successfully');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to download document');
+    } finally {
+      setIsDownloading(null);
+    }
+  };
+
+  const handleUploadSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!uploadFile) {
+      toast.error('Please choose a file to upload');
+      return;
+    }
+
+    if (uploadFile.size > 50 * 1024 * 1024) {
+      toast.error('File size exceeds 50MB limit');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      await documentsRepository.uploadDocument(uploadFile, 'CONTACT', customerId, {
+        name: uploadFile.name,
+        category: uploadCategory,
+      });
+      toast.success(`Document ${uploadFile.name} uploaded successfully!`);
+      setUploadFile(null);
+      setIsUploadOpen(false);
+      refetch();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || err?.message || 'Failed to upload document');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const filteredDocs = (documents || []).filter((doc: any) => {
+    if (!searchFilter.trim()) return true;
+    const query = searchFilter.toLowerCase();
+    const name = (doc.name || doc.originalFileName || '').toLowerCase();
+    const docNum = (doc.documentNumber || '').toLowerCase();
+    const cat = (doc.category || doc.metadata?.category || '').toLowerCase();
+    return name.includes(query) || docNum.includes(query) || cat.includes(query);
+  });
 
   return (
-    <div className="space-y-3">
-      {documents.map((doc: any) => (
-        <div key={doc.id} className="p-4 rounded-xl border bg-card flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-              <FileText className="h-4 w-4" />
+    <div className="space-y-4">
+      {/* Top action & filter bar */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b pb-3">
+        <div className="flex items-center gap-2">
+          <div className="p-2 rounded-lg bg-primary/10 text-primary">
+            <Folder className="h-4 w-4" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
+                Customer Documents Vault
+              </h3>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-muted text-muted-foreground">
+                {documents?.length || 0}
+              </span>
             </div>
-            <div>
-              <div className="font-bold text-foreground text-sm">{doc.name || doc.originalFileName}</div>
-              <div className="text-[11px] text-muted-foreground">
-                Size: {(Number(doc.size || 0) / 1024).toFixed(1)} KB • Uploaded: {new Date(doc.createdAt).toLocaleDateString('en-IN')}
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Verified identity proofs, KYC, vehicle documents, and policy schedules.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+          {documents && documents.length > 0 && (
+            <input
+              type="text"
+              placeholder="Search documents..."
+              value={searchFilter}
+              onChange={(e) => setSearchFilter(e.target.value)}
+              className="px-2.5 py-1.5 rounded-lg border bg-background text-xs w-40 sm:w-48 outline-none focus:ring-1 focus:ring-primary"
+            />
+          )}
+          <button
+            type="button"
+            onClick={() => setIsUploadOpen(true)}
+            className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground font-semibold text-xs shadow-sm hover:bg-primary/90 flex items-center gap-1.5 transition"
+          >
+            <Upload className="h-3.5 w-3.5" />
+            <span>Upload Document</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Document List / Empty state */}
+      {filteredDocs.length === 0 ? (
+        <div className="p-10 text-center text-muted-foreground border border-dashed rounded-xl bg-card space-y-3">
+          <div className="h-12 w-12 rounded-2xl bg-muted/30 text-muted-foreground flex items-center justify-center mx-auto">
+            <Folder className="h-6 w-6 opacity-60" />
+          </div>
+          <div>
+            <div className="font-semibold text-xs text-foreground">
+              {searchFilter ? 'No documents match your filter' : 'No customer documents uploaded yet'}
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-1 max-w-sm mx-auto">
+              Upload customer identification (Aadhaar, PAN, GST certificate), vehicle RC, or insurance documents.
+            </p>
+          </div>
+          {!searchFilter && (
+            <button
+              type="button"
+              onClick={() => setIsUploadOpen(true)}
+              className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition shadow-sm"
+            >
+              <Upload className="h-3.5 w-3.5" />
+              <span>Upload First Document</span>
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-2.5">
+          {filteredDocs.map((doc: any) => {
+            const docName = doc.name || doc.originalFileName || 'Customer Document';
+            const category = doc.category || doc.metadata?.category || (doc.entityType === 'POLICY' ? 'Policy Schedule' : 'KYC / Proof');
+            return (
+              <div
+                key={doc.id}
+                className="p-3.5 rounded-xl border bg-card hover:bg-accent/10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 transition"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="h-9 w-9 rounded-lg bg-muted/40 flex items-center justify-center shrink-0">
+                    {getCustomerDocIcon(doc.originalFileName || doc.name, doc.mimeType)}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-foreground text-xs truncate max-w-xs sm:max-w-md" title={docName}>
+                        {docName}
+                      </span>
+                      {category && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary border border-primary/20 shrink-0">
+                          {category}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground flex items-center gap-2 mt-0.5 flex-wrap">
+                      {doc.documentNumber && <span className="font-mono text-[10px]">{doc.documentNumber}</span>}
+                      <span>•</span>
+                      <span>{formatCustomerDocBytes(Number(doc.size || 0))}</span>
+                      <span>•</span>
+                      <span>Uploaded {doc.createdAt ? new Date(doc.createdAt).toLocaleDateString('en-IN') : 'Recent'}</span>
+                      {doc.policyNumber && (
+                        <>
+                          <span>•</span>
+                          <span className="text-primary font-mono text-[10px]">Policy: {doc.policyNumber}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                  <StatusBadge status={doc.verificationStatus || doc.status || 'VERIFIED'} />
+
+                  {/* Preview Button */}
+                  <button
+                    type="button"
+                    onClick={() => handlePreview(doc)}
+                    disabled={isPreviewing === doc.id}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 transition disabled:opacity-50"
+                    title="Preview document"
+                  >
+                    {isPreviewing === doc.id ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Eye className="h-3.5 w-3.5" />
+                    )}
+                    <span>Preview</span>
+                  </button>
+
+                  {/* Download Button */}
+                  <button
+                    type="button"
+                    onClick={() => handleDownload(doc)}
+                    disabled={isDownloading === doc.id}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-muted hover:bg-muted/80 text-foreground transition disabled:opacity-50"
+                    title="Download document to device"
+                  >
+                    {isDownloading === doc.id ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Download className="h-3.5 w-3.5" />
+                    )}
+                    <span>Download</span>
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Upload Document Modal */}
+      {isUploadOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="bg-card border rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b bg-muted/30">
+              <div className="flex items-center gap-2">
+                <Upload className="h-4 w-4 text-primary" />
+                <h4 className="text-xs font-bold text-foreground">Upload Customer Document</h4>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsUploadOpen(false);
+                  setUploadFile(null);
+                }}
+                className="p-1 rounded-md text-muted-foreground hover:bg-muted transition"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUploadSubmit} className="p-5 space-y-4">
+              <div>
+                <label className="text-xs font-bold text-foreground block mb-1">
+                  Document Classification *
+                </label>
+                <select
+                  value={uploadCategory}
+                  onChange={(e) => setUploadCategory(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border bg-background text-xs outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="KYC">KYC Document (Aadhaar / Passport / Voter ID)</option>
+                  <option value="PAN">PAN Card</option>
+                  <option value="GST">GST Registration Certificate</option>
+                  <option value="RC">Vehicle Registration Certificate (RC)</option>
+                  <option value="PREVIOUS_POLICY">Previous Policy Copy</option>
+                  <option value="INVOICE">Vehicle / Asset Purchase Invoice</option>
+                  <option value="PROPOSAL">Signed Proposal Form</option>
+                  <option value="MEDICAL">Medical History / Test Report</option>
+                  <option value="OTHER">Other Support Document</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-foreground block mb-1">
+                  Select File *
+                </label>
+                <div className="border-2 border-dashed rounded-xl p-4 text-center hover:bg-accent/20 transition-colors">
+                  <input
+                    type="file"
+                    id="customer-vault-file-upload"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) setUploadFile(f);
+                    }}
+                    accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx"
+                  />
+                  <label
+                    htmlFor="customer-vault-file-upload"
+                    className="cursor-pointer flex flex-col items-center gap-1.5"
+                  >
+                    <Upload className="h-6 w-6 text-primary" />
+                    <span className="text-xs font-bold text-foreground">
+                      {uploadFile ? uploadFile.name : 'Choose file to upload'}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {uploadFile
+                        ? `${formatCustomerDocBytes(uploadFile.size)} selected`
+                        : 'PDF, JPG, PNG, DOCX up to 50MB'}
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsUploadOpen(false);
+                    setUploadFile(null);
+                  }}
+                  className="px-3 py-1.5 rounded-lg border text-xs font-semibold hover:bg-muted transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!uploadFile || isUploading}
+                  className="px-4 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold shadow hover:bg-primary/90 flex items-center gap-1.5 transition disabled:opacity-50"
+                >
+                  {isUploading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  <span>{isUploading ? 'Uploading...' : 'Upload Document'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Preview Modal */}
+      {previewState && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-card border rounded-2xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-5 py-3.5 border-b bg-muted/40">
+              <div className="flex items-center gap-2.5 truncate max-w-lg">
+                {getCustomerDocIcon(previewState.doc.originalFileName || previewState.doc.name, previewState.mimeType)}
+                <div className="truncate">
+                  <div className="font-bold text-xs text-foreground truncate">
+                    {previewState.doc.name || previewState.doc.originalFileName}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground">
+                    {formatCustomerDocBytes(previewState.doc.size)} • {previewState.doc.documentNumber || previewState.mimeType}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => window.open(previewState.url, '_blank')}
+                  className="px-2.5 py-1.5 rounded-lg border bg-background hover:bg-accent text-xs font-semibold flex items-center gap-1.5 transition"
+                  title="Open in new window"
+                >
+                  <ExternalLink className="h-3.5 w-3.5 text-primary" />
+                  <span className="hidden sm:inline">Open in New Tab</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDownload(previewState.doc)}
+                  className="px-2.5 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-semibold flex items-center gap-1.5 transition"
+                  title="Download copy"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Download</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={closePreview}
+                  className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition ml-1"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
             </div>
+
+            {/* Modal Preview Body */}
+            <div className="flex-1 bg-muted/20 p-4 overflow-auto flex items-center justify-center">
+              {previewState.mimeType?.startsWith('image/') ||
+              previewState.doc.originalFileName?.match(/\.(jpg|jpeg|png|webp|gif)$/i) ? (
+                <img
+                  src={previewState.url}
+                  alt={previewState.doc.name || 'Document preview'}
+                  className="max-h-full max-w-full object-contain rounded-lg shadow-sm border bg-card"
+                />
+              ) : previewState.mimeType?.includes('pdf') ||
+                previewState.doc.originalFileName?.toLowerCase().endsWith('.pdf') ? (
+                <iframe
+                  src={previewState.url}
+                  title={previewState.doc.name}
+                  className="w-full h-full rounded-lg border bg-card shadow-xs"
+                />
+              ) : (
+                <div className="text-center p-8 bg-card rounded-2xl border max-w-md shadow-sm space-y-3">
+                  <div className="h-12 w-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto">
+                    <FileText className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-sm text-foreground">
+                      {previewState.doc.name || previewState.doc.originalFileName}
+                    </h4>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Direct in-browser preview is not supported for this file format ({previewState.mimeType}).
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDownload(previewState.doc)}
+                    className="px-4 py-2 rounded-xl bg-primary text-primary-foreground font-bold text-xs shadow hover:bg-primary/90 inline-flex items-center gap-2"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Download File to Device
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
-          <StatusBadge status={doc.verificationStatus || doc.status || 'VERIFIED'} />
         </div>
-      ))}
+      )}
     </div>
   );
 }

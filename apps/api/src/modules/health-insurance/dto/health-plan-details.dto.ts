@@ -141,6 +141,10 @@ export class FamilyFloaterPlanDetailsDto extends PlanIdentityDto {
   @IsOptional()
   @IsBoolean()
   maternityCoverRequired?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  membersCount?: number;
 }
 
 /** 1.3 Senior Citizen */
@@ -200,6 +204,10 @@ export class TopUpPlanDetailsDto extends PlanIdentityDto {
 export class GroupCorporatePlanDetailsDto {
   @IsEnum(GroupSchemeType)
   schemeType: GroupSchemeType;
+
+  @IsOptional()
+  @IsInt()
+  membersCount?: number;
 
   @IsInt()
   @Min(1)

@@ -39,7 +39,8 @@ export const documentsRepository = {
     formData.append('file', file);
     formData.append('entityType', entityType);
     formData.append('entityId', entityId);
-    if (extra?.name) formData.append('name', extra.name);
+    const documentName = extra?.name?.trim() || file.name || 'Document';
+    formData.append('name', documentName);
     if (extra?.category) formData.append('category', extra.category);
     if (extra?.tags) formData.append('tags', extra.tags);
 

@@ -181,74 +181,85 @@ export class QuotationCompletionService {
       missing: customerMissing,
     });
 
-    // ── SECTION 2: Vehicle Technical Details ───────────────────────────
-    const vehicleMissing: MissingFieldItem[] = [];
-    const vehicleApplicable = 5;
-    let vehicleCompleted = 0;
+    const isHealth = quotation.productType === 'HEALTH' || Boolean(quotation.healthCaseId);
 
-    const makeModel =
-      (vehicle.make && vehicle.model) ||
-      (vehicle.makeModel && vehicle.makeModel.trim()) ||
-      (quotation.motorMetadata as any)?.vehicleDetails?.makeModel;
-    if (makeModel) vehicleCompleted++;
-    else
-      vehicleMissing.push({
-        field: 'makeModel',
-        label: 'Vehicle Make & Model',
-        requiredFor: 'QUOTATION_CREATION',
+    // ── SECTION 2: Vehicle Technical Details (Motor Only) ──────────────
+    if (!isHealth) {
+      const vehicleMissing: MissingFieldItem[] = [];
+      const vehicleApplicable = 5;
+      let vehicleCompleted = 0;
+
+      const makeModel =
+        (vehicle.make && vehicle.model) ||
+        (vehicle.makeModel && vehicle.makeModel.trim()) ||
+        (quotation.motorMetadata as any)?.vehicleDetails?.makeModel;
+      if (makeModel) vehicleCompleted++;
+      else
+        vehicleMissing.push({
+          field: 'makeModel',
+          label: 'Vehicle Make & Model',
+          requiredFor: 'QUOTATION_CREATION',
+        });
+
+      const regNo = vehicle.registrationNumber || quotation.registrationNumber;
+      if (regNo && regNo.trim() && regNo.toUpperCase() !== 'NEW')
+        vehicleCompleted++;
+      else
+        vehicleMissing.push({
+          field: 'registrationNumber',
+          label: 'Registration Plate Number',
+          requiredFor: 'POLICY_ISSUANCE',
+        });
+
+      if (vehicle.engineNumber && vehicle.engineNumber.trim()) vehicleCompleted++;
+      else
+        vehicleMissing.push({
+          field: 'engineNumber',
+          label: 'Engine Number',
+          requiredFor: 'POLICY_ISSUANCE',
+        });
+
+      if (vehicle.chassisNumber && vehicle.chassisNumber.trim())
+        vehicleCompleted++;
+      else
+        vehicleMissing.push({
+          field: 'chassisNumber',
+          label: 'Chassis Number',
+          requiredFor: 'POLICY_ISSUANCE',
+        });
+
+      // FIX: schema field is `dateOfRegistration`, NOT `registrationDate`
+      if ((vehicle as any).dateOfRegistration) vehicleCompleted++;
+      else
+        vehicleMissing.push({
+          field: 'dateOfRegistration',
+          label: 'Registration Date',
+          requiredFor: 'POLICY_ISSUANCE',
+        });
+
+      sections.push({
+        section: 'vehicle',
+        label: 'Vehicle Technical Details',
+        complete: vehicleMissing.length === 0,
+        applicableCount: vehicleApplicable,
+        completedCount: vehicleCompleted,
+        missing: vehicleMissing,
       });
-
-    const regNo = vehicle.registrationNumber || quotation.registrationNumber;
-    if (regNo && regNo.trim() && regNo.toUpperCase() !== 'NEW')
-      vehicleCompleted++;
-    else
-      vehicleMissing.push({
-        field: 'registrationNumber',
-        label: 'Registration Plate Number',
-        requiredFor: 'POLICY_ISSUANCE',
-      });
-
-    if (vehicle.engineNumber && vehicle.engineNumber.trim()) vehicleCompleted++;
-    else
-      vehicleMissing.push({
-        field: 'engineNumber',
-        label: 'Engine Number',
-        requiredFor: 'POLICY_ISSUANCE',
-      });
-
-    if (vehicle.chassisNumber && vehicle.chassisNumber.trim())
-      vehicleCompleted++;
-    else
-      vehicleMissing.push({
-        field: 'chassisNumber',
-        label: 'Chassis Number',
-        requiredFor: 'POLICY_ISSUANCE',
-      });
-
-    // FIX: schema field is `dateOfRegistration`, NOT `registrationDate`
-    if ((vehicle as any).dateOfRegistration) vehicleCompleted++;
-    else
-      vehicleMissing.push({
-        field: 'dateOfRegistration',
-        label: 'Registration Date',
-        requiredFor: 'POLICY_ISSUANCE',
-      });
-
-    sections.push({
-      section: 'vehicle',
-      label: 'Vehicle Technical Details',
-      complete: vehicleMissing.length === 0,
-      applicableCount: vehicleApplicable,
-      completedCount: vehicleCompleted,
-      missing: vehicleMissing,
-    });
+    }
 
     // ── SECTION 3: Coverage & Pricing ──────────────────────────────────
     const coverageMissing: MissingFieldItem[] = [];
-    const normalizedPolicyType = String(quotation.policyType || '').toUpperCase();
+    const effectivePolicyType =
+      quotation.policyType ||
+      (isHealth
+        ? (quotation.healthMetadata as any)?.policyForm ||
+          quotation.healthPlanCategory
+        : null);
+    const normalizedPolicyType = String(effectivePolicyType || '').toUpperCase();
     const isThirdPartyOnly =
-      normalizedPolicyType === 'TP_ONLY' ||
-      normalizedPolicyType === 'THIRD_PARTY_ONLY';
+      !isHealth &&
+      (normalizedPolicyType === 'TP_ONLY' ||
+        normalizedPolicyType === 'THIRD_PARTY_ONLY');
     const coverageApplicable = isThirdPartyOnly ? 2 : 3;
     let coverageCompleted = 0;
 
@@ -258,16 +269,16 @@ export class QuotationCompletionService {
       else
         coverageMissing.push({
           field: 'sumInsured',
-          label: 'Insured Declared Value (IDV)',
+          label: isHealth ? 'Sum Insured' : 'Insured Declared Value (IDV)',
           requiredFor: 'QUOTATION_CREATION',
         });
     }
 
-    if (quotation.policyType) coverageCompleted++;
+    if (effectivePolicyType) coverageCompleted++;
     else
       coverageMissing.push({
         field: 'policyType',
-        label: 'Policy Type Selection',
+        label: isHealth ? 'Plan Form / Category Selection' : 'Policy Type Selection',
         requiredFor: 'QUOTATION_CREATION',
       });
 

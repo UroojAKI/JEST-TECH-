@@ -117,18 +117,18 @@ export function PaymentStatusForm({ value, onChange, totalPremium, quotationCode
             </div>
             <div>
               <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
-                Reference / Cheque / UTR No. {value.status === 'PAID' && value.paymentMethod !== 'Cash' && <span className="text-rose-500">*</span>}
+                Reference / Cheque / UTR No. {value.status === 'PAID' && String(value.paymentMethod || '').toLowerCase() !== 'cash' && <span className="text-rose-500">*</span>}
               </label>
               <input
                 type="text"
-                required={value.status === 'PAID' && value.paymentMethod !== 'Cash'}
+                required={value.status === 'PAID' && String(value.paymentMethod || '').toLowerCase() !== 'cash'}
                 value={value.referenceNumber || ''}
                 onChange={(e) => update({ referenceNumber: e.target.value })}
-                placeholder={value.paymentMethod === 'Cash' ? 'e.g. Cash Receipt No. (Optional)' : 'Unique Bank UTR / Cheque No.'}
+                placeholder={String(value.paymentMethod || '').toLowerCase() === 'cash' ? 'e.g. Cash Receipt No. (Optional)' : 'Unique Bank UTR / Cheque No.'}
                 className="w-full mt-1 px-3 py-2 rounded-xl border bg-background text-sm"
               />
               <span className="text-[10px] text-muted-foreground mt-0.5 block">
-                {value.paymentMethod === 'Cash'
+                {String(value.paymentMethod || '').toLowerCase() === 'cash'
                   ? 'Optional for Cash payments. A cash receipt reference will be auto-generated if left empty.'
                   : 'Must be a unique transaction / UTR reference.'}
               </span>

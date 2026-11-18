@@ -80,7 +80,7 @@ export class DocumentsController {
   @UseInterceptors(FileInterceptor('file', fileInterceptorOptions))
   async uploadDocument(
     @UploadedFile() file: Express.Multer.File,
-    @Body('name') name: string,
+    @Body('name') name: string | undefined,
     @Body('entityType') entityType: string,
     @Body('entityId', ParseUUIDPipe) entityId: string,
     @Body('category') category: string,
@@ -89,6 +89,7 @@ export class DocumentsController {
     @CurrentUser() user: RequestUser,
     @Ip() ipAddress: string,
   ) {
+    if (!file) throw new BadRequestException('No file provided');
     const validEntityTypes = [
       'ACCOUNT',
       'LEAD',
@@ -102,7 +103,7 @@ export class DocumentsController {
       'LIFE_QUOTATION_CASE',
       'HEALTH_QUOTATION_CASE',
     ];
-    if (!validEntityTypes.includes(entityType))
+    if (!entityType || !validEntityTypes.includes(entityType))
       throw new BadRequestException(
         `Invalid entityType. Must be one of: ${validEntityTypes.join(', ')}`,
       );
@@ -117,10 +118,10 @@ export class DocumentsController {
       throw new BadRequestException('Invalid expiryDate');
     return this.documentService.uploadDocument({
       file,
-      name,
+      name: name?.trim() || file.originalname || 'Document',
       entityType,
       entityId,
-      uploadedById: user.id,
+      uploadedById: user!.id,
       category,
       expiryDate: parsedExpiry,
       tags: parsedTags,

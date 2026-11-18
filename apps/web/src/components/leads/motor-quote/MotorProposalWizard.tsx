@@ -84,7 +84,7 @@ export function MotorProposalWizard({ isOpen, quote, onClose, onSuccess }: Props
       if (paymentRecord.status === 'NOT_DONE') return false;
       if (paymentRecord.status === 'PAID') {
         const amt = paymentRecord.amount ?? currentQuote.totalPremium;
-        const isCash = paymentRecord.paymentMethod === 'Cash';
+        const isCash = String(paymentRecord.paymentMethod || '').toLowerCase() === 'cash';
         return Boolean(
           amt &&
             Number(amt) > 0 &&
@@ -109,7 +109,7 @@ export function MotorProposalWizard({ isOpen, quote, onClose, onSuccess }: Props
               ? Number(currentQuote.totalPremium)
               : undefined;
 
-        const isCash = paymentRecord.paymentMethod === 'Cash';
+        const isCash = String(paymentRecord.paymentMethod || '').toLowerCase() === 'cash';
         const cleanRef = paymentRecord.referenceNumber?.trim();
         const fallbackRef =
           isCash && !cleanRef

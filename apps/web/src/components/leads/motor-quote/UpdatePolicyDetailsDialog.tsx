@@ -138,6 +138,40 @@ export function UpdatePolicyDetailsDialog({
           setCustomerAadhaar(fetchedAadhaar);
         }
 
+        // Auto-fetch unmasked KYC (PAN & Aadhaar) if masked or missing
+        const contactId = q.contactId || q.contact?.id || (q.healthCase as any)?.contactId;
+        if (contactId && (isMaskedValue(rawPan) || isMaskedValue(rawAadhaar) || !rawPan || !rawAadhaar)) {
+          apiClient
+            .post(`/contacts/${contactId}/unmask`, {
+              reason: 'Policy Issuance KYC Verification',
+            })
+            .then((cRes) => {
+              if (!isMounted) return;
+              const contactData = cRes.data?.data || cRes.data;
+              if (contactData?.panNumber && !isMaskedValue(contactData.panNumber)) {
+                setCustomerPan((prev) => prev || contactData.panNumber);
+              }
+              if (contactData?.aadhaarNumber && !isMaskedValue(contactData.aadhaarNumber)) {
+                setCustomerAadhaar((prev) => prev || contactData.aadhaarNumber);
+              }
+            })
+            .catch(() => {
+              apiClient
+                .get(`/contacts/${contactId}`)
+                .then((cRes) => {
+                  if (!isMounted) return;
+                  const contactData = cRes.data?.data || cRes.data;
+                  if (contactData?.panNumber && !isMaskedValue(contactData.panNumber)) {
+                    setCustomerPan((prev) => prev || contactData.panNumber);
+                  }
+                  if (contactData?.aadhaarNumber && !isMaskedValue(contactData.aadhaarNumber)) {
+                    setCustomerAadhaar((prev) => prev || contactData.aadhaarNumber);
+                  }
+                })
+                .catch(() => {});
+            });
+        }
+
         const paymentRef =
           q.motorPaymentRecord?.referenceNumber ||
           q.paymentRecord?.referenceNumber ||
@@ -627,14 +661,8 @@ export function UpdatePolicyDetailsDialog({
             <div>
               <label className="block text-xs font-bold mb-1 flex items-center gap-1">
                 <UserCheck className="h-3 w-3 text-muted-foreground" />
-                {isHealth ? (
-                  <>
-                    <span>Proposer PAN</span>
-                    <span className="text-rose-500">*</span>
-                  </>
-                ) : (
-                  <span>Customer PAN / KYC <span className="text-muted-foreground font-normal">(Optional)</span></span>
-                )}
+                <span>{isHealth ? 'Proposer PAN' : 'Customer PAN / KYC'}</span>
+                <span className="text-muted-foreground font-normal">(Optional)</span>
               </label>
               <input
                 type="text"
@@ -651,10 +679,9 @@ export function UpdatePolicyDetailsDialog({
                 <label className="block text-xs font-bold mb-1 flex items-center gap-1">
                   <UserCheck className="h-3 w-3 text-muted-foreground" />
                   <span>Proposer Aadhaar</span>
-                  <span className="text-rose-500">*</span>
+                  <span className="text-muted-foreground font-normal">(Optional)</span>
                 </label>
                 <input
-                  required
                   type="text"
                   value={customerAadhaar}
                   maxLength={12}

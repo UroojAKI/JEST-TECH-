@@ -129,6 +129,84 @@ export class HealthQuotationCaseService {
     } as T;
   }
 
+  async resolveInsurer(
+    insurerId?: string,
+    insurerName?: string,
+    prismaClient?: Prisma.TransactionClient,
+  ) {
+    const prisma = prismaClient || this.prisma;
+    if (insurerId) {
+      const match = await prisma.insurer.findFirst({
+        where: { id: insurerId, isActive: true },
+      });
+      if (match) return match;
+    }
+    if (!insurerName) return null;
+
+    const trimmed = insurerName.trim();
+    if (!trimmed) return null;
+
+    // 1. Exact match (case-insensitive)
+    let match = await prisma.insurer.findFirst({
+      where: {
+        OR: [
+          { name: { equals: trimmed, mode: 'insensitive' } },
+          { code: { equals: trimmed.toUpperCase().replace(/\s+/g, '_') } },
+        ],
+        isActive: true,
+      },
+    });
+    if (match) return match;
+
+    // 2. Contains match (case-insensitive)
+    match = await prisma.insurer.findFirst({
+      where: {
+        name: { contains: trimmed, mode: 'insensitive' },
+        isActive: true,
+      },
+    });
+    if (match) return match;
+
+    // 3. Keyword / partial matching for common insurer patterns
+    const lower = trimmed.toLowerCase();
+    const keywords: [string, string][] = [
+      ['star', 'STAR_HEALTH'],
+      ['care', 'CARE_HEALTH'],
+      ['niva', 'NIVA_BUPA'],
+      ['bupa', 'NIVA_BUPA'],
+      ['hdfc', 'HDFC_ERGO'],
+      ['icici', 'ICICI_LOMBARD'],
+      ['tata', 'TATA_AIG'],
+      ['bajaj', 'BAJAJ_ALLIANZ'],
+      ['aditya', 'ADITYA_BIRLA_HEALTH'],
+      ['birla', 'ADITYA_BIRLA_HEALTH'],
+      ['manipal', 'MANIPAL_CIGNA_HEALTH'],
+      ['cigna', 'MANIPAL_CIGNA_HEALTH'],
+      ['reliance', 'RELIANCE_GENERAL'],
+      ['sbi', 'SBI_GENERAL'],
+      ['digit', 'GO_DIGIT'],
+      ['new india', 'NEW_INDIA'],
+      ['united', 'UNITED_INDIA'],
+      ['national', 'NATIONAL_INSURANCE'],
+      ['oriental', 'ORIENTAL_INSURANCE'],
+      ['chola', 'CHOLAMANDALAM_MS'],
+      ['royal', 'ROYAL_SUNDARAM'],
+      ['shriram', 'SHRIRAM_GENERAL'],
+      ['generali', 'FUTURE_GENERALI'],
+    ];
+
+    for (const [kw, code] of keywords) {
+      if (lower.includes(kw)) {
+        match = await prisma.insurer.findFirst({
+          where: { code, isActive: true },
+        });
+        if (match) return match;
+      }
+    }
+
+    return null;
+  }
+
   private async assertLeadAccess(leadId: string, user: RequestUser) {
     const lead = await this.prisma.lead.findFirst({
       where: { id: leadId, companyId: user.companyId, deletedAt: null },
@@ -452,6 +530,13 @@ export class HealthQuotationCaseService {
       gstPercent: dto.gstPercent,
     });
 
+    const resolvedInsurer = await this.resolveInsurer(dto.insurerId, dto.insurerName);
+    if (!resolvedInsurer) {
+      throw new BadRequestException(
+        `Insurer '${dto.insurerName || dto.insurerId}' is not registered in the Insurer Master. Please select an active partner insurer.`,
+      );
+    }
+
     const policyStartDate = dto.policyStartDate ? new Date(dto.policyStartDate) : null;
     const policyEndDate = policyStartDate ? this.policyEndDate(policyStartDate, dto.policyTenureYears) : null;
     const expiryDate = new Date(Date.now() + QUOTE_VALIDITY_DAYS * 24 * 60 * 60 * 1000);
@@ -462,16 +547,18 @@ export class HealthQuotationCaseService {
       const quotation = await tx.quotation.create({
         data: {
           quotationCode,
-          title: `${dto.insurerName} ${dto.planName} - ${healthCase.caseCode}`,
+          title: `${resolvedInsurer.name} ${dto.planName} - ${healthCase.caseCode}`,
           status: QuotationStatus.DRAFT,
           companyId: user.companyId,
           contactId: healthCase.contactId,
           leadId: healthCase.leadId,
           agentId: healthCase.agentId,
           agentExternalCodeId: healthCase.agentExternalCodeId,
-          insurerName: dto.insurerName,
+          insurerName: resolvedInsurer.name,
+          insurerId: resolvedInsurer.id,
           productCode: dto.uin,
           productType: 'HEALTH',
+          policyType: healthCase.policyForm,
           sumInsured: dto.sumInsured,
           basePremium: premium.basePremium,
           gstAmount: premium.gstAmount,
@@ -571,8 +658,9 @@ export class HealthQuotationCaseService {
       );
     }
     const amount = dto.amount !== undefined ? Number(dto.amount) : undefined;
-    const referenceNumber = dto.referenceNumber.trim();
     const paymentMethod = dto.paymentMethod.trim();
+    const isCash = paymentMethod.toUpperCase() === 'CASH';
+    const rawRef = dto.referenceNumber ? dto.referenceNumber.trim() : '';
 
     await this.prisma.$transaction(async (tx) => {
       const healthCase = await tx.healthQuotationCase.findFirst({
@@ -614,24 +702,30 @@ export class HealthQuotationCaseService {
 
       const payableAmount = Number(quotation.totalPremium);
       const submittedAmount = amount ?? payableAmount;
+      const existingPayment = await tx.motorPaymentRecord.findUnique({
+        where: { quotationId: quotation.id },
+      });
+
+      const referenceNumber =
+        rawRef ||
+        (isCash && existingPayment?.referenceNumber ? existingPayment.referenceNumber : '') ||
+        (isCash ? `CASH-${Date.now().toString().slice(-6)}` : '');
+
       if (targetStatus === PaymentTrackingStatus.PAID) {
         if (Math.abs(submittedAmount - payableAmount) > 0.01) {
           throw new BadRequestException(
             `Payment amount ₹${submittedAmount} does not match authoritative quotation premium ₹${payableAmount}`,
           );
         }
-        if (!referenceNumber) {
+        if (!isCash && !referenceNumber) {
           throw new BadRequestException('Payment reference number / UTR is required before marking as PAID');
         }
       }
 
-      const existingPayment = await tx.motorPaymentRecord.findUnique({
-        where: { quotationId: quotation.id },
-      });
       const samePayment = Boolean(
         existingPayment &&
         Number(existingPayment.amount) === submittedAmount &&
-        existingPayment.referenceNumber === referenceNumber &&
+        (existingPayment.referenceNumber === referenceNumber || (isCash && existingPayment.referenceNumber?.startsWith('CASH-'))) &&
         existingPayment.paymentMethod === paymentMethod,
       );
 

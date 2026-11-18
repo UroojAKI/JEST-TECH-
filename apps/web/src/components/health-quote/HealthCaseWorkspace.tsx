@@ -7,6 +7,7 @@ import { canUserSubmitToBackOffice, canQuotationRecordPayment } from '../../repo
 import { toast } from 'sonner';
 import {
   AlertCircle,
+  ArrowLeft,
   CheckCircle2,
   Clock,
   Edit3,
@@ -24,6 +25,7 @@ import {
 import { useAuthStore } from '../../store/auth-store';
 import { Address } from '../../types';
 import { apiClient } from '../../lib/api-client';
+import { useInsurers } from '../../hooks/useInsurers';
 import { healthApiError, healthQuotationRepository } from '../../repositories/health-quotation.repository';
 import {
   NOMINEE_RELATIONS,
@@ -180,7 +182,21 @@ export function HealthCaseWorkspace({ caseId }: { caseId: string }) {
   });
 
   if (caseQuery.isLoading) return <div className="p-8 text-center text-xs text-muted-foreground animate-pulse">Loading Health proposal...</div>;
-  if (caseQuery.isError || !caseQuery.data) return <div className="p-8 text-center text-xs text-rose-500">Health proposal not found.</div>;
+  if (caseQuery.isError || !caseQuery.data) {
+    return (
+      <div className="max-w-5xl mx-auto space-y-5">
+        <div>
+          <Link
+            href="/sales/health-quotations"
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" /> Back to Health Proposals
+          </Link>
+        </div>
+        <div className="p-8 text-center text-xs text-rose-500">Health proposal not found.</div>
+      </div>
+    );
+  }
 
   const hc = caseQuery.data;
   const checklist = checklistQuery.data;
@@ -191,16 +207,6 @@ export function HealthCaseWorkspace({ caseId }: { caseId: string }) {
   const paymentStatus = paymentRecord?.status || 'NOT_DONE';
 
   const handleIssuePolicy = (quotationId: string, quoteCode?: string) => {
-    const hasPan = Boolean(hc.contact?.panNumber);
-    const hasAadhaar = Boolean(hc.contact?.aadhaarNumber);
-
-    if (!hasPan || !hasAadhaar) {
-      const missing = !hasPan && !hasAadhaar ? 'PAN and Aadhaar numbers' : !hasPan ? 'PAN number' : 'Aadhaar number';
-      toast.error(`Customer ${missing} required before issuing Health policy. Please update leftover KYC entries.`);
-      setEditDetailsModalOpen(true);
-      return;
-    }
-
     if (confirm(`Confirm issuance of official Health Policy for quotation ${quoteCode || quotationId}?`)) {
       issuePolicyMutation.mutate(quotationId);
     }
@@ -223,6 +229,14 @@ export function HealthCaseWorkspace({ caseId }: { caseId: string }) {
 
   return (
     <div className="max-w-5xl mx-auto space-y-5">
+      <div>
+        <Link
+          href="/sales/health-quotations"
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to Health Proposals
+        </Link>
+      </div>
       <div className="p-5 rounded-2xl border bg-card flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="p-3 rounded-xl bg-primary/10 text-primary">
@@ -909,7 +923,8 @@ function RecordPaymentModal({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (!form.referenceNumber?.trim()) {
+            const isCash = form.paymentMethod === 'CASH';
+            if (!isCash && !form.referenceNumber?.trim()) {
               toast.error('Please enter the transaction reference / UTR number');
               return;
             }
@@ -917,10 +932,11 @@ function RecordPaymentModal({
               toast.error('Please enter a valid payment amount');
               return;
             }
+            const cleanRef = form.referenceNumber?.trim();
             onSubmit({
               amount: Number(form.amount),
               paymentMethod: form.paymentMethod,
-              referenceNumber: form.referenceNumber.trim(),
+              referenceNumber: cleanRef || (isCash ? undefined : ''),
               status: form.status,
               notes: form.notes?.trim() || undefined,
             });
@@ -986,18 +1002,29 @@ function RecordPaymentModal({
 
           <div>
             <label className="block font-black text-[11px] mb-1">
-              Transaction Reference / UTR / Cheque No. <span className="text-rose-500">*</span>
+              Transaction Reference / UTR / Cheque No.{' '}
+              {form.paymentMethod === 'CASH' ? (
+                <span className="text-muted-foreground font-normal">(Optional for Cash Deposit)</span>
+              ) : (
+                <span className="text-rose-500">*</span>
+              )}
             </label>
             <input
               type="text"
               value={form.referenceNumber}
               onChange={(e) => setForm({ ...form, referenceNumber: e.target.value })}
               className={inputCls}
-              placeholder="e.g. UTR / Bank Reference No / UPI Ref ID"
-              required
+              placeholder={
+                form.paymentMethod === 'CASH'
+                  ? 'e.g. Receipt No / Slip No (Optional)'
+                  : 'e.g. UTR / Bank Reference No / UPI Ref ID'
+              }
+              required={form.paymentMethod !== 'CASH'}
             />
             <p className="text-[10px] text-muted-foreground mt-1">
-              Used for audit trail and finance bank reconciliation.
+              {form.paymentMethod === 'CASH'
+                ? 'Optional for Cash deposits. A cash receipt reference will be auto-generated if left blank.'
+                : 'Used for audit trail and finance bank reconciliation.'}
             </p>
           </div>
 
@@ -1434,8 +1461,10 @@ function EditLeftoverDetailsModal({
 }
 
 function AddQuoteForm({ healthCase, onCancel, onSaved }: { healthCase: any; onCancel: () => void; onSaved: () => void }) {
+  const { activeInsurers, isLoading: insurersLoading } = useInsurers();
   const isRenewal = healthCase.policyForm === 'RENEWAL_PORTABILITY';
   const [form, setForm] = useState({
+    insurerId: '',
     insurerName: '',
     planName: healthCase.planDetails?.planName ?? '',
     uin: healthCase.planDetails?.uin ?? '',
@@ -1464,7 +1493,7 @@ function AddQuoteForm({ healthCase, onCancel, onSaved }: { healthCase: any; onCa
 
   const save = async () => {
     const missing = [
-      !form.insurerName && 'Insurer',
+      !form.insurerName && !form.insurerId && 'Insurer',
       !form.planName && 'Plan name',
       !form.uin && 'UIN',
       !form.sumInsured && 'Sum insured',
@@ -1481,6 +1510,7 @@ function AddQuoteForm({ healthCase, onCancel, onSaved }: { healthCase: any; onCa
     setSaving(true);
     try {
       await healthQuotationRepository.addQuote(healthCase.id, {
+        ...(form.insurerId ? { insurerId: form.insurerId } : {}),
         insurerName: form.insurerName,
         planName: form.planName,
         uin: form.uin,
@@ -1512,7 +1542,25 @@ function AddQuoteForm({ healthCase, onCancel, onSaved }: { healthCase: any; onCa
       <h3 className="font-black text-sm">New Quote — {isRenewal ? 'Renewal / Portability' : 'New Policy'}</h3>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <FieldLabel label="Insurer" required>
-          <input className={inputCls} value={form.insurerName} onChange={set('insurerName')} />
+          <select
+            className={inputCls}
+            value={form.insurerId}
+            onChange={(e) => {
+              const selected = activeInsurers.find((ins) => ins.id === e.target.value);
+              setForm({
+                ...form,
+                insurerId: e.target.value,
+                insurerName: selected ? selected.name : '',
+              });
+            }}
+          >
+            <option value="">{insurersLoading ? 'Loading partner insurers...' : '— Select Partner Insurer —'}</option>
+            {activeInsurers.map((ins) => (
+              <option key={ins.id} value={ins.id}>
+                {ins.name}
+              </option>
+            ))}
+          </select>
         </FieldLabel>
         <FieldLabel label="Plan Name" required>
           <input className={inputCls} value={form.planName} onChange={set('planName')} />

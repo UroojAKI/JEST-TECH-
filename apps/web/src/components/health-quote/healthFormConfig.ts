@@ -269,6 +269,10 @@ export function toPayload(fields: FieldSpec[], values: Record<string, any>): Rec
       out['uin'] = v && String(v).trim() ? String(v).trim() : 'NA';
       continue;
     }
+    if (f.key === 'membersCount') {
+      // membersCount is a UI-only wizard helper to generate member cards, not an API planDetail property
+      continue;
+    }
     if (v === '' || v === undefined || v === null) continue;
     if (f.type === 'number') out[f.key] = Number(v);
     else if (f.key === 'gradeWiseSumInsured' && typeof v === 'string') {

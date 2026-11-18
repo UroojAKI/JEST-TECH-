@@ -256,7 +256,31 @@ export class QuotationController {
     if (!quotation) {
       throw new ForbiddenException('Quotation not found in the current company workspace');
     }
-    const normalizedInsurerName = String(quotation.insurerName || '').trim().toLowerCase();
+
+    let normalizedInsurerName = String(quotation.insurerName || '').trim().toLowerCase();
+    if (!quotation.insurerId && normalizedInsurerName && normalizedInsurerName !== 'partner insurer') {
+      // Auto-heal missing insurerId by resolving against active Insurer master
+      const matched = await this.prisma.insurer.findFirst({
+        where: {
+          OR: [
+            { name: { equals: quotation.insurerName.trim(), mode: 'insensitive' } },
+            { name: { contains: quotation.insurerName.trim(), mode: 'insensitive' } },
+            { code: { equals: quotation.insurerName.trim().toUpperCase().replace(/\s+/g, '_') } },
+          ],
+          isActive: true,
+        },
+      });
+      if (matched) {
+        await this.prisma.quotation.update({
+          where: { id: quotation.id },
+          data: { insurerId: matched.id, insurerName: matched.name },
+        });
+        quotation.insurerId = matched.id;
+        quotation.insurerName = matched.name;
+        normalizedInsurerName = matched.name.toLowerCase();
+      }
+    }
+
     if (!quotation.insurerId || !normalizedInsurerName || normalizedInsurerName === 'partner insurer') {
       throw new BadRequestException('This quotation does not have a valid insurer master record. Correct the insurer identity before Back Office handoff.');
     }
@@ -281,6 +305,18 @@ export class QuotationController {
     }
     if (quotation.healthCase && quotation.healthCase.selectedQuoteId !== id) {
       throw new BadRequestException('Select this quotation in its health quotation case before submitting it to back office');
+    }
+
+    if (!quotation.policyType && (quotation.productType === 'HEALTH' || quotation.healthCase)) {
+      const pType =
+        (quotation.healthMetadata as any)?.policyForm ||
+        quotation.healthPlanCategory ||
+        'NEW_POLICY';
+      await this.prisma.quotation.update({
+        where: { id: quotation.id },
+        data: { policyType: pType },
+      });
+      quotation.policyType = pType;
     }
 
     const completion = await this.quotationCompletionService.getCompletion(id, user);

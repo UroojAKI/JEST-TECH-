@@ -312,14 +312,20 @@ export class PolicyMapper {
       for (const doc of p.documents) {
         if (!seenIds.has(doc.id)) {
           seenIds.add(doc.id);
+          const matchingDirectDoc = directDocs?.find(
+            (d) => d.storageKey === doc.fileKey || d.fileUrl === doc.fileKey,
+          );
+          if (matchingDirectDoc) {
+            seenIds.add(matchingDirectDoc.id);
+          }
           unifiedDocs.push({
             id: doc.id,
-            documentId: doc.id,
+            documentId: matchingDirectDoc?.id || doc.id,
             documentType: doc.documentType || 'POLICY_DOCUMENT',
             fileKey: doc.fileKey,
-            fileName: doc.fileName || doc.documentType || 'Policy Document',
-            fileSize: doc.fileSize || 0,
-            mimeType: 'application/pdf',
+            fileName: doc.fileName || matchingDirectDoc?.originalFileName || doc.documentType || 'Policy Document',
+            fileSize: doc.fileSize || matchingDirectDoc?.size || 0,
+            mimeType: matchingDirectDoc?.mimeType || 'application/pdf',
             createdAt: doc.createdAt,
             source: 'POLICY',
             verificationStatus: 'VERIFIED',

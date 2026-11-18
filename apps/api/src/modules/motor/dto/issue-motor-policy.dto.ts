@@ -1,7 +1,8 @@
 import { PolicyAddressDto } from '../../policies/dto/policy-address.dto';
+import { CreatePolicyNomineeDto } from '../../policies/dto/create-policy.dto';
 import { ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
-import { IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { IsNumber, IsOptional, IsString, Min, IsArray } from 'class-validator';
 
 export class IssueMotorPolicyDto {
   @IsOptional()
@@ -20,6 +21,24 @@ export class IssueMotorPolicyDto {
   @IsOptional()
   @IsString()
   endDate?: string;
+
+  @IsOptional()
+  @IsString()
+  effectiveDate?: string;
+
+  @IsOptional()
+  @IsString()
+  expiryDate?: string;
+
+  @IsOptional()
+  @IsString()
+  customerAadhaar?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreatePolicyNomineeDto)
+  nominees?: CreatePolicyNomineeDto[];
 
   @IsOptional()
   @IsString()

@@ -45,7 +45,6 @@ export class CreateMotorQuotationCommand {
     if (!selectedInsurer || selectedInsurer.toLowerCase() === 'partner insurer') {
       throw new BadRequestException('Select a valid insurer before generating a Motor quotation');
     }
-
     let insurer: { id: string; name: string } | null = null;
     if (dto.insurerId) {
       insurer = await this.prisma.insurer.findFirst({
