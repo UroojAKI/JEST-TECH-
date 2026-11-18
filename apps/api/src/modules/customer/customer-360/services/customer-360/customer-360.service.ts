@@ -136,8 +136,8 @@ export class Customer360Service {
       agentId = agent?.id;
     }
 
-    // 1. Fetch Real Operational Data Concurrently
-    const [policies, quotations, claims, comms, leads, documents] =
+    // 1. Fetch Real Operational Data Concurrently Across All 4 Proposal Modules
+    const [policies, quotations, claims, comms, leads, documents, healthCases, lifeCases, loanCases] =
       await Promise.all([
         this.prisma.policy.findMany({
           where: {
@@ -290,6 +290,56 @@ export class Customer360Service {
           orderBy: { createdAt: 'desc' },
           take: 50,
         }),
+        this.prisma.healthQuotationCase?.findMany
+          ? this.prisma.healthQuotationCase.findMany({
+              where: {
+                contactId: contact.id,
+                deletedAt: null,
+                ...(companyId ? { companyId } : {}),
+              },
+              include: {
+                selectedQuote: {
+                  select: { id: true, quotationCode: true, totalPremium: true, status: true, insurerName: true },
+                },
+              },
+              orderBy: { createdAt: 'desc' },
+              take: 50,
+            })
+          : Promise.resolve([]),
+        this.prisma.lifeQuotationCase?.findMany
+          ? this.prisma.lifeQuotationCase.findMany({
+              where: {
+                contactId: contact.id,
+                deletedAt: null,
+                ...(companyId ? { companyId } : {}),
+              },
+              include: {
+                selectedQuote: {
+                  select: { id: true, quotationCode: true, totalPremium: true, status: true, insurerName: true },
+                },
+              },
+              orderBy: { createdAt: 'desc' },
+              take: 50,
+            })
+          : Promise.resolve([]),
+        this.prisma.loanApplicationCase?.findMany
+          ? this.prisma.loanApplicationCase.findMany({
+              where: {
+                contactId: contact.id,
+                deletedAt: null,
+                ...(companyId ? { companyId } : {}),
+              },
+              include: {
+                facilities: {
+                  include: {
+                    lenderOffers: true,
+                  },
+                },
+              },
+              orderBy: { createdAt: 'desc' },
+              take: 50,
+            })
+          : Promise.resolve([]),
       ]);
 
     // 2. Fetch Authoritative Customer Vehicles
@@ -508,6 +558,36 @@ export class Customer360Service {
       });
     }
 
+    for (const hc of healthCases) {
+      timeline.push({
+        date: hc.createdAt,
+        type: 'HEALTH_PROPOSAL_CREATED',
+        title: `Health Proposal ${hc.caseCode} Generated`,
+        description: `Plan: ${hc.planCategory} · Form: ${hc.policyForm} · Status: ${hc.status}`,
+        meta: { caseId: hc.id, status: hc.status, lineOfBusiness: 'HEALTH' },
+      });
+    }
+
+    for (const lc of lifeCases) {
+      timeline.push({
+        date: lc.createdAt,
+        type: 'LIFE_PROPOSAL_CREATED',
+        title: `Life Proposal ${lc.caseCode} Generated`,
+        description: `Plan: ${lc.planCategory} · Form: ${lc.policyForm} · Status: ${lc.status}`,
+        meta: { caseId: lc.id, status: lc.status, lineOfBusiness: 'LIFE' },
+      });
+    }
+
+    for (const loan of loanCases) {
+      timeline.push({
+        date: loan.createdAt,
+        type: 'LOAN_APPLICATION_CREATED',
+        title: `Loan Application ${loan.caseCode} Created`,
+        description: `Category: ${loan.category} · Status: ${loan.status}`,
+        meta: { caseId: loan.id, status: loan.status, lineOfBusiness: 'LOANS' },
+      });
+    }
+
     timeline.sort(
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
     );
@@ -592,6 +672,9 @@ export class Customer360Service {
       vehicles: vehiclesResult,
       policies,
       quotations,
+      healthCases,
+      lifeCases,
+      loanCases,
       claims,
       openClaims,
       leads,

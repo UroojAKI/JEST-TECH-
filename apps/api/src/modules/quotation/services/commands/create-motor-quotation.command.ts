@@ -54,18 +54,29 @@ export class CreateMotorQuotationCommand {
     }
 
     if (!insurer) {
-      const matchingInsurers = await this.prisma.insurer.findMany({
+      let matchingInsurers = await this.prisma.insurer.findMany({
         where: {
           isActive: true,
-          OR: [
-            { name: { equals: selectedInsurer, mode: 'insensitive' } },
-            { name: { startsWith: selectedInsurer, mode: 'insensitive' } },
-            { code: { equals: selectedInsurer.replace(/\s+/g, '_').toUpperCase() } },
-          ],
+          name: { equals: selectedInsurer, mode: 'insensitive' },
         },
         select: { id: true, name: true },
         take: 2,
       });
+
+      if (matchingInsurers.length === 0 && selectedInsurer) {
+        matchingInsurers = await this.prisma.insurer.findMany({
+          where: {
+            isActive: true,
+            OR: [
+              { name: { startsWith: selectedInsurer, mode: 'insensitive' } },
+              { code: { equals: selectedInsurer.replace(/\s+/g, '_').toUpperCase() } },
+            ],
+          },
+          select: { id: true, name: true },
+          take: 2,
+        });
+      }
+
       if (matchingInsurers.length !== 1) {
         throw new BadRequestException(
           matchingInsurers.length === 0

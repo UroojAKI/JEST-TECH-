@@ -453,32 +453,6 @@ export function LifeQuoteWizard({
               </div>
             </div>
 
-            {/* Proposal Metadata Header (PDF Requirements 1 & 2) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl bg-muted/20 border border-border">
-              <FieldLabel label="Proposal / Enquiry Date" required hint="Date of proposal generation">
-                <input
-                  className={inputCls}
-                  type="date"
-                  value={proposer.proposalDate}
-                  onChange={(e) => setProposer({ ...proposer, proposalDate: e.target.value })}
-                />
-              </FieldLabel>
-
-              <FieldLabel label="Lead / Enquiry Source" required hint="Channel through which enquiry was received">
-                <select
-                  className={inputCls}
-                  value={proposer.leadSource}
-                  onChange={(e) => setProposer({ ...proposer, leadSource: e.target.value })}
-                >
-                  {LEAD_SOURCES.map((ls) => (
-                    <option key={ls.value} value={ls.value}>
-                      {ls.label}
-                    </option>
-                  ))}
-                </select>
-              </FieldLabel>
-            </div>
-
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FieldLabel label="First Name" required>
                 <input

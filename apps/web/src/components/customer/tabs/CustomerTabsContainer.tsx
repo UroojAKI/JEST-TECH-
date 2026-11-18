@@ -34,6 +34,9 @@ import {
   Upload,
   FileImage,
   File,
+  HeartPulse,
+  Shield,
+  Landmark,
 } from 'lucide-react';
 import { StatusBadge } from '../../ui/status-badge';
 import { UnifiedChart } from '../../charts/unified-chart';
@@ -52,6 +55,10 @@ export function CustomerTabsContainer({ customerId }: { customerId: string }) {
   const policies = workspace?.policies || [];
   const claims = workspace?.claims || [];
   const quotations = workspace?.quotations || [];
+  const healthCases = workspace?.healthCases || [];
+  const lifeCases = workspace?.lifeCases || [];
+  const loanCases = workspace?.loanCases || [];
+  const totalProposals = quotations.length + healthCases.length + lifeCases.length + loanCases.length;
   const vehicles = workspace?.vehicles || [];
   const familyMembers = workspace?.familyMembers || [];
   const timeline = workspace?.timeline || [];
@@ -65,7 +72,7 @@ export function CustomerTabsContainer({ customerId }: { customerId: string }) {
     { id: 'OVERVIEW', label: 'Overview', icon: <Activity className="h-3.5 w-3.5" /> },
     { id: 'LEADS', label: 'Leads', icon: <TrendingUp className="h-3.5 w-3.5" />, badge: leads.length },
     { id: 'POLICIES', label: 'Policies', icon: <ShieldCheck className="h-3.5 w-3.5" />, badge: policies.length },
-    { id: 'QUOTATIONS', label: 'Quotations', icon: <FileSpreadsheet className="h-3.5 w-3.5" />, badge: quotations.length },
+    { id: 'QUOTATIONS', label: 'Proposals & Quotes', icon: <FileSpreadsheet className="h-3.5 w-3.5" />, badge: totalProposals },
     { id: 'CLAIMS', label: 'Claims', icon: <FileText className="h-3.5 w-3.5" />, badge: claims.length },
     { id: 'RENEWALS', label: 'Renewals', icon: <Clock className="h-3.5 w-3.5" />, badge: renewals.length },
     { id: 'PAYMENTS', label: 'Payments', icon: <Wallet className="h-3.5 w-3.5" />, badge: payments.length },
@@ -126,7 +133,15 @@ export function CustomerTabsContainer({ customerId }: { customerId: string }) {
         )}
         {activeTab === 'LEADS' && <LeadsListView leads={leads} />}
         {activeTab === 'POLICIES' && <ExpandablePoliciesView policies={policies} />}
-        {activeTab === 'QUOTATIONS' && <QuotationsListView quotations={quotations} />}
+        {activeTab === 'QUOTATIONS' && (
+          <QuotationsListView
+            quotations={quotations}
+            healthCases={healthCases}
+            lifeCases={lifeCases}
+            loanCases={loanCases}
+            customerId={customerId}
+          />
+        )}
         {activeTab === 'CLAIMS' && <ClaimsLifecycleView claims={claims} />}
         {activeTab === 'RENEWALS' && <RenewalsListView renewals={renewals} policies={policies} />}
         {activeTab === 'PAYMENTS' && <PaymentsListView payments={payments} />}
@@ -1089,32 +1104,263 @@ function ClaimsLifecycleView({ claims }: { claims: any[] }) {
   );
 }
 
-function QuotationsListView({ quotations }: { quotations: any[] }) {
-  if (!quotations || quotations.length === 0) {
-    return (
-      <div className="p-8 text-center text-muted-foreground border rounded-xl bg-card">
-        No quotation proposals prepared for this customer.
-      </div>
-    );
-  }
+function QuotationsListView({
+  quotations = [],
+  healthCases = [],
+  lifeCases = [],
+  loanCases = [],
+  customerId,
+}: {
+  quotations?: any[];
+  healthCases?: any[];
+  lifeCases?: any[];
+  loanCases?: any[];
+  customerId?: string;
+}) {
+  const [subTab, setSubTab] = useState<'ALL' | 'MOTOR' | 'HEALTH' | 'LIFE' | 'LOANS'>('ALL');
+
+  const motorCount = quotations.length;
+  const healthCount = healthCases.length;
+  const lifeCount = lifeCases.length;
+  const loanCount = loanCases.length;
+  const totalCount = motorCount + healthCount + lifeCount + loanCount;
 
   return (
-    <div className="space-y-3">
-      {quotations.map((q) => (
-        <div key={q.id} className="p-4 rounded-xl border bg-card flex justify-between items-center gap-4">
-          <div>
-            <Link href={`/sales/quotations/${q.id}`} className="font-bold text-primary font-mono hover:underline">{q.quotationCode}</Link>
-            <p className="text-xs font-semibold">{q.title || 'Motor Quotation'}</p>
-            <p className="text-[10px] text-muted-foreground">
-              Case {q.case?.id ? <Link href={`/workspace/operations/cases/${q.case.id}`} className="text-primary hover:underline">{q.case.caseCode}</Link> : '—'} · Inspection {q.motorInspection?.inspectionCode ? <Link href={`/workspace/operations/inspections/${q.id}`} className="text-primary hover:underline">{q.motorInspection.inspectionCode} {q.motorInspection.status}</Link> : 'NOT STARTED'} · Payment {q.motorPaymentRecord?.status || 'NOT DONE'} · Policy {q.policy?.id ? <Link href={`/policies/${q.policy.id}`} className="text-primary hover:underline">{q.policy.policyNumber}</Link> : 'NOT ISSUED'}
-            </p>
-          </div>
-          <div className="flex items-center space-x-3">
-            <span className="font-bold text-sm">₹{Number(q.totalPremium || 0).toLocaleString('en-IN')}</span>
-            <StatusBadge status={q.status} />
-          </div>
+    <div className="space-y-4">
+      {/* Sub-tab Navigation and Actions */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
+        <div className="flex items-center space-x-1.5 overflow-x-auto">
+          <button
+            type="button"
+            onClick={() => setSubTab('ALL')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
+              subTab === 'ALL'
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'bg-muted/40 text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            All Proposals ({totalCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => setSubTab('MOTOR')}
+            className={`flex items-center space-x-1 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
+              subTab === 'MOTOR'
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'bg-muted/40 text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            <Car className="h-3.5 w-3.5" />
+            <span>Motor ({motorCount})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setSubTab('HEALTH')}
+            className={`flex items-center space-x-1 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
+              subTab === 'HEALTH'
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'bg-muted/40 text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            <HeartPulse className="h-3.5 w-3.5" />
+            <span>Health ({healthCount})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setSubTab('LIFE')}
+            className={`flex items-center space-x-1 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
+              subTab === 'LIFE'
+                ? 'bg-purple-600 text-white shadow-sm'
+                : 'bg-muted/40 text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            <Shield className="h-3.5 w-3.5" />
+            <span>Life ({lifeCount})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setSubTab('LOANS')}
+            className={`flex items-center space-x-1 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
+              subTab === 'LOANS'
+                ? 'bg-amber-600 text-white shadow-sm'
+                : 'bg-muted/40 text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            <Landmark className="h-3.5 w-3.5" />
+            <span>Loans ({loanCount})</span>
+          </button>
         </div>
-      ))}
+
+        <div className="flex items-center space-x-2">
+          <Link
+            href="/sales/quotations"
+            className="inline-flex items-center space-x-1 px-2.5 py-1 text-[11px] font-semibold border rounded-md hover:bg-muted/50 transition-colors"
+          >
+            <Plus className="h-3 w-3" />
+            <span>Motor</span>
+          </Link>
+          <Link
+            href="/sales/health-quotations"
+            className="inline-flex items-center space-x-1 px-2.5 py-1 text-[11px] font-semibold border rounded-md hover:bg-muted/50 transition-colors"
+          >
+            <Plus className="h-3 w-3" />
+            <span>Health</span>
+          </Link>
+          <Link
+            href="/sales/life-quotations"
+            className="inline-flex items-center space-x-1 px-2.5 py-1 text-[11px] font-semibold border rounded-md hover:bg-muted/50 transition-colors"
+          >
+            <Plus className="h-3 w-3" />
+            <span>Life</span>
+          </Link>
+          <Link
+            href="/sales/loans"
+            className="inline-flex items-center space-x-1 px-2.5 py-1 text-[11px] font-semibold border rounded-md hover:bg-muted/50 transition-colors"
+          >
+            <Plus className="h-3 w-3" />
+            <span>Loan</span>
+          </Link>
+        </div>
+      </div>
+
+      {totalCount === 0 && (
+        <div className="p-8 text-center text-muted-foreground border rounded-xl bg-card space-y-2">
+          <p className="font-semibold text-sm">No proposal or quotation records found for this customer.</p>
+          <p className="text-xs">Create a new proposal across Motor, Health, Life, or Loan products to get started.</p>
+        </div>
+      )}
+
+      {/* Motor Quotations */}
+      {(subTab === 'ALL' || subTab === 'MOTOR') && quotations.length > 0 && (
+        <div className="space-y-2">
+          {subTab === 'ALL' && (
+            <div className="flex items-center space-x-2 text-xs font-bold text-muted-foreground uppercase tracking-wider pt-2">
+              <Car className="h-3.5 w-3.5 text-blue-500" />
+              <span>Motor Quotations ({motorCount})</span>
+            </div>
+          )}
+          {quotations.map((q) => (
+            <div key={q.id} className="p-4 rounded-xl border bg-card flex justify-between items-center gap-4 hover:border-primary/40 transition-colors">
+              <div>
+                <div className="flex items-center space-x-2">
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-600">MOTOR</span>
+                  <Link href={`/sales/quotations/${q.id}`} className="font-bold text-primary font-mono hover:underline">{q.quotationCode}</Link>
+                </div>
+                <p className="text-xs font-semibold mt-0.5">{q.title || 'Motor Quotation'}</p>
+                <p className="text-[10px] text-muted-foreground">
+                  Case {q.case?.id ? <Link href={`/workspace/operations/cases/${q.case.id}`} className="text-primary hover:underline">{q.case.caseCode}</Link> : '—'} · Inspection {q.motorInspection?.inspectionCode ? <Link href={`/workspace/operations/inspections/${q.id}`} className="text-primary hover:underline">{q.motorInspection.inspectionCode} {q.motorInspection.status}</Link> : 'NOT STARTED'} · Payment {q.motorPaymentRecord?.status || 'NOT DONE'} · Policy {q.policy?.id ? <Link href={`/policies/${q.policy.id}`} className="text-primary hover:underline">{q.policy.policyNumber}</Link> : 'NOT ISSUED'}
+                </p>
+              </div>
+              <div className="flex items-center space-x-3">
+                <span className="font-bold text-sm">₹{Number(q.totalPremium || 0).toLocaleString('en-IN')}</span>
+                <StatusBadge status={q.status} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Health Proposals */}
+      {(subTab === 'ALL' || subTab === 'HEALTH') && healthCases.length > 0 && (
+        <div className="space-y-2">
+          {subTab === 'ALL' && (
+            <div className="flex items-center space-x-2 text-xs font-bold text-muted-foreground uppercase tracking-wider pt-2">
+              <HeartPulse className="h-3.5 w-3.5 text-emerald-500" />
+              <span>Health Proposals ({healthCount})</span>
+            </div>
+          )}
+          {healthCases.map((hc: any) => (
+            <div key={hc.id} className="p-4 rounded-xl border bg-card flex justify-between items-center gap-4 hover:border-emerald-500/40 transition-colors">
+              <div>
+                <div className="flex items-center space-x-2">
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-600">HEALTH</span>
+                  <Link href={`/sales/health-quotations/${hc.id}`} className="font-bold text-emerald-600 font-mono hover:underline">{hc.caseCode}</Link>
+                </div>
+                <p className="text-xs font-semibold mt-0.5">{hc.planCategory?.replace(/_/g, ' ') || 'Health Insurance Proposal'}</p>
+                <p className="text-[10px] text-muted-foreground">
+                  Form: {hc.policyForm || 'NEW POLICY'} · Proposer: {hc.contact?.firstName || 'Customer'} {hc.contact?.lastName || ''} · Selected Quote: {hc.selectedQuote?.quotationCode || 'Pending quote selection'}
+                </p>
+              </div>
+              <div className="flex items-center space-x-3">
+                {hc.selectedQuote?.totalPremium ? (
+                  <span className="font-bold text-sm">₹{Number(hc.selectedQuote.totalPremium).toLocaleString('en-IN')}</span>
+                ) : (
+                  <span className="text-xs text-muted-foreground">Quote pending</span>
+                )}
+                <StatusBadge status={hc.status} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Life Proposals */}
+      {(subTab === 'ALL' || subTab === 'LIFE') && lifeCases.length > 0 && (
+        <div className="space-y-2">
+          {subTab === 'ALL' && (
+            <div className="flex items-center space-x-2 text-xs font-bold text-muted-foreground uppercase tracking-wider pt-2">
+              <Shield className="h-3.5 w-3.5 text-purple-500" />
+              <span>Life Proposals ({lifeCount})</span>
+            </div>
+          )}
+          {lifeCases.map((lc: any) => (
+            <div key={lc.id} className="p-4 rounded-xl border bg-card flex justify-between items-center gap-4 hover:border-purple-500/40 transition-colors">
+              <div>
+                <div className="flex items-center space-x-2">
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-500/10 text-purple-600">LIFE</span>
+                  <Link href={`/sales/life-quotations/${lc.id}`} className="font-bold text-purple-600 font-mono hover:underline">{lc.caseCode}</Link>
+                </div>
+                <p className="text-xs font-semibold mt-0.5">{lc.planCategory?.replace(/_/g, ' ') || 'Life Insurance Proposal'}</p>
+                <p className="text-[10px] text-muted-foreground">
+                  Form: {lc.policyForm || 'NEW POLICY'} · Proposer: {lc.contact?.firstName || 'Customer'} {lc.contact?.lastName || ''} · Selected Quote: {lc.selectedQuote?.quotationCode || 'Pending quote selection'}
+                </p>
+              </div>
+              <div className="flex items-center space-x-3">
+                {lc.selectedQuote?.totalPremium ? (
+                  <span className="font-bold text-sm">₹{Number(lc.selectedQuote.totalPremium).toLocaleString('en-IN')}</span>
+                ) : (
+                  <span className="text-xs text-muted-foreground">Quote pending</span>
+                )}
+                <StatusBadge status={lc.status} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Loan Applications */}
+      {(subTab === 'ALL' || subTab === 'LOANS') && loanCases.length > 0 && (
+        <div className="space-y-2">
+          {subTab === 'ALL' && (
+            <div className="flex items-center space-x-2 text-xs font-bold text-muted-foreground uppercase tracking-wider pt-2">
+              <Landmark className="h-3.5 w-3.5 text-amber-500" />
+              <span>Loan Applications ({loanCount})</span>
+            </div>
+          )}
+          {loanCases.map((loan: any) => (
+            <div key={loan.id} className="p-4 rounded-xl border bg-card flex justify-between items-center gap-4 hover:border-amber-500/40 transition-colors">
+              <div>
+                <div className="flex items-center space-x-2">
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-600">LOAN</span>
+                  <Link href={`/sales/loans`} className="font-bold text-amber-600 font-mono hover:underline">{loan.caseCode}</Link>
+                </div>
+                <p className="text-xs font-semibold mt-0.5">{loan.category?.replace(/_/g, ' ') || 'Loan Application'}</p>
+                <p className="text-[10px] text-muted-foreground">
+                  Occupation: {loan.occupationType || 'Salaried/Business'} · Monthly Income: ₹{Number(loan.monthlyIncome || 0).toLocaleString('en-IN')} · Offers: {loan.lenderOffers?.length || 0} lender offers
+                </p>
+              </div>
+              <div className="flex items-center space-x-3">
+                {loan.requestedAmount ? (
+                  <span className="font-bold text-sm">₹{Number(loan.requestedAmount).toLocaleString('en-IN')}</span>
+                ) : (
+                  <span className="text-xs text-muted-foreground">Draft</span>
+                )}
+                <StatusBadge status={loan.status} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

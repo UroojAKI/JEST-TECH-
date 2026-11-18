@@ -28,6 +28,8 @@ import {
   Bell,
   RefreshCw,
   HeartPulse,
+  Shield,
+  Landmark,
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { customerRepository, Customer } from '../../../../repositories/customer.repository';
@@ -45,7 +47,7 @@ export default function CustomerDetailPage() {
   const customerId = (params?.id as string) || '';
 
   const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'VEHICLES' | 'QUOTATIONS' | 'POLICIES' | 'PAYMENTS' | 'LEADS' | 'TASKS' | 'CLAIMS'>('OVERVIEW');
-  const [quotationTab, setQuotationTab] = useState<'MOTOR' | 'HEALTH'>('MOTOR');
+  const [quotationTab, setQuotationTab] = useState<'MOTOR' | 'HEALTH' | 'LIFE' | 'LOANS'>('MOTOR');
   const [showEditModal, setShowEditModal] = useState(false);
   const [showNewLeadModal, setShowNewLeadModal] = useState(false);
   const [selectedQuoteForAcceptance, setSelectedQuoteForAcceptance] = useState<any>(null);
@@ -65,6 +67,42 @@ export default function CustomerDetailPage() {
     queryFn: async () => {
       try {
         const res = await apiClient.get('/health/quotation-cases');
+        const all = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+        return all.filter((c: any) =>
+          c.contactId === customer?.contactId ||
+          c.contactId === customer?.id ||
+          (customer?.contactId && c.contact?.id === customer.contactId)
+        );
+      } catch {
+        return [];
+      }
+    },
+    enabled: !!customer,
+  });
+
+  const { data: lifeCases = [] } = useQuery({
+    queryKey: ['customer-life-cases', customerId, customer?.contactId],
+    queryFn: async () => {
+      try {
+        const res = await apiClient.get('/life/quotation-cases');
+        const all = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+        return all.filter((c: any) =>
+          c.contactId === customer?.contactId ||
+          c.contactId === customer?.id ||
+          (customer?.contactId && c.contact?.id === customer.contactId)
+        );
+      } catch {
+        return [];
+      }
+    },
+    enabled: !!customer,
+  });
+
+  const { data: loanCases = [] } = useQuery({
+    queryKey: ['customer-loan-cases', customerId, customer?.contactId],
+    queryFn: async () => {
+      try {
+        const res = await apiClient.get('/loans');
         const all = Array.isArray(res.data) ? res.data : (res.data?.data || []);
         return all.filter((c: any) =>
           c.contactId === customer?.contactId ||
@@ -322,6 +360,20 @@ export default function CustomerDetailPage() {
                 <HeartPulse className="h-3.5 w-3.5" />
                 <span>Health Quote</span>
               </Link>
+              <Link
+                href={`/sales/life-quotations/new?customerId=${customer.id}&contactId=${customer.contactId || customer.id}`}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 shadow-xs transition"
+              >
+                <Shield className="h-3.5 w-3.5" />
+                <span>Life Proposal</span>
+              </Link>
+              <Link
+                href={`/sales/loans?customerId=${customer.id}&contactId=${customer.contactId || customer.id}`}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-bold hover:bg-amber-700 shadow-xs transition"
+              >
+                <Landmark className="h-3.5 w-3.5" />
+                <span>Loan Application</span>
+              </Link>
             </div>
           </div>
 
@@ -410,7 +462,7 @@ export default function CustomerDetailPage() {
           {[
             { id: 'OVERVIEW', label: 'Overview', icon: <TrendingUp className="h-3.5 w-3.5" /> },
             { id: 'VEHICLES', label: 'Vehicles', icon: <Car className="h-3.5 w-3.5" />, count: customer.vehicles?.length },
-            { id: 'QUOTATIONS', label: 'Quotations', icon: <FileSpreadsheet className="h-3.5 w-3.5" />, count: customer.quotations?.length },
+            { id: 'QUOTATIONS', label: 'Proposals & Quotes', icon: <FileSpreadsheet className="h-3.5 w-3.5" />, count: (customer.quotations?.length || 0) + healthCases.length + lifeCases.length + loanCases.length },
             { id: 'POLICIES', label: 'Policies', icon: <ShieldCheck className="h-3.5 w-3.5" />, count: customer.policies?.length },
             { id: 'PAYMENTS', label: 'Payments & Receipts', icon: <CreditCard className="h-3.5 w-3.5" />, count: (customer.payments?.length || 0) + (customer.receipts?.length || 0) },
             { id: 'LEADS', label: 'Leads', icon: <TrendingUp className="h-3.5 w-3.5" />, count: customer.leads?.length },
@@ -671,11 +723,11 @@ export default function CustomerDetailPage() {
           <div className="space-y-4">
             {/* Cross-Product Sub-tabs */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 overflow-x-auto">
                 <button
                   type="button"
                   onClick={() => setQuotationTab('MOTOR')}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition ${
+                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap ${
                     quotationTab === 'MOTOR'
                       ? 'bg-primary text-primary-foreground shadow-xs'
                       : 'border bg-card text-muted-foreground hover:text-foreground'
@@ -687,7 +739,7 @@ export default function CustomerDetailPage() {
                 <button
                   type="button"
                   onClick={() => setQuotationTab('HEALTH')}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition ${
+                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap ${
                     quotationTab === 'HEALTH'
                       ? 'bg-emerald-600 text-white shadow-xs'
                       : 'border bg-card text-muted-foreground hover:text-foreground'
@@ -696,28 +748,71 @@ export default function CustomerDetailPage() {
                   <HeartPulse className="h-3.5 w-3.5" />
                   <span>Health Proposals ({healthCases.length})</span>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setQuotationTab('LIFE')}
+                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap ${
+                    quotationTab === 'LIFE'
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : 'border bg-card text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Shield className="h-3.5 w-3.5" />
+                  <span>Life Proposals ({lifeCases.length})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQuotationTab('LOANS')}
+                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap ${
+                    quotationTab === 'LOANS'
+                      ? 'bg-amber-600 text-white shadow-xs'
+                      : 'border bg-card text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Landmark className="h-3.5 w-3.5" />
+                  <span>Loan Applications ({loanCases.length})</span>
+                </button>
               </div>
 
-              {quotationTab === 'MOTOR' ? (
+              {quotationTab === 'MOTOR' && (
                 <Link
                   href={motorQuoteUrl}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 shadow-xs transition"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 shadow-xs transition whitespace-nowrap"
                 >
                   <Plus className="h-3.5 w-3.5" />
                   <span>New Motor Quote</span>
                 </Link>
-              ) : (
+              )}
+              {quotationTab === 'HEALTH' && (
                 <Link
                   href={`/sales/health-quotations/new?customerId=${customer.id}&contactId=${customer.contactId || customer.id}`}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 shadow-xs transition"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 shadow-xs transition whitespace-nowrap"
                 >
                   <Plus className="h-3.5 w-3.5" />
                   <span>New Health Proposal</span>
                 </Link>
               )}
+              {quotationTab === 'LIFE' && (
+                <Link
+                  href={`/sales/life-quotations/new?customerId=${customer.id}&contactId=${customer.contactId || customer.id}`}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 shadow-xs transition whitespace-nowrap"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>New Life Proposal</span>
+                </Link>
+              )}
+              {quotationTab === 'LOANS' && (
+                <Link
+                  href={`/sales/loans?customerId=${customer.id}&contactId=${customer.contactId || customer.id}`}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-bold hover:bg-amber-700 shadow-xs transition whitespace-nowrap"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>New Loan Application</span>
+                </Link>
+              )}
             </div>
 
-            {quotationTab === 'MOTOR' ? (
+            {quotationTab === 'MOTOR' && (
               (!customer.quotations || customer.quotations.length === 0) ? (
                 <div className="p-12 text-center rounded-xl border bg-card space-y-2">
                   <FileSpreadsheet className="h-8 w-8 text-muted-foreground mx-auto" />
@@ -782,7 +877,9 @@ export default function CustomerDetailPage() {
                   </table>
                 </div>
               )
-            ) : (
+            )}
+
+            {quotationTab === 'HEALTH' && (
               healthCases.length === 0 ? (
                 <div className="p-12 text-center rounded-xl border bg-card space-y-2">
                   <HeartPulse className="h-8 w-8 text-emerald-600 mx-auto" />
@@ -836,9 +933,141 @@ export default function CustomerDetailPage() {
                           <td className="px-4 py-3 text-right">
                             <Link
                               href={`/sales/health-quotations/${hc.id}`}
-                              className="px-2.5 py-1 rounded bg-primary/10 text-primary hover:bg-primary/20 font-bold text-[11px] inline-block"
+                              className="px-2.5 py-1 rounded bg-emerald-600/10 text-emerald-600 hover:bg-emerald-600/20 font-bold text-[11px] inline-block"
                             >
                               Open Case
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            )}
+
+            {quotationTab === 'LIFE' && (
+              lifeCases.length === 0 ? (
+                <div className="p-12 text-center rounded-xl border bg-card space-y-2">
+                  <Shield className="h-8 w-8 text-indigo-600 mx-auto" />
+                  <h4 className="font-bold text-sm">No Life Proposals Found</h4>
+                  <p className="text-xs text-muted-foreground">Create a new life insurance proposal for this customer.</p>
+                </div>
+              ) : (
+                <div className="rounded-xl border bg-card overflow-hidden shadow-xs">
+                  <table className="w-full text-xs text-left">
+                    <thead className="bg-muted/50 border-b border-border text-muted-foreground font-semibold">
+                      <tr>
+                        <th className="px-4 py-3">Case Code</th>
+                        <th className="px-4 py-3">Plan Category</th>
+                        <th className="px-4 py-3">Policy Form</th>
+                        <th className="px-4 py-3">Proposer</th>
+                        <th className="px-4 py-3">Premium / Sum Assured</th>
+                        <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {lifeCases.map((lc: any) => (
+                        <tr key={lc.id} className="hover:bg-muted/20">
+                          <td className="px-4 py-3 font-mono font-bold text-foreground">{lc.caseCode}</td>
+                          <td className="px-4 py-3">
+                            <span className="font-bold text-foreground block">{lc.planCategory?.replace(/_/g, ' ') || 'TERM LIFE'}</span>
+                            <span className="text-[11px] text-muted-foreground">{lc.selectedQuote?.insurerName || 'Life Insurance'}</span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/10 text-indigo-600">
+                              {lc.policyForm === 'NEW_POLICY' ? 'New Policy' : 'Renewal'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground">
+                            {lc.contact ? `${lc.contact.firstName} ${lc.contact.lastName || ''}`.trim() : 'Customer'}
+                          </td>
+                          <td className="px-4 py-3 font-bold text-foreground">
+                            {lc.selectedQuote?.totalPremium ? `₹${Number(lc.selectedQuote.totalPremium).toLocaleString('en-IN')}` : 'Quote Pending'}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                              lc.status === 'ISSUED' || lc.status === 'APPROVED'
+                                ? 'bg-emerald-500/10 text-emerald-600'
+                                : lc.status === 'QUOTED' || lc.status === 'PAYMENT_DONE'
+                                ? 'bg-blue-500/10 text-blue-600'
+                                : 'bg-primary/10 text-primary'
+                            }`}>
+                              {lc.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <Link
+                              href={`/sales/life-quotations/${lc.id}`}
+                              className="px-2.5 py-1 rounded bg-indigo-600/10 text-indigo-600 hover:bg-indigo-600/20 font-bold text-[11px] inline-block"
+                            >
+                              Open Case
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            )}
+
+            {quotationTab === 'LOANS' && (
+              loanCases.length === 0 ? (
+                <div className="p-12 text-center rounded-xl border bg-card space-y-2">
+                  <Landmark className="h-8 w-8 text-amber-600 mx-auto" />
+                  <h4 className="font-bold text-sm">No Loan Applications Found</h4>
+                  <p className="text-xs text-muted-foreground">Start a new loan application for this customer.</p>
+                </div>
+              ) : (
+                <div className="rounded-xl border bg-card overflow-hidden shadow-xs">
+                  <table className="w-full text-xs text-left">
+                    <thead className="bg-muted/50 border-b border-border text-muted-foreground font-semibold">
+                      <tr>
+                        <th className="px-4 py-3">Case Code</th>
+                        <th className="px-4 py-3">Loan Category</th>
+                        <th className="px-4 py-3">Employment / Business</th>
+                        <th className="px-4 py-3">Monthly Income</th>
+                        <th className="px-4 py-3">Facilities</th>
+                        <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {loanCases.map((loan: any) => (
+                        <tr key={loan.id} className="hover:bg-muted/20">
+                          <td className="px-4 py-3 font-mono font-bold text-foreground">{loan.caseCode}</td>
+                          <td className="px-4 py-3">
+                            <span className="font-bold text-foreground block">{loan.category?.replace(/_/g, ' ') || 'LOAN'}</span>
+                            <span className="text-[11px] text-muted-foreground">{loan.occupationType || 'Salaried'}</span>
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground">
+                            {loan.employerBusinessName || '—'}
+                          </td>
+                          <td className="px-4 py-3 font-bold text-foreground">
+                            {loan.monthlyIncome ? `₹${Number(loan.monthlyIncome).toLocaleString('en-IN')}` : '—'}
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground">
+                            {loan.facilities?.length || 0} facility(ies)
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                              loan.status === 'SANCTIONED' || loan.status === 'DISBURSED'
+                                ? 'bg-emerald-500/10 text-emerald-600'
+                                : loan.status === 'SUBMITTED_TO_LENDER' || loan.status === 'OFFER_RECEIVED'
+                                ? 'bg-blue-500/10 text-blue-600'
+                                : 'bg-primary/10 text-primary'
+                            }`}>
+                              {loan.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <Link
+                              href={`/sales/loans`}
+                              className="px-2.5 py-1 rounded bg-amber-600/10 text-amber-600 hover:bg-amber-600/20 font-bold text-[11px] inline-block"
+                            >
+                              Open Pipeline
                             </Link>
                           </td>
                         </tr>
