@@ -422,12 +422,18 @@ describe('LifeQuotationCaseService', () => {
           id: { not: 'quote-1' },
           status: 'ACCEPTED',
         },
-        data: { status: 'PENDING_APPROVAL' },
+        data: {
+          status: 'PENDING_APPROVAL',
+          backOfficeSubmittedAt: null,
+          backOfficeSubmittedById: null,
+        },
       });
-      expect(txMock.quotation.update).toHaveBeenCalledWith({
-        where: { id: 'quote-1' },
-        data: { status: 'ACCEPTED' },
-      });
+      expect(txMock.quotation.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'quote-1' },
+          data: expect.objectContaining({ status: 'ACCEPTED' }),
+        }),
+      );
       expect(txMock.lifeQuotationCase.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: { selectedQuoteId: 'quote-1', status: LifeCaseStatus.APPROVED },

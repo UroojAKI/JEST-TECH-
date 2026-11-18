@@ -717,7 +717,7 @@ export class LifeQuotationCaseService {
     const targetStatus =
       dto.status || (isAgent ? PaymentTrackingStatus.UNDER_PROCESS : PaymentTrackingStatus.PAID);
 
-    if (isAgent && targetStatus === PaymentTrackingStatus.PAID && process.env.NODE_ENV === 'production') {
+    if (isAgent && targetStatus === PaymentTrackingStatus.PAID && process.env.NODE_ENV !== 'development') {
       throw new ForbiddenException(
         'Agents cannot verify payments as PAID. Back Office or Finance authorization required.',
       );
@@ -742,7 +742,7 @@ export class LifeQuotationCaseService {
     const payableAmount = Number(quotation.totalPremium);
     const submittedAmount = dto.amount !== undefined ? Number(dto.amount) : payableAmount;
     const rawRef = dto.referenceNumber || (dto as any).transactionRef || '';
-    const referenceNumber = String(rawRef).trim();
+    let referenceNumber = String(rawRef).trim();
     const rawMethod = dto.paymentMethod || 'NET_BANKING';
     const paymentMethod = String(rawMethod).trim();
 
@@ -753,7 +753,11 @@ export class LifeQuotationCaseService {
         );
       }
       if (!referenceNumber) {
-        throw new BadRequestException('Payment reference number / UTR is mandatory before marking as PAID');
+        if (paymentMethod === 'CASH') {
+          referenceNumber = `CASH-REC-${Date.now().toString().slice(-8)}`;
+        } else {
+          throw new BadRequestException('Payment reference number / UTR is mandatory before marking as PAID');
+        }
       }
     }
 

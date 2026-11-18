@@ -657,7 +657,7 @@ export class BackOfficeQueueService {
         const customerDetails = this.extractCustomerAndKycDetails(q);
         const { vehicleDetails, previousPolicy } =
           this.extractVehicleAndPreviousPolicyDetails(q, isMotor);
-        const healthDetails = this.extractHealthDetails(q, isHealth);
+        const healthDetails = this.extractHealthDetails(q, isHealth, isLife);
         const documentsSummary = this.extractDocumentsSummary(
           documents,
           motorDocs,
@@ -1028,8 +1028,26 @@ export class BackOfficeQueueService {
     return { vehicleDetails, previousPolicy };
   }
 
-  private extractHealthDetails(q: any, isHealth: boolean) {
-    if (!isHealth) return undefined;
+  private extractHealthDetails(q: any, isHealth: boolean, isLife?: boolean) {
+    if (!isHealth && !isLife) return undefined;
+
+    if (isLife) {
+      const lifeCase = q.lifeCase || {};
+      const lifeMeta = (q.lifeMetadata as Record<string, any>) || {};
+      return {
+        planCategory:
+          lifeCase.planCategory || q.lifePlanCategory || lifeMeta.planCategory || undefined,
+        policyForm: lifeCase.policyForm || lifeMeta.policyForm || undefined,
+        planName:
+          lifeMeta.planName || lifeCase.planName || q.title || 'Life Insurance Plan',
+        memberCount: 1,
+        members: [],
+        nomineeName: lifeCase.nomineeName || lifeMeta.nomineeName || undefined,
+        nomineeRelation:
+          lifeCase.nomineeRelation || lifeMeta.nomineeRelation || undefined,
+        occupation: lifeCase.occupation || lifeCase.proposerOccupation || undefined,
+      };
+    }
 
     const healthCase = q.healthCase || {};
     const healthMeta = (q.healthMetadata as Record<string, any>) || {};

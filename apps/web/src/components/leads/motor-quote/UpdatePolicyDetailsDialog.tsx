@@ -201,6 +201,22 @@ export function UpdatePolicyDetailsDialog({
           setEndDate(nextYear.toISOString().split('T')[0]);
         }
 
+        const normalizeRelation = (rel?: string) => {
+          if (!rel) return 'Spouse';
+          const upper = rel.trim().toUpperCase();
+          if (upper === 'SPOUSE') return 'Spouse';
+          if (upper === 'FATHER') return 'Father';
+          if (upper === 'MOTHER') return 'Mother';
+          if (upper === 'SON') return 'Son';
+          if (upper === 'DAUGHTER') return 'Daughter';
+          if (upper === 'BROTHER') return 'Brother';
+          if (upper === 'SISTER') return 'Sister';
+          if (upper === 'PARENT') return 'Mother';
+          if (upper === 'CHILD') return 'Son';
+          if (upper === 'OTHER') return 'Other';
+          return rel.charAt(0).toUpperCase() + rel.slice(1).toLowerCase();
+        };
+
         // Life-specific pre-population
         const isLifeItem =
           productType === 'LIFE' ||
@@ -213,19 +229,48 @@ export function UpdatePolicyDetailsDialog({
           const lifeMeta = (q.lifeMetadata as Record<string, any>) || {};
           const lifeCase = q.lifeCase || {};
 
-          if (lifeMeta.planCategory || lifeCase.planCategory || q.title) {
-            setPlanName(lifeMeta.planCategory || lifeCase.planCategory || q.title);
-          }
-          if (lifeMeta.sumAssured || lifeCase.sumAssured) {
-            setSumInsured(String(lifeMeta.sumAssured || lifeCase.sumAssured));
-          }
-          if (lifeCase.nomineeName || lifeMeta.nomineeName) {
-            setNomineeName(lifeCase.nomineeName || lifeMeta.nomineeName);
-          } else if (q.contact) {
-            setNomineeName(`${q.contact.firstName} ${q.contact.lastName || ''}`.trim());
-          }
-          if (lifeCase.nomineeRelation || lifeMeta.nomineeRelation) {
-            setNomineeRelation(lifeCase.nomineeRelation || lifeMeta.nomineeRelation);
+          const applyLifeDetails = (lc: any) => {
+            if (lifeMeta.planCategory || lc.planCategory || q.title) {
+              setPlanName(lifeMeta.planCategory || lc.planCategory || q.title);
+            }
+            if (lifeMeta.sumAssured || lc.sumAssured) {
+              setSumInsured(String(lifeMeta.sumAssured || lc.sumAssured));
+            }
+            const nomName = lc.nomineeName || lifeMeta.nomineeName;
+            if (nomName) {
+              setNomineeName(nomName);
+            }
+            const nomRel = lc.nomineeRelation || lifeMeta.nomineeRelation;
+            if (nomRel) {
+              setNomineeRelation(normalizeRelation(nomRel));
+            }
+            const addr = lc.addressSnapshot || {};
+            if (addr.addressLine1 && !addressLine1) {
+              setAddressLine1(addr.addressLine1);
+              if (addr.addressLine2) setAddressLine2(addr.addressLine2);
+              if (addr.city) setCity(addr.city);
+              if (addr.state) setStateName(addr.state);
+              if (addr.pincode) setPincode(addr.pincode);
+            }
+          };
+
+          if (lifeCase.nomineeName) {
+            applyLifeDetails(lifeCase);
+          } else if (q.lifeCaseId) {
+            apiClient
+              .get(`/life/quotation-cases/${q.lifeCaseId}`)
+              .then((cRes) => {
+                if (!isMounted) return;
+                const fetchedLifeCase = cRes.data?.data || cRes.data;
+                if (fetchedLifeCase) {
+                  applyLifeDetails(fetchedLifeCase);
+                }
+              })
+              .catch(() => {
+                applyLifeDetails(lifeCase);
+              });
+          } else {
+            applyLifeDetails(lifeCase);
           }
         }
 
@@ -241,27 +286,48 @@ export function UpdatePolicyDetailsDialog({
           const healthMeta = (q.healthMetadata as Record<string, any>) || {};
           const healthCase = q.healthCase || {};
 
-          if (healthMeta.planName || q.planName) {
-            setPlanName(healthMeta.planName || q.planName);
-          }
-          if (healthMeta.sumInsured || q.sumInsured) {
-            setSumInsured(String(healthMeta.sumInsured || q.sumInsured));
-          }
-          if (healthCase.nomineeName || healthMeta.nomineeName) {
-            setNomineeName(healthCase.nomineeName || healthMeta.nomineeName);
-          } else if (q.contact) {
-            setNomineeName(`${q.contact.firstName} ${q.contact.lastName || ''}`.trim());
-          }
-          if (healthCase.nomineeRelation || healthMeta.nomineeRelation) {
-            setNomineeRelation(healthCase.nomineeRelation || healthMeta.nomineeRelation);
-          }
-          if (healthMeta.tpaName) {
-            setTpaName(healthMeta.tpaName);
-          }
-          if (healthCase.members && Array.isArray(healthCase.members)) {
-            setMembersList(healthCase.members);
-          } else if (healthMeta.members && Array.isArray(healthMeta.members)) {
-            setMembersList(healthMeta.members);
+          const applyHealthDetails = (hc: any) => {
+            if (healthMeta.planName || q.planName) {
+              setPlanName(healthMeta.planName || q.planName);
+            }
+            if (healthMeta.sumInsured || q.sumInsured) {
+              setSumInsured(String(healthMeta.sumInsured || q.sumInsured));
+            }
+            const nomName = hc.nomineeName || healthMeta.nomineeName;
+            if (nomName) {
+              setNomineeName(nomName);
+            }
+            const nomRel = hc.nomineeRelation || healthMeta.nomineeRelation;
+            if (nomRel) {
+              setNomineeRelation(normalizeRelation(nomRel));
+            }
+            if (healthMeta.tpaName) {
+              setTpaName(healthMeta.tpaName);
+            }
+            if (hc.members && Array.isArray(hc.members)) {
+              setMembersList(hc.members);
+            } else if (healthMeta.members && Array.isArray(healthMeta.members)) {
+              setMembersList(healthMeta.members);
+            }
+          };
+
+          if (healthCase.nomineeName) {
+            applyHealthDetails(healthCase);
+          } else if (q.healthCaseId) {
+            apiClient
+              .get(`/health/quotation-cases/${q.healthCaseId}`)
+              .then((hRes) => {
+                if (!isMounted) return;
+                const fetchedHealthCase = hRes.data?.data || hRes.data;
+                if (fetchedHealthCase) {
+                  applyHealthDetails(fetchedHealthCase);
+                }
+              })
+              .catch(() => {
+                applyHealthDetails(healthCase);
+              });
+          } else {
+            applyHealthDetails(healthCase);
           }
         }
 

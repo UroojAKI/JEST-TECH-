@@ -38,6 +38,7 @@ import {
   PREMIUM_PAYMENT_TYPES,
   PREMIUM_FREQUENCIES,
   STANDARD_RIDERS,
+  NOMINEE_RELATIONS,
   calculateBmi,
   labelOf,
 } from './lifeFormConfig';
@@ -87,11 +88,28 @@ export function LifeCaseWorkspace({ caseId }: { caseId: string }) {
   const [isRecordPaymentModalOpen, setIsRecordPaymentModalOpen] = useState(false);
   const [isRejectDocModalOpen, setIsRejectDocModalOpen] = useState(false);
   const [isUploadDocModalOpen, setIsUploadDocModalOpen] = useState(false);
+  const [isIssuePolicyModalOpen, setIsIssuePolicyModalOpen] = useState(false);
   const [selectedUploadDocType, setSelectedUploadDocType] = useState('PROPOSER_PAN');
   const [targetDocId, setTargetDocId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [isUploadingDoc, setIsUploadingDoc] = useState(false);
   const [isIssuingPolicy, setIsIssuingPolicy] = useState(false);
+
+  // Issue Policy Form State (Autofetched from lifeCase)
+  const [issuePolicyForm, setIssuePolicyForm] = useState({
+    effectiveDate: new Date().toISOString().slice(0, 10),
+    actualPolicyNumber: '',
+    nomineeName: '',
+    nomineeRelation: 'SPOUSE',
+    nomineeDob: '',
+    appointeeName: '',
+    appointeeRelation: '',
+    addressLine1: '',
+    addressLine2: '',
+    city: '',
+    state: '',
+    pincode: '',
+  });
 
   // New Quote Form State (Clean placeholders without hardcoded defaults)
   const [newQuote, setNewQuote] = useState({
@@ -287,8 +305,43 @@ export function LifeCaseWorkspace({ caseId }: { caseId: string }) {
     }
   };
 
-  // Policy Issuance Handler
-  const handleIssuePolicy = async () => {
+  // Open Issue Policy Modal with Autofetched Nominee & Policyholder Details
+  const openIssuePolicyModal = () => {
+    if (!selectedQuote) {
+      toast.error('A winning quotation must be selected before policy issuance.');
+      setActiveTab('QUOTES');
+      return;
+    }
+
+    if (selectedQuote.motorPaymentRecord?.status !== 'PAID') {
+      toast.error('Authoritative payment must be recorded and confirmed as PAID before issuing the policy.');
+      setActiveTab('PAYMENT_ISSUANCE');
+      return;
+    }
+
+    const addrSnapshot = (lifeCase as any)?.addressSnapshot || {};
+    const contactAddr = (lifeCase as any)?.contact || {};
+
+    setIssuePolicyForm({
+      effectiveDate: new Date().toISOString().slice(0, 10),
+      actualPolicyNumber: '',
+      nomineeName: (lifeCase as any)?.nomineeName || '',
+      nomineeRelation: (lifeCase as any)?.nomineeRelation || 'SPOUSE',
+      nomineeDob: (lifeCase as any)?.nomineeDob ? String((lifeCase as any).nomineeDob).slice(0, 10) : '',
+      appointeeName: (lifeCase as any)?.appointeeName || '',
+      appointeeRelation: (lifeCase as any)?.appointeeRelation || '',
+      addressLine1: addrSnapshot.addressLine1 || contactAddr.addressLine1 || contactAddr.address || 'Customer Residence, Main Road',
+      addressLine2: addrSnapshot.addressLine2 || contactAddr.addressLine2 || '',
+      city: addrSnapshot.city || contactAddr.city || 'Mumbai',
+      state: addrSnapshot.state || contactAddr.state || 'Maharashtra',
+      pincode: addrSnapshot.pincode || contactAddr.pincode || '400001',
+    });
+
+    setIsIssuePolicyModalOpen(true);
+  };
+
+  // Policy Issuance Handler (Submits confirmed issuance payload)
+  const handleIssuePolicy = async (confirmedForm?: typeof issuePolicyForm) => {
     if (!selectedQuote) {
       toast.error('A winning quotation must be selected before policy issuance.');
       setActiveTab('QUOTES');
@@ -303,43 +356,39 @@ export function LifeCaseWorkspace({ caseId }: { caseId: string }) {
 
     try {
       setIsIssuingPolicy(true);
-      const addrSnapshot = (lifeCase as any)?.addressSnapshot;
-      const contactAddr = (lifeCase as any)?.contact;
-      const structuredAddress = addrSnapshot?.addressLine1 ? {
-        addressLine1: addrSnapshot.addressLine1,
-        addressLine2: addrSnapshot.addressLine2 || undefined,
-        city: addrSnapshot.city,
-        state: addrSnapshot.state,
-        pincode: addrSnapshot.pincode,
-      } : (contactAddr?.addressLine1 ? {
-        addressLine1: contactAddr.addressLine1,
-        addressLine2: contactAddr.addressLine2 || undefined,
-        city: contactAddr.city,
-        state: contactAddr.state,
-        pincode: contactAddr.pincode,
-      } : {
-        addressLine1: 'Customer Residence, Main Road',
-        city: 'Mumbai',
-        state: 'Maharashtra',
-        pincode: '400001',
-      });
+      const form = confirmedForm || issuePolicyForm;
+      const nomName = (form.nomineeName || (lifeCase as any)?.nomineeName || '').trim();
+      const nomParts = nomName.split(' ');
+      const fName = nomParts[0] || 'Nominee';
+      const lName = nomParts.slice(1).join(' ') || '';
+      const nomRel = (form.nomineeRelation || (lifeCase as any)?.nomineeRelation || 'SPOUSE').toUpperCase();
+
+      const structuredAddress = {
+        addressLine1: form.addressLine1 || 'Customer Residence, Main Road',
+        addressLine2: form.addressLine2 || undefined,
+        city: form.city || 'Mumbai',
+        state: form.state || 'Maharashtra',
+        pincode: form.pincode || '400001',
+      };
 
       const res = await lifeQuotationRepository.issuePolicy({
         quotationId: selectedQuote.id,
         issueSource: 'DIRECT_ISSUANCE',
-        effectiveDate: new Date().toISOString(),
+        effectiveDate: form.effectiveDate ? new Date(form.effectiveDate).toISOString() : new Date().toISOString(),
+        actualPolicyNumber: form.actualPolicyNumber?.trim() || undefined,
         structuredAddress,
-        nominees: (lifeCase as any)?.nomineeName ? [
+        nominees: nomName ? [
           {
-            firstName: (lifeCase as any).nomineeName.trim().split(' ')[0] || 'Nominee',
-            lastName: (lifeCase as any).nomineeName.trim().split(' ').slice(1).join(' ') || '',
-            relation: (lifeCase as any).nomineeRelation || 'SPOUSE',
+            firstName: fName,
+            lastName: lName,
+            relation: nomRel,
             percentage: 100,
           },
         ] : undefined,
       });
 
       toast.success(`Policy ${res.policyNumber || res.policy?.policyNumber || ''} issued successfully!`);
+      setIsIssuePolicyModalOpen(false);
       refetchCase();
       setActiveTab('PAYMENT_ISSUANCE');
     } catch (err: any) {
@@ -438,7 +487,7 @@ export function LifeCaseWorkspace({ caseId }: { caseId: string }) {
           <div className="flex items-center gap-3 shrink-0">
             {selectedQuote && lifeCase.status !== 'CONVERTED' && (
               <button
-                onClick={handleIssuePolicy}
+                onClick={openIssuePolicyModal}
                 disabled={isIssuingPolicy}
                 className="px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold flex items-center gap-2 hover:opacity-95 shadow-xs disabled:opacity-50"
               >
@@ -1004,7 +1053,7 @@ export function LifeCaseWorkspace({ caseId }: { caseId: string }) {
                 {/* Issue Button */}
                 <div className="pt-2">
                   <button
-                    onClick={handleIssuePolicy}
+                    onClick={openIssuePolicyModal}
                     disabled={
                       isIssuingPolicy ||
                       !selectedQuote ||
@@ -1605,12 +1654,30 @@ export function LifeCaseWorkspace({ caseId }: { caseId: string }) {
                   <option value="DEBIT_CARD">Debit Card</option>
                   <option value="CREDIT_CARD">Credit Card</option>
                   <option value="CHEQUE">Cheque / Demand Draft</option>
+                  <option value="CASH">Cash Deposit / Cash Payment</option>
                 </select>
               </FieldLabel>
 
-              <FieldLabel label="Transaction / UTR Reference" required>
+              <FieldLabel
+                label={
+                  paymentData.paymentMethod === 'CASH'
+                    ? 'Receipt / Voucher Reference (Optional for Cash)'
+                    : 'Transaction / UTR Reference'
+                }
+                required={paymentData.paymentMethod !== 'CASH'}
+                hint={
+                  paymentData.paymentMethod === 'CASH'
+                    ? 'Optional for Cash deposits. A unique cash receipt reference will be auto-generated if left blank.'
+                    : 'Bank transaction ID or UTR for financial reconciliation.'
+                }
+              >
                 <input
                   className={inputCls}
+                  placeholder={
+                    paymentData.paymentMethod === 'CASH'
+                      ? 'e.g. Cash Receipt No. (Auto-generated if blank)'
+                      : 'e.g. UTR-HDFC-9988776655'
+                  }
                   value={paymentData.transactionRef}
                   onChange={(e) => setPaymentData({ ...paymentData, transactionRef: e.target.value })}
                 />
@@ -1627,18 +1694,190 @@ export function LifeCaseWorkspace({ caseId }: { caseId: string }) {
               </button>
               <button
                 type="button"
-                onClick={() =>
+                onClick={() => {
+                  const isCash = paymentData.paymentMethod === 'CASH';
+                  const refNo =
+                    paymentData.transactionRef?.trim() ||
+                    (isCash ? `CASH-REC-${Date.now().toString().slice(-8)}` : '');
+                  if (!isCash && !refNo) {
+                    toast.error('Transaction / UTR reference number is required');
+                    return;
+                  }
                   recordPaymentMutation.mutate({
                     ...paymentData,
                     amount: paymentData.amount || Number(selectedQuote?.totalPremium || 0),
-                    referenceNumber: paymentData.transactionRef,
+                    referenceNumber: refNo,
                     status: 'PAID',
-                  })
-                }
+                  });
+                }}
                 disabled={recordPaymentMutation.isPending}
                 className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:opacity-95"
               >
                 {recordPaymentMutation.isPending ? 'Recording...' : 'Confirm Payment'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: ISSUE OFFICIAL LIFE POLICY                                         */}
+      {/* ========================================================================= */}
+      {isIssuePolicyModalOpen && (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-card w-full max-w-lg rounded-2xl border shadow-xl p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-emerald-600" />
+                <h3 className="text-sm font-bold text-foreground">Issue Official Life Insurance Policy</h3>
+              </div>
+              <button onClick={() => setIsIssuePolicyModalOpen(false)} className="p-1 rounded-md hover:bg-muted">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="p-3 rounded-xl bg-muted/30 border border-border space-y-1.5 text-xs">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Proposal Case:</span>
+                <span className="font-mono font-bold text-foreground">{lifeCase.caseCode}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Insurer / Plan:</span>
+                <span className="font-semibold text-foreground">{selectedQuote?.insurerName} · {selectedQuote?.title || lifeCase.planCategory}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Sum Assured:</span>
+                <span className="font-mono font-bold text-foreground">₹{Number(selectedQuote?.sumInsured || lifeCase.sumAssured || 0).toLocaleString('en-IN')}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Paid Premium:</span>
+                <span className="font-mono font-bold text-emerald-600">₹{Number(selectedQuote?.totalPremium || 0).toLocaleString('en-IN')}</span>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <FieldLabel label="Effective Start Date" required>
+                  <input
+                    className={inputCls}
+                    type="date"
+                    value={issuePolicyForm.effectiveDate}
+                    onChange={(e) => setIssuePolicyForm({ ...issuePolicyForm, effectiveDate: e.target.value })}
+                  />
+                </FieldLabel>
+
+                <FieldLabel label="Actual Policy Number Override" hint="Auto-generated sequential if blank">
+                  <input
+                    className={inputCls}
+                    placeholder="e.g. LIC-TRM-2026-000123"
+                    value={issuePolicyForm.actualPolicyNumber}
+                    onChange={(e) => setIssuePolicyForm({ ...issuePolicyForm, actualPolicyNumber: e.target.value })}
+                  />
+                </FieldLabel>
+              </div>
+
+              {/* Nominee Details Section (Autofetched) */}
+              <div className="p-4 rounded-xl border border-border bg-muted/10 space-y-3">
+                <div className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <Award className="h-3.5 w-3.5 text-primary" />
+                  <span>Beneficiary / Nominee Designation (Autofetched)</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <FieldLabel label="Nominee Full Legal Name" required>
+                    <input
+                      className={inputCls}
+                      required
+                      value={issuePolicyForm.nomineeName}
+                      onChange={(e) => setIssuePolicyForm({ ...issuePolicyForm, nomineeName: e.target.value })}
+                      placeholder="e.g. Priya Sharma"
+                    />
+                  </FieldLabel>
+
+                  <FieldLabel label="Nominee Relationship" required>
+                    <select
+                      className={inputCls}
+                      value={issuePolicyForm.nomineeRelation}
+                      onChange={(e) => setIssuePolicyForm({ ...issuePolicyForm, nomineeRelation: e.target.value })}
+                    >
+                      {NOMINEE_RELATIONS.map((r) => (
+                        <option key={r.value} value={r.value}>
+                          {r.label}
+                        </option>
+                      ))}
+                    </select>
+                  </FieldLabel>
+                </div>
+
+                {issuePolicyForm.nomineeDob && (
+                  <div className="text-xs text-muted-foreground">
+                    Nominee DOB: <span className="font-semibold text-foreground">{issuePolicyForm.nomineeDob}</span>
+                  </div>
+                )}
+
+                {issuePolicyForm.appointeeName && (
+                  <div className="text-xs text-muted-foreground p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                    Appointee (for Minor Nominee): <strong className="text-foreground">{issuePolicyForm.appointeeName}</strong> ({issuePolicyForm.appointeeRelation || 'Guardian'})
+                  </div>
+                )}
+              </div>
+
+              {/* Structured Address */}
+              <div className="p-3 rounded-xl border border-border bg-muted/10 space-y-2">
+                <div className="text-xs font-bold text-foreground">Delivery Address</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <input
+                    className={inputCls}
+                    placeholder="Address Line 1"
+                    value={issuePolicyForm.addressLine1}
+                    onChange={(e) => setIssuePolicyForm({ ...issuePolicyForm, addressLine1: e.target.value })}
+                  />
+                  <input
+                    className={inputCls}
+                    placeholder="Address Line 2 (Optional)"
+                    value={issuePolicyForm.addressLine2}
+                    onChange={(e) => setIssuePolicyForm({ ...issuePolicyForm, addressLine2: e.target.value })}
+                  />
+                  <input
+                    className={inputCls}
+                    placeholder="City"
+                    value={issuePolicyForm.city}
+                    onChange={(e) => setIssuePolicyForm({ ...issuePolicyForm, city: e.target.value })}
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      className={inputCls}
+                      placeholder="State"
+                      value={issuePolicyForm.state}
+                      onChange={(e) => setIssuePolicyForm({ ...issuePolicyForm, state: e.target.value })}
+                    />
+                    <input
+                      className={inputCls}
+                      placeholder="Pincode"
+                      value={issuePolicyForm.pincode}
+                      onChange={(e) => setIssuePolicyForm({ ...issuePolicyForm, pincode: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t">
+              <button
+                type="button"
+                onClick={() => setIsIssuePolicyModalOpen(false)}
+                className="px-4 py-2 rounded-xl border text-xs font-bold hover:bg-muted"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleIssuePolicy()}
+                disabled={isIssuingPolicy || !issuePolicyForm.nomineeName.trim()}
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {isIssuingPolicy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                <span>Confirm & Issue Policy</span>
               </button>
             </div>
           </div>

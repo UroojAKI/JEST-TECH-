@@ -117,4 +117,11 @@ export class QuotationResponseDto {
   proposalStatus?: string | null;
   proposal?: { id: string; status: string; proposalNumber?: string | null } | null;
   motorPaymentRecord?: any;
+  healthCaseId?: string | null;
+  healthCase?: any;
+  healthMetadata?: any;
+  healthPlanCategory?: string | null;
+  lifeCaseId?: string | null;
+  lifeCase?: any;
+  lifeMetadata?: any;
 }

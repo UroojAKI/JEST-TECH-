@@ -220,6 +220,14 @@ export class QuotationMapper {
       dto.motorPaymentRecord = (q as any).motorPaymentRecord;
     }
 
+    dto.healthCaseId = (q as any).healthCaseId ?? null;
+    dto.healthCase = (q as any).healthCase ?? null;
+    dto.healthMetadata = this.maskPiiData((q as any).healthMetadata);
+    dto.healthPlanCategory = (q as any).healthPlanCategory ?? null;
+    dto.lifeCaseId = (q as any).lifeCaseId ?? null;
+    dto.lifeCase = (q as any).lifeCase ?? null;
+    dto.lifeMetadata = this.maskPiiData((q as any).lifeMetadata);
+
     return dto;
   }
 
