@@ -17,6 +17,16 @@ export interface ConnectCallInput {
   customField?: string;
 }
 
+/** The parts of Exotel's "call details" response we use */
+export interface ExotelCallDetails {
+  Sid: string;
+  Status: string;
+  StartTime?: string;
+  EndTime?: string;
+  Duration?: string | number;
+  RecordingUrl?: string | null;
+}
+
 export interface ConnectCallResult {
   callSid: string;
   status: string;
@@ -98,6 +108,38 @@ export class ExotelClient {
     }
 
     return { callSid: data.Call.Sid, status: data.Call.Status };
+  }
+
+  /**
+   * Asks Exotel for a call's current details. Used to finish calls whose
+   * status callback never reached us (e.g. ngrok was down).
+   */
+  async getCallDetails(callSid: string): Promise<ExotelCallDetails | null> {
+    if (!this.isConfigured()) return null;
+
+    const sid = this.config.get<string>('EXOTEL_ACCOUNT_SID') as string;
+    const subdomain =
+      this.config.get<string>('EXOTEL_SUBDOMAIN') ?? 'api.exotel.com';
+    const apiKey = this.config.get<string>('EXOTEL_API_KEY') as string;
+    const apiToken = this.config.get<string>('EXOTEL_API_TOKEN') as string;
+    const auth = Buffer.from(`${apiKey}:${apiToken}`).toString('base64');
+    const url = `https://${subdomain}/v1/Accounts/${sid}/Calls/${encodeURIComponent(callSid)}.json`;
+
+    try {
+      const res = await fetch(url, {
+        headers: { Authorization: `Basic ${auth}`, Accept: 'application/json' },
+        signal: AbortSignal.timeout(15000),
+      });
+      if (!res.ok) {
+        this.logger.warn(`Exotel call lookup failed (${res.status}) for ${callSid}`);
+        return null;
+      }
+      const data = await res.json().catch(() => null);
+      return data?.Call ?? null;
+    } catch (err) {
+      this.logger.warn(`Exotel call lookup failed: ${(err as Error).message}`);
+      return null;
+    }
   }
 
   /**

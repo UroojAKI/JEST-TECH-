@@ -24,6 +24,24 @@ export interface CallHistoryItem {
   hasRecording: boolean;
 }
 
+export interface CallLogListItem extends CallHistoryItem {
+  lead: { id: string; leadCode: string; customerName: string } | null;
+}
+
+export interface CallLogPage {
+  items: CallLogListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface CallLogFilters {
+  type?: '' | 'INBOUND' | 'OUTBOUND';
+  result?: '' | 'connected' | 'not_connected';
+  phone?: string;
+  page?: number;
+}
+
 export interface IncomingCall {
   id: string;
   createdAt: string;
@@ -54,6 +72,22 @@ export const telephonyRepository = {
   async listLeadCalls(leadId: string): Promise<CallHistoryItem[]> {
     const response = await apiClient.get(`/telephony/leads/${leadId}/calls`);
     return Array.isArray(response.data) ? response.data : [];
+  },
+
+  /** Call Logs page: every call the user may see, 25 per page */
+  async listCalls(filters: CallLogFilters): Promise<CallLogPage> {
+    const params: Record<string, string> = { page: String(filters.page ?? 1) };
+    if (filters.type) params.type = filters.type;
+    if (filters.result) params.result = filters.result;
+    if (filters.phone?.trim()) params.phone = filters.phone.trim();
+    const response = await apiClient.get('/telephony/calls', { params });
+    const data = response.data ?? {};
+    return {
+      items: Array.isArray(data.items) ? data.items : [],
+      total: Number(data.total) || 0,
+      page: Number(data.page) || 1,
+      pageSize: Number(data.pageSize) || 25,
+    };
   },
 
   /** Downloads a recording as audio the browser can play */

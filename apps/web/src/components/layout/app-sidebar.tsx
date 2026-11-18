@@ -38,6 +38,7 @@ import {
   User,
   PlusCircle,
   Briefcase,
+  Phone,
 } from 'lucide-react';
 import { getRoleNavigation } from '../../lib/navigation/navigation.registry';
 import { usePermissions } from '../providers/permission-provider';
@@ -62,6 +63,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   Activity: <Activity className="h-4 w-4" />,
   UserPlus: <UserPlus className="h-4 w-4" />,
   RotateCw: <RotateCw className="h-4 w-4" />,
+  Phone: <Phone className="h-4 w-4" />,
   Clock: <Clock className="h-4 w-4" />,
   Send: <Send className="h-4 w-4" />,
   UserCheck: <UserCheck className="h-4 w-4" />,

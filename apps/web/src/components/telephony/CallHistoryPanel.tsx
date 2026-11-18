@@ -4,7 +4,12 @@ import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Phone, PhoneMissed, PhoneOff, Play, RefreshCw, Clock } from 'lucide-react';
 import { toast } from 'sonner';
-import { telephonyRepository, CallHistoryItem } from '../../repositories/telephony.repository';
+import Link from 'next/link';
+import {
+  telephonyRepository,
+  CallHistoryItem,
+  CallLogListItem,
+} from '../../repositories/telephony.repository';
 
 const OUTCOME_STYLES: Record<string, { label: string; className: string }> = {
   CONNECTED: { label: 'Connected', className: 'bg-emerald-500/10 text-emerald-700 border-emerald-500/30' },
@@ -99,65 +104,93 @@ export function CallHistoryPanel({ leadId }: { leadId: string }) {
       )}
 
       <div className="space-y-2">
-        {calls.map((call) => {
-          const isIncoming = call.callType === 'INBOUND';
-          const baseStyle = OUTCOME_STYLES[call.callOutcome] || {
-            label: call.callOutcome.replace(/_/g, ' '),
-            className: 'bg-muted text-foreground border-border',
-          };
-          const style =
-            isIncoming && call.callOutcome === 'NO_ANSWER'
-              ? { ...baseStyle, label: 'Missed' }
-              : baseStyle;
-          return (
-            <div
-              key={call.id}
-              className="p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center gap-3 justify-between"
-            >
-              <div className="flex items-start space-x-3 min-w-0">
-                <div className="mt-0.5">
-                  <OutcomeIcon outcome={call.callOutcome} />
-                </div>
-                <div className="min-w-0 space-y-0.5">
-                  <div className="flex items-center flex-wrap gap-2">
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${style.className}`}>
-                      {style.label}
-                    </span>
-                    <span className="text-xs font-semibold text-foreground">
-                      {new Date(call.createdAt).toLocaleString('en-IN', {
-                        day: '2-digit',
-                        month: 'short',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </span>
-                    {call.durationSeconds > 0 && (
-                      <span className="text-xs text-muted-foreground">· {formatDuration(call.durationSeconds)}</span>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-muted-foreground truncate">
-                    {isIncoming ? (
-                      <>
-                        Incoming from {call.fromNumber || 'unknown number'}
-                        {call.agentName !== 'No agent' ? ` → answered by ${call.agentName}` : ''}
-                        {call.ivrOption ? ` · pressed ${call.ivrOption}` : ''}
-                      </>
-                    ) : (
-                      <>
-                        {call.agentName}
-                        {call.toNumber ? ` → ${call.toNumber}` : ''}
-                      </>
-                    )}
-                    {call.provider === 'EXOTEL' ? ' · via Exotel' : ' · logged manually'}
-                  </p>
-                  {call.notes && <p className="text-[11px] text-foreground">{call.notes}</p>}
-                </div>
-              </div>
-              {call.hasRecording && <RecordingPlayer callId={call.id} />}
-            </div>
-          );
-        })}
+        {calls.map((call) => (
+          <CallRow key={call.id} call={call} />
+        ))}
       </div>
+    </div>
+  );
+}
+
+/** IVR menu keys, as the caller hears them */
+const IVR_KEY_LABELS: Record<string, string> = {
+  '1': 'Renewal',
+  '2': 'New policy',
+  '3': 'Claims',
+  '0': 'Team',
+};
+
+/**
+ * One call: result, time, who called whom, and the recording player.
+ * `lead` is passed on the Call Logs page to show which customer it was.
+ */
+export function CallRow({ call, lead }: { call: CallHistoryItem; lead?: CallLogListItem['lead'] }) {
+  const isIncoming = call.callType === 'INBOUND';
+  const baseStyle = OUTCOME_STYLES[call.callOutcome] || {
+    label: call.callOutcome.replace(/_/g, ' '),
+    className: 'bg-muted text-foreground border-border',
+  };
+  const style =
+    isIncoming && call.callOutcome === 'NO_ANSWER' ? { ...baseStyle, label: 'Missed' } : baseStyle;
+  const ivrLabel = call.ivrOption ? IVR_KEY_LABELS[call.ivrOption] : undefined;
+
+  return (
+    <div className="p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+      <div className="flex items-start space-x-3 min-w-0">
+        <div className="mt-0.5">
+          <OutcomeIcon outcome={call.callOutcome} />
+        </div>
+        <div className="min-w-0 space-y-0.5">
+          <div className="flex items-center flex-wrap gap-2">
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${style.className}`}>
+              {style.label}
+            </span>
+            <span className="text-[10px] font-bold uppercase text-muted-foreground">
+              {isIncoming ? 'Incoming' : 'Outgoing'}
+            </span>
+            <span className="text-xs font-semibold text-foreground">
+              {new Date(call.createdAt).toLocaleString('en-IN', {
+                day: '2-digit',
+                month: 'short',
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            </span>
+            {call.durationSeconds > 0 && (
+              <span className="text-xs text-muted-foreground">· {formatDuration(call.durationSeconds)}</span>
+            )}
+          </div>
+          <p className="text-[11px] text-muted-foreground truncate">
+            {isIncoming ? (
+              <>
+                From {call.fromNumber || 'unknown number'}
+                {call.agentName !== 'No agent' ? ` → ${call.agentName}` : ''}
+                {call.ivrOption ? ` · pressed ${call.ivrOption}${ivrLabel ? ` (${ivrLabel})` : ''}` : ''}
+              </>
+            ) : (
+              <>
+                {call.agentName}
+                {call.toNumber ? ` → ${call.toNumber}` : ''}
+              </>
+            )}
+            {call.provider === 'EXOTEL' ? ' · via Exotel' : ' · logged manually'}
+          </p>
+          {lead !== undefined && (
+            <p className="text-[11px]">
+              {lead ? (
+                <Link href={`/workspace/sales/leads/${lead.id}`} className="font-semibold text-primary hover:underline">
+                  {lead.leadCode}
+                  {lead.customerName ? ` · ${lead.customerName}` : ''}
+                </Link>
+              ) : (
+                <span className="text-amber-700">Unknown caller · not linked to any lead</span>
+              )}
+            </p>
+          )}
+          {call.notes && <p className="text-[11px] text-foreground">{call.notes}</p>}
+        </div>
+      </div>
+      {call.hasRecording && <RecordingPlayer callId={call.id} />}
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { IncomingCallService } from './incoming-call.service';
 import { TelephonyController } from './telephony.controller';
 import { ExotelWebhookService } from './exotel-webhook.service';
 import { ExotelWebhookController } from './exotel-webhook.controller';
+import { CallReconcileService } from './call-reconcile.service';
 
 @Module({
   // DocumentsModule provides the shared file storage (MinIO / S3 / local)
@@ -20,6 +21,7 @@ import { ExotelWebhookController } from './exotel-webhook.controller';
     RecordingArchiveService,
     IncomingCallService,
     ExotelWebhookService,
+    CallReconcileService,
   ],
   exports: [ExotelClient],
 })

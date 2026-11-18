@@ -1,4 +1,12 @@
-import { Controller, Get, Param, Post, Res, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -41,6 +49,26 @@ export class TelephonyController {
     @CurrentUser() user: RequestUser,
   ) {
     return this.callHistory.listForLead(leadId, user);
+  }
+
+  @Get('calls')
+  @ApiOperation({
+    summary:
+      'Call Logs: all calls the user may see (admin/back office: whole company; agent: own)',
+  })
+  listCalls(
+    @CurrentUser() user: RequestUser,
+    @Query('type') type?: string,
+    @Query('result') result?: string,
+    @Query('phone') phone?: string,
+    @Query('page') page?: string,
+  ) {
+    return this.callHistory.listCalls(user, {
+      type,
+      result,
+      phone,
+      page: page ? Number(page) : 1,
+    });
   }
 
   @Get('incoming/active')

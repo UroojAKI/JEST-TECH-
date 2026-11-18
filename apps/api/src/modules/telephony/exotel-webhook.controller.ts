@@ -54,6 +54,37 @@ export class ExotelWebhookController {
     @Query() query: Record<string, unknown>,
     @Body() body: Record<string, unknown>,
   ) {
+    return this.handleIncoming(event, token, query, body);
+  }
+
+  /**
+   * Same as above, plus the IVR key the caller pressed. Exotel doesn't send
+   * the key to the Connect applet, so each key's Connect uses its own URL:
+   *   /telephony/exotel/incoming/popup/<secret>/key/1   (key 1's Connect)
+   *   /telephony/exotel/incoming/popup/<secret>/key/2   (key 2's Connect) …
+   */
+  @All('incoming/:event/:token/key/:ivrOption')
+  @HttpCode(200)
+  async incomingEventWithKey(
+    @Param('event') event: string,
+    @Param('token') token: string,
+    @Param('ivrOption') ivrOption: string,
+    @Query() query: Record<string, unknown>,
+    @Body() body: Record<string, unknown>,
+  ) {
+    if (!/^[0-9*#]{1,4}$/.test(ivrOption)) {
+      throw new NotFoundException();
+    }
+    return this.handleIncoming(event, token, query, body, ivrOption);
+  }
+
+  private async handleIncoming(
+    event: string,
+    token: string,
+    query: Record<string, unknown>,
+    body: Record<string, unknown>,
+    ivrOption?: string,
+  ) {
     this.webhooks.verifyToken(token);
     if (!INCOMING_CALL_EVENTS.includes(event as IncomingCallEvent)) {
       throw new NotFoundException();
@@ -61,6 +92,7 @@ export class ExotelWebhookController {
     await this.incoming.handle(event as IncomingCallEvent, {
       ...(body && typeof body === 'object' ? body : {}),
       ...query,
+      ...(ivrOption ? { digits: ivrOption } : {}),
     });
     return { ok: true };
   }
