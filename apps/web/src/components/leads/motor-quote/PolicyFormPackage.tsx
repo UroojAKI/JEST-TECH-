@@ -889,6 +889,12 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
                     <span>TP Discount: <strong className="text-amber-600">-₹{Number(tpDiscountAmount).toLocaleString('en-IN')}</strong></span>
                   </>
                 )}
+                {paDiscountAmount > 0 && (
+                  <>
+                    <span>•</span>
+                    <span>PA Discount: <strong className="text-amber-600">-₹{Number(paDiscountAmount).toLocaleString('en-IN')}</strong></span>
+                  </>
+                )}
                 {Number(data.commercialAdjustmentAmount || 0) > 0 && (
                   <>
                     <span>•</span>

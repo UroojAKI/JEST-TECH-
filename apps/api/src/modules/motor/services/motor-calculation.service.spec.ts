@@ -516,6 +516,22 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
       expect(result.outputs.payableSummary.paDiscountAmount).toBe(27.5);
       expect(result.outputs.discounts.pa.amount).toBe(27.5);
       expect(result.outputs.discounts.pa.percent).toBe(10);
+
+      // Verify that PA discount does NOT deplete Payable Base or Gross Premium Before Discount
+      const baseResult: any = await service.calculate({
+        vehicleCategory: 'PRIVATE_CAR',
+        vehicleStatus: 'EXISTING',
+        policyType: 'PACKAGE_COMPREHENSIVE',
+        idv: 500000,
+        odDiscountPercent: 0,
+        tpDiscountPercent: 0,
+        paCover: true,
+        paDiscountPercent: 0,
+      });
+
+      expect(result.outputs.payableSummary.grossPremium).toBe(baseResult.outputs.payableSummary.grossPremium);
+      expect(result.outputs.payableSummary.payableBase).toBe(baseResult.outputs.payableSummary.payableBase);
+      expect(result.outputs.finalPayableAmount).toBe(Number((baseResult.outputs.finalPayableAmount - 27.5).toFixed(2)));
     });
 
     it('MOTOR-REG-28: should calculate OD discount in standalone OD (SAOD) and apply GST to gross OD base', async () => {

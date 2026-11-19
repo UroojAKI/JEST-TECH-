@@ -566,7 +566,7 @@ export class MotorCalculationService {
 
     // Step 1: Gross Premium Before Discount (undiscounted reference total)
     const premiumBeforeDiscount = round2(
-      baseOdPremium + (hasOd ? addonPremiumTotal : 0) + baseTpPremium + netPaComponent + netPaidDriverComponent + (hasOd ? 0 : addonPremiumTotal),
+      baseOdPremium + (hasOd ? addonPremiumTotal : 0) + baseTpPremium + paPremium + netPaidDriverComponent + (hasOd ? 0 : addonPremiumTotal),
     );
     const netCustomerPremium = premiumBeforeDiscount;
 

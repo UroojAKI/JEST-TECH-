@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PolicyFormTPOnlyForm } from './PolicyFormTP';
 import { useMotorCalculator } from './useMotorCalculator';
@@ -1077,6 +1077,217 @@ describe('Work Package: TP GST, Add-on GST & Component Breakdown Verification Su
           editedTpPremium: undefined,
         })
       );
+    });
+  });
+
+  describe('Standalone PA GST Rate Field & Recalculation', () => {
+    it('renders standalone PA GST dropdown inside 4-column PA grid when PA is opted in', () => {
+      const mockOnChange = vi.fn();
+      const initialData: any = {
+        policyTenure: '1',
+        gstRate: '18',
+        tpGstRate: '18',
+        paGstRate: '18',
+        paCoverOwner: true,
+      };
+
+      render(
+        <PolicyFormTPOnlyForm
+          category="PRIVATE_CAR"
+          vehicleStatus="EXISTING"
+          data={initialData}
+          onChange={mockOnChange}
+        />
+      );
+
+      const paGstSelector = screen.getByLabelText(/PA Applicable GST Rate/i);
+      expect(paGstSelector).toBeInTheDocument();
+      expect(within(paGstSelector).getByRole('option', { name: '18% GST' })).toBeInTheDocument();
+      expect(within(paGstSelector).getByRole('option', { name: '5% GST' })).toBeInTheDocument();
+    });
+
+    it('changing standalone PA GST dropdown to 5% triggers onChange with paGstRate: "5" independently', () => {
+      const mockOnChange = vi.fn();
+      const initialData: any = {
+        policyTenure: '1',
+        gstRate: '18',
+        tpGstRate: '18',
+        paGstRate: '18',
+        paCoverOwner: true,
+      };
+
+      render(
+        <PolicyFormTPOnlyForm
+          category="PRIVATE_CAR"
+          vehicleStatus="EXISTING"
+          data={initialData}
+          onChange={mockOnChange}
+        />
+      );
+
+      const paGstSelector = screen.getByLabelText(/PA Applicable GST Rate/i);
+      fireEvent.change(paGstSelector, { target: { value: '5' } });
+
+      expect(mockOnChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          paGstRate: '5',
+        })
+      );
+    });
+
+    it('passes standalone paGstRate into useMotorCalculator hook', () => {
+      const mockOnChange = vi.fn();
+      const initialData: any = {
+        policyTenure: '1',
+        gstRate: '18',
+        tpGstRate: '18',
+        paGstRate: '5',
+        paCoverOwner: true,
+      };
+
+      render(
+        <PolicyFormTPOnlyForm
+          category="PRIVATE_CAR"
+          vehicleStatus="EXISTING"
+          data={initialData}
+          onChange={mockOnChange}
+        />
+      );
+
+      expect(useMotorCalculator).toHaveBeenCalledWith(
+        expect.objectContaining({
+          policyType: 'THIRD_PARTY_ONLY',
+          tpGstRate: 18,
+          paGstRate: 5,
+        })
+      );
+    });
+
+    it('synchronizes paGstRate as default when primary TP GST selector is toggled', () => {
+      const mockOnChange = vi.fn();
+      const initialData: any = {
+        policyTenure: '1',
+        gstRate: '18',
+        tpGstRate: '18',
+        paGstRate: '18',
+        paCoverOwner: true,
+      };
+
+      render(
+        <PolicyFormTPOnlyForm
+          category="PRIVATE_CAR"
+          vehicleStatus="EXISTING"
+          data={initialData}
+          onChange={mockOnChange}
+        />
+      );
+
+      const btn5 = screen.getByRole('button', { name: /5% GST/i });
+      fireEvent.click(btn5);
+
+      expect(mockOnChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          gstRate: '5',
+          tpGstRate: '5',
+          paGstRate: '5',
+        })
+      );
+    });
+
+    it('synchronizes paGstRate from calculation result rateConfig into form state', () => {
+      const mockOnChange = vi.fn();
+      const initialData: any = {
+        policyTenure: '1',
+        gstRate: '18',
+        tpGstRate: '18',
+        paGstRate: '5',
+        paCoverOwner: true,
+      };
+
+      vi.mocked(useMotorCalculator).mockReturnValue({
+        result: {
+          rateConfig: {
+            gstRatePercent: 18,
+            tpGstRatePercent: 18,
+            paGstRatePercent: 5,
+          },
+          outputs: {
+            baseTpPremium: 1000,
+            finalPayableAmount: 1338.75,
+            totalGst: 193.75,
+            tp: { base: 1000 },
+            pa: { premium: 275, gst: 13.75 },
+          },
+        },
+        loading: false,
+        error: null,
+      });
+
+      render(
+        <PolicyFormTPOnlyForm
+          category="PRIVATE_CAR"
+          vehicleStatus="EXISTING"
+          data={initialData}
+          onChange={mockOnChange}
+        />
+      );
+
+      expect(mockOnChange).toHaveBeenCalled();
+      const lastCall = mockOnChange.mock.calls[mockOnChange.mock.calls.length - 1][0];
+      expect(lastCall.paGstRate).toBe('5');
+    });
+
+    it('displays standalone PA GST rate and recalculated tax in breakdown card', () => {
+      const mockOnChange = vi.fn();
+      const calculationFixture = {
+        rateConfig: {
+          tpAnnualRate: 1000,
+          systemTpAnnualRate: 1000,
+          gstRatePercent: 18,
+          tpGstRatePercent: 18,
+          paGstRatePercent: 5,
+        },
+        outputs: {
+          baseTpPremium: 1000,
+          paPremium: 275,
+          gstOnTp: 180,
+          gstOnPa: 13.75,
+          totalGst: 193.75,
+          finalPayableAmount: 1468.75,
+          tp: { base: 1000, gst: 180 },
+          pa: { premium: 275, gst: 13.75 },
+          gstBreakdown: {
+            tp: { base: 1000, rate: 0.18, ratePercent: 18, amount: 180 },
+            pa: { base: 275, rate: 0.05, ratePercent: 5, amount: 13.75 },
+          },
+        },
+      };
+
+      vi.mocked(useMotorCalculator).mockReturnValue({
+        result: calculationFixture,
+        loading: false,
+        error: null,
+      });
+
+      const initialData: any = {
+        policyTenure: '1',
+        gstRate: '18',
+        tpGstRate: '18',
+        paGstRate: '5',
+        paCoverOwner: true,
+      };
+
+      render(
+        <PolicyFormTPOnlyForm
+          category="PRIVATE_CAR"
+          vehicleStatus="EXISTING"
+          data={initialData}
+          onChange={mockOnChange}
+        />
+      );
+
+      const breakdown = screen.getByTestId('tp-premium-breakdown');
+      expect(breakdown).toHaveTextContent(/PA Tax: ₹13.75 \(5% GST\)/i);
     });
   });
 });
