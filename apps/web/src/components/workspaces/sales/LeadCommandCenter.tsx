@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { StepTracker } from './StepTracker';
 import { useSalesWorkspace } from '../../../hooks/useSalesWorkspace';
 import { apiClient } from '../../../lib/api-client';
@@ -15,6 +15,8 @@ import type { SavedMotorQuote } from '../../leads/motor-quote/motorFormTypes';
 import { MarkLostModal } from '../../leads/drawers/MarkLostModal';
 import { leadsRepository } from '../../../repositories/leads.repository';
 import { canQuotationRecordPayment } from '../../../repositories/quotations.repository';
+import { telephonyRepository } from '../../../repositories/telephony.repository';
+import { CallHistoryPanel } from '../../telephony/CallHistoryPanel';
 import type { LostReason } from '../../../types/leads';
 import {
   User,
@@ -54,6 +56,7 @@ interface LeadCommandCenterProps {
 
 export function LeadCommandCenter({ lead, onRefresh }: LeadCommandCenterProps) {
   const { moveStage, isMovingStage, createReferral } = useSalesWorkspace();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<
     'OVERVIEW' | 'CUSTOMER_360' | 'DOCUMENTS' | 'QUOTATION' | 'PROPOSAL' | 'ACTIVITIES' | 'REFERRAL'
   >('OVERVIEW');
@@ -69,6 +72,7 @@ export function LeadCommandCenter({ lead, onRefresh }: LeadCommandCenterProps) {
   const [callOutcome, setCallOutcome] = useState('CONNECTED');
   const [callNotes, setCallNotes] = useState('');
   const [isLoggingCall, setIsLoggingCall] = useState(false);
+  const [isCalling, setIsCalling] = useState(false);
 
   // Referral Modal State
   const [showReferralModal, setShowReferralModal] = useState(false);
@@ -119,7 +123,13 @@ export function LeadCommandCenter({ lead, onRefresh }: LeadCommandCenterProps) {
   if (!lead) return null;
 
   const currentStep = lead.currentWorkflowStep || 'ASSIGNED';
-  const contact = lead.contact || {};
+  // The lead API returns contact fields flat (lead.phone, lead.email…); fall back to them
+  const contact = lead.contact || {
+    firstName: lead.firstName,
+    lastName: lead.lastName,
+    phone: lead.phone,
+    email: lead.email,
+  };
 
   const handleMoveStage = (targetStage: string, overrideReason?: string, remarks?: string) => {
     moveStage(
@@ -224,6 +234,21 @@ export function LeadCommandCenter({ lead, onRefresh }: LeadCommandCenterProps) {
     }
   };
 
+  // Click-to-call via Exotel: rings the agent's phone first, then the customer
+  const handleClickToCall = async () => {
+    setIsCalling(true);
+    try {
+      await telephonyRepository.callLead(lead.id);
+      queryClient.invalidateQueries({ queryKey: ['lead-calls', lead.id] });
+      toast.success('Calling… your phone will ring first. Answer it to connect to the customer.');
+      if (onRefresh) onRefresh();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Could not start the call. Please try again.');
+    } finally {
+      setIsCalling(false);
+    }
+  };
+
   const handleCreateReferralSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!refName || !refPhone) {
@@ -302,6 +327,16 @@ export function LeadCommandCenter({ lead, onRefresh }: LeadCommandCenterProps) {
 
         {/* Quick Action Triggers */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* Click-to-call (Exotel) */}
+          <button
+            onClick={handleClickToCall}
+            disabled={isCalling || !contact.phone}
+            title={contact.phone ? 'Call this customer via Exotel' : 'No phone number on this lead'}
+            className="px-3.5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 flex items-center space-x-1.5 disabled:opacity-50"
+          >
+            {isCalling ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Phone className="h-3.5 w-3.5" />}
+            <span>{isCalling ? 'Calling…' : 'Call'}</span>
+          </button>
           {!['LOST', 'CONVERTED', 'POLICY_ISSUED'].includes(String(lead.status)) && (
             <button
               onClick={() => setShowMarkLost(true)}
@@ -868,6 +903,8 @@ export function LeadCommandCenter({ lead, onRefresh }: LeadCommandCenterProps) {
       )}
 
       {/* ACTIVITIES & CALL LOGS TAB */}
+      {activeTab === 'ACTIVITIES' && <CallHistoryPanel leadId={lead.id} />}
+
       {activeTab === 'ACTIVITIES' && (
         <div className="p-5 rounded-2xl border bg-card space-y-4">
           <h3 className="text-xs font-extrabold uppercase text-muted-foreground tracking-wider">

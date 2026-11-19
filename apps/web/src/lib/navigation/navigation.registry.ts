@@ -14,6 +14,12 @@ export const AGENT_NAVIGATION: NavigationItem[] = [
     icon: 'Users',
   },
   {
+    id: 'my-calls',
+    title: 'Call Logs',
+    href: '/calls',
+    icon: 'Phone',
+  },
+  {
     id: 'my-quotations',
     title: 'Motor Quotations',
     href: '/sales/quotations',
@@ -100,6 +106,12 @@ export const BACK_OFFICE_NAVIGATION: NavigationItem[] = [
       { id: 'bo-accounts', title: 'Corporate Accounts', href: '/crm/accounts' },
       { id: 'bo-leads', title: 'Operational Leads', href: '/crm/leads' },
     ],
+  },
+  {
+    id: 'bo-calls',
+    title: 'Call Logs',
+    href: '/calls',
+    icon: 'Phone',
   },
   {
     id: 'bo-quotations',
@@ -203,6 +215,12 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
       { id: 'adm-accounts', title: 'Corporate Accounts', href: '/crm/accounts' },
       { id: 'adm-leads', title: 'Agency Lead Pipeline', href: '/crm/leads' },
     ],
+  },
+  {
+    id: 'adm-calls',
+    title: 'Call Logs',
+    href: '/calls',
+    icon: 'Phone',
   },
   {
     id: 'adm-team',

@@ -67,6 +67,7 @@ import { AppService } from './app.service';
 import { AuthorizationModule } from './common/authorization.module';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { IdempotencyInterceptor } from './common/interceptors/idempotency.interceptor';
+import { TelephonyModule } from './modules/telephony/telephony.module';
 
 @Module({
   imports: [
@@ -150,6 +151,7 @@ import { IdempotencyInterceptor } from './common/interceptors/idempotency.interc
     DashboardRegistryModule,
     WorkspaceModule,
     PortalModule,
+    TelephonyModule,
   ],
   controllers: [AppController],
   providers: [
