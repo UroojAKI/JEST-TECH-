@@ -173,6 +173,77 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
 
   const tenureOptions = getPolicyTenureOptions(category, 'TP_ONLY', isNew ? 'NEW' : 'EXISTING');
 
+  // Toggle switch [% | ₹] state for TP discount
+  const [tpDiscountMode, setTpDiscountMode] = React.useState<'PERCENT' | 'AMOUNT'>('PERCENT');
+  const [tpDiscountAmountInput, setTpDiscountAmountInput] = React.useState<string>('');
+
+  const baseTpAmount = Number(
+    (data.editedTpPremium !== undefined && data.editedTpPremium !== '' ? parseFloat(data.editedTpPremium) : null) ??
+    result?.outputs?.tp?.gross ??
+    result?.outputs?.tp?.base ??
+    result?.outputs?.baseTpPremium ??
+    result?.rateConfig?.tpBase ??
+    (data.thirdPartyPremium ? parseFloat(data.thirdPartyPremium) : 0)
+  );
+
+  const tpDiscountAmount = Number(
+    result?.outputs?.tp?.discount ??
+    (baseTpAmount > 0 && (data.tpDiscountPercent || data.discountPercent)
+      ? baseTpAmount * (parseFloat(data.tpDiscountPercent || data.discountPercent || '0') / 100)
+      : 0)
+  );
+
+  const handleTpModeToggle = (newMode: 'PERCENT' | 'AMOUNT') => {
+    setTpDiscountMode(newMode);
+    if (newMode === 'AMOUNT') {
+      if (tpDiscountAmount > 0) {
+        setTpDiscountAmountInput(String(Math.round(tpDiscountAmount * 100) / 100));
+      } else if ((data.tpDiscountPercent || data.discountPercent) && baseTpAmount > 0) {
+        const pct = parseFloat(data.tpDiscountPercent || data.discountPercent || '0');
+        const calcAmt = Math.round((baseTpAmount * (pct / 100)) * 100) / 100;
+        setTpDiscountAmountInput(calcAmt > 0 ? String(calcAmt) : '');
+      }
+    }
+  };
+
+  const handleTpPercentChange = (val: string) => {
+    onChange({
+      ...data,
+      tpDiscountPercent: val,
+      discountPercent: val,
+    });
+    if (baseTpAmount > 0 && val !== '') {
+      const p = parseFloat(val);
+      if (!isNaN(p)) {
+        setTpDiscountAmountInput(String(Math.round((baseTpAmount * (p / 100)) * 100) / 100));
+      }
+    } else {
+      setTpDiscountAmountInput('');
+    }
+  };
+
+  const handleTpAmountChange = (rawAmt: string) => {
+    setTpDiscountAmountInput(rawAmt);
+    if (rawAmt === '') {
+      onChange({
+        ...data,
+        tpDiscountPercent: '',
+        discountPercent: '',
+      });
+      return;
+    }
+    const amt = parseFloat(rawAmt);
+    if (!isNaN(amt) && baseTpAmount > 0) {
+      const cappedAmt = Math.min(amt, baseTpAmount);
+      const pct = Math.min(100, Math.round((cappedAmt / baseTpAmount) * 10000) / 100);
+      onChange({
+        ...data,
+        tpDiscountPercent: String(pct),
+        discountPercent: String(pct),
+      });
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Policy Type Badge */}
@@ -819,26 +890,58 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
           <div>
-            <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-1">
-              TP Discount (%)
-            </label>
-            <input
-              type="number"
-              min="0"
-              max="100"
-              step="0.5"
-              placeholder="0"
-              value={data.tpDiscountPercent ?? data.discountPercent ?? ''}
-              onChange={(e) => {
-                const val = e.target.value;
-                onChange({
-                  ...data,
-                  tpDiscountPercent: val,
-                  discountPercent: val,
-                });
-              }}
-              className="w-full p-2 rounded-lg border text-xs font-semibold bg-background focus:outline-none focus:ring-1 focus:ring-primary border-border"
-            />
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
+                TP Discount {tpDiscountMode === 'AMOUNT' ? '(₹)' : '(%)'}
+              </label>
+              <div className="inline-flex rounded border p-0.5 bg-muted/40 text-[9px] font-bold">
+                <button
+                  type="button"
+                  onClick={() => handleTpModeToggle('PERCENT')}
+                  className={`px-1.5 py-0.5 rounded transition ${tpDiscountMode === 'PERCENT' ? 'bg-background shadow-xs text-foreground font-black' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  %
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleTpModeToggle('AMOUNT')}
+                  className={`px-1.5 py-0.5 rounded transition ${tpDiscountMode === 'AMOUNT' ? 'bg-background shadow-xs text-foreground font-black' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  ₹
+                </button>
+              </div>
+            </div>
+
+            {tpDiscountMode === 'PERCENT' ? (
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.5"
+                placeholder="0"
+                value={data.tpDiscountPercent ?? data.discountPercent ?? ''}
+                onChange={(e) => handleTpPercentChange(e.target.value)}
+                className="w-full p-2 rounded-lg border text-xs font-semibold bg-background focus:outline-none focus:ring-1 focus:ring-primary border-border"
+              />
+            ) : (
+              <input
+                type="number"
+                min="0"
+                max={baseTpAmount > 0 ? baseTpAmount : undefined}
+                step="1"
+                placeholder="e.g. ₹200"
+                value={tpDiscountAmountInput}
+                onChange={(e) => handleTpAmountChange(e.target.value)}
+                className="w-full p-2 rounded-lg border text-xs font-semibold bg-background focus:outline-none focus:ring-1 focus:ring-primary border-border"
+              />
+            )}
+            <span className="text-[9px] block text-muted-foreground mt-1">
+              {tpDiscountMode === 'PERCENT' ? (
+                <>Amount: {result?.outputs?.tp?.discount !== undefined ? '-₹' + Number(result.outputs.tp.discount).toLocaleString('en-IN') : (data.tpDiscountPercent && baseTpAmount > 0 ? '-₹' + Math.round((baseTpAmount * (parseFloat(data.tpDiscountPercent) / 100)) * 100) / 100 : '—')}</>
+              ) : (
+                <>Percentage: {data.tpDiscountPercent || data.discountPercent ? `${Number(data.tpDiscountPercent || data.discountPercent).toFixed(2)}%` : '—'}</>
+              )}
+            </span>
           </div>
 
           <div className="lg:col-span-2">

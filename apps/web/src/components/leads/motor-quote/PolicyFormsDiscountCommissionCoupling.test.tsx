@@ -896,5 +896,235 @@ describe('Work Package 2 & PR-01: Discount & Commission Decoupling Regression Su
       );
     });
   });
+
+  describe('Discount Switch Button [% | ₹] Feature Suite', () => {
+    it('PolicyFormPackage: switching OD discount to ₹ calculates percentage via formula and updates odDiscountPercent', () => {
+      const mockOnChange = vi.fn();
+      const initialData: any = {
+        policyTenure: '1',
+        idv: '500000',
+        odDiscountPercent: '',
+        odCommissionCalc: undefined,
+      };
+
+      vi.mocked(useMotorCalculator).mockReturnValue({
+        result: {
+          outputs: {
+            od: { gross: 10000 },
+            baseOdPremium: 10000,
+            baseTpPremium: 3000,
+          },
+        } as any,
+        loading: false,
+        error: null,
+      });
+
+      render(
+        <PolicyFormPackageForm
+          category="PRIVATE_CAR"
+          vehicleStatus="EXISTING"
+          data={initialData}
+          onChange={mockOnChange}
+        />
+      );
+
+      // Find the toggle button inside OD Discount card
+      const rupeeButtons = screen.getAllByRole('button', { name: '₹' });
+      // First one is for OD Discount
+      fireEvent.click(rupeeButtons[0]);
+
+      // Now the amount input should be displayed
+      const amountInput = screen.getByPlaceholderText('e.g. ₹500');
+      // Enter ₹1500 discount on ₹10,000 base OD
+      fireEvent.change(amountInput, { target: { value: '1500' } });
+
+      expect(mockOnChange).toHaveBeenCalled();
+      const lastPayload = mockOnChange.mock.calls[mockOnChange.mock.calls.length - 1][0];
+      // Formula: (1500 / 10000) * 100 = 15%
+      expect(lastPayload.odDiscountPercent).toBe('15');
+      // Invariant: commission must never be touched
+      expect(lastPayload.odCommissionCalc).toBeUndefined();
+    });
+
+    it('PolicyFormPackage: when OD Premium is ₹1,000, entering ₹100 discount calculates exactly 10%', () => {
+      const mockOnChange = vi.fn();
+      const initialData: any = {
+        policyTenure: '1',
+        insuredDeclaredValue: '100000',
+        odPremiumAmount: '1000',
+        odDiscountPercent: '',
+      };
+
+      vi.mocked(useMotorCalculator).mockReturnValue({
+        result: {
+          outputs: {
+            baseOdPremium: 1000,
+            baseTpPremium: 1000,
+            od: { gross: 1000 },
+            tp: { gross: 1000, base: 1000 },
+          },
+        } as any,
+        loading: false,
+        error: null,
+      });
+
+      render(
+        <PolicyFormPackageForm
+          category="PRIVATE_CAR"
+          vehicleStatus="EXISTING"
+          data={initialData}
+          onChange={mockOnChange}
+        />
+      );
+
+      const rupeeButtons = screen.getAllByRole('button', { name: '₹' });
+      fireEvent.click(rupeeButtons[0]);
+
+      const amountInput = screen.getByPlaceholderText('e.g. ₹500');
+      // Enter ₹100 discount on ₹1,000 OD premium
+      fireEvent.change(amountInput, { target: { value: '100' } });
+
+      expect(mockOnChange).toHaveBeenCalled();
+      const lastPayload = mockOnChange.mock.calls[mockOnChange.mock.calls.length - 1][0];
+      // Formula: (100 / 1000) * 100 = 10%
+      expect(lastPayload.odDiscountPercent).toBe('10');
+    });
+
+    it('PolicyFormPackage: switching TP discount to ₹ calculates percentage and updates tpDiscountPercent', () => {
+      const mockOnChange = vi.fn();
+      const initialData: any = {
+        policyTenure: '1',
+        idv: '500000',
+        tpDiscountPercent: '',
+        tpCommissionCalc: undefined,
+      };
+
+      vi.mocked(useMotorCalculator).mockReturnValue({
+        result: {
+          outputs: {
+            tp: { gross: 4000 },
+            baseTpPremium: 4000,
+          },
+        } as any,
+        loading: false,
+        error: null,
+      });
+
+      render(
+        <PolicyFormPackageForm
+          category="PRIVATE_CAR"
+          vehicleStatus="EXISTING"
+          data={initialData}
+          onChange={mockOnChange}
+        />
+      );
+
+      // Find the toggle button inside TP Discount card (second rupee button)
+      const rupeeButtons = screen.getAllByRole('button', { name: '₹' });
+      fireEvent.click(rupeeButtons[1]);
+
+      const tpAmountInput = screen.getByPlaceholderText('e.g. ₹200');
+      // Enter ₹400 discount on ₹4000 base TP
+      fireEvent.change(tpAmountInput, { target: { value: '400' } });
+
+      expect(mockOnChange).toHaveBeenCalled();
+      const lastPayload = mockOnChange.mock.calls[mockOnChange.mock.calls.length - 1][0];
+      // Formula: (400 / 4000) * 100 = 10%
+      expect(lastPayload.tpDiscountPercent).toBe('10');
+      expect(lastPayload.tpCommissionCalc).toBeUndefined();
+    });
+
+    it('PolicyFormTPOnly: switching TP discount to ₹ mode calculates percentage via formula', () => {
+      const mockOnChange = vi.fn();
+      const initialData: any = {
+        policyTenure: '1',
+        thirdPartyPremium: '5000',
+        discountPercent: '',
+        tpDiscountPercent: '',
+      };
+
+      vi.mocked(useMotorCalculator).mockReturnValue({
+        result: {
+          outputs: {
+            tp: { gross: 5000, base: 5000 },
+          },
+        } as any,
+        loading: false,
+        error: null,
+      });
+
+      render(
+        <PolicyFormTPOnlyForm
+          category="PRIVATE_CAR"
+          vehicleStatus="EXISTING"
+          data={initialData}
+          onChange={mockOnChange}
+        />
+      );
+
+      const rupeeButton = screen.getByRole('button', { name: '₹' });
+      fireEvent.click(rupeeButton);
+
+      const tpAmountInput = screen.getByPlaceholderText('e.g. ₹200');
+      // Enter ₹250 discount on ₹5000 base TP
+      fireEvent.change(tpAmountInput, { target: { value: '250' } });
+
+      expect(mockOnChange).toHaveBeenCalled();
+      const lastPayload = mockOnChange.mock.calls[mockOnChange.mock.calls.length - 1][0];
+      // Formula: (250 / 5000) * 100 = 5%
+      expect(lastPayload.tpDiscountPercent).toBe('5');
+      expect(lastPayload.discountPercent).toBe('5');
+    });
+
+    it('PolicyFormSAOD: switching OD discount to ₹ mode calculates percentage via formula', () => {
+      const mockOnChange = vi.fn();
+      const initialData: any = {
+        insuredDeclaredValue: '500000',
+        odPremiumBase: '20000',
+        discountPercent: '',
+        odDiscountPercent: '',
+      };
+
+      vi.mocked(useMotorCalculator).mockReturnValue({
+        result: {
+          outputs: {
+            baseOdPremium: 20000,
+            netOdPremium: 20000,
+            addonPremium: 0,
+            ncbDiscount: 0,
+            totalDiscount: 0,
+            specialDiscount: 0,
+            totalGst: 3600,
+            finalPayableAmount: 23600,
+            totalPremium: 23600,
+          },
+        } as any,
+        loading: false,
+        error: null,
+      });
+
+      render(
+        <PolicyFormSAODForm
+          category="PRIVATE_CAR"
+          vehicleStatus="EXISTING"
+          data={initialData}
+          onChange={mockOnChange}
+        />
+      );
+
+      const rupeeButton = screen.getByRole('button', { name: '₹' });
+      fireEvent.click(rupeeButton);
+
+      const amountInput = screen.getByPlaceholderText('e.g. ₹500');
+      // Enter ₹2000 discount on ₹20000 base OD
+      fireEvent.change(amountInput, { target: { value: '2000' } });
+
+      expect(mockOnChange).toHaveBeenCalled();
+      const lastPayload = mockOnChange.mock.calls[mockOnChange.mock.calls.length - 1][0];
+      // Formula: (2000 / 20000) * 100 = 10%
+      expect(lastPayload.discountPercent).toBe('10');
+      expect(lastPayload.odDiscountPercent).toBe('10');
+    });
+  });
 });
 

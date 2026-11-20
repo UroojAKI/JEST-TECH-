@@ -236,6 +236,68 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
   const outputs = effectiveResult?.outputs || {};
   const itemizedAddons: any[] = Array.isArray(outputs.itemizedAddons) ? outputs.itemizedAddons : [];
 
+  // Toggle switch [% | ₹] state for OD discount
+  const [odDiscountMode, setOdDiscountMode] = React.useState<'PERCENT' | 'AMOUNT'>('PERCENT');
+  const [odDiscountAmountInput, setOdDiscountAmountInput] = React.useState<string>('');
+
+  const baseOdAmount = Number(
+    (data.odPremiumAmount !== undefined && data.odPremiumAmount !== '' ? parseFloat(data.odPremiumAmount) : null) ??
+    (data.odBasePremiumOverride !== undefined && data.odBasePremiumOverride !== '' ? parseFloat(data.odBasePremiumOverride) : null) ??
+    outputs.baseOdPremium ??
+    outputs.od?.gross ??
+    data.odPremiumBase ??
+    0
+  );
+
+  const saodDiscountAmount = Number(
+    outputs.summary?.odDiscountAmount ??
+    outputs.od?.discount ??
+    outputs.odDiscountAmount ??
+    outputs.specialDiscount ??
+    (baseOdAmount > 0 && (data.discountPercent || data.odDiscountPercent)
+      ? baseOdAmount * (parseFloat(data.discountPercent || data.odDiscountPercent || '0') / 100)
+      : 0)
+  );
+
+  const handleOdModeToggle = (newMode: 'PERCENT' | 'AMOUNT') => {
+    setOdDiscountMode(newMode);
+    if (newMode === 'AMOUNT') {
+      if (saodDiscountAmount > 0) {
+        setOdDiscountAmountInput(String(Math.round(saodDiscountAmount * 100) / 100));
+      } else if ((data.discountPercent || data.odDiscountPercent) && baseOdAmount > 0) {
+        const pct = parseFloat(data.discountPercent || data.odDiscountPercent || '0');
+        const calcAmt = Math.round((baseOdAmount * (pct / 100)) * 100) / 100;
+        setOdDiscountAmountInput(calcAmt > 0 ? String(calcAmt) : '');
+      }
+    }
+  };
+
+  const handleOdPercentChange = (val: string) => {
+    onChange({ ...data, discountPercent: val, odDiscountPercent: val });
+    if (baseOdAmount > 0 && val !== '') {
+      const p = parseFloat(val);
+      if (!isNaN(p)) {
+        setOdDiscountAmountInput(String(Math.round((baseOdAmount * (p / 100)) * 100) / 100));
+      }
+    } else {
+      setOdDiscountAmountInput('');
+    }
+  };
+
+  const handleOdAmountChange = (rawAmt: string) => {
+    setOdDiscountAmountInput(rawAmt);
+    if (rawAmt === '') {
+      onChange({ ...data, discountPercent: '', odDiscountPercent: '' });
+      return;
+    }
+    const amt = parseFloat(rawAmt);
+    if (!isNaN(amt) && baseOdAmount > 0) {
+      const cappedAmt = Math.min(amt, baseOdAmount);
+      const pct = Math.min(100, Math.round((cappedAmt / baseOdAmount) * 10000) / 100);
+      onChange({ ...data, discountPercent: String(pct), odDiscountPercent: String(pct) });
+    }
+  };
+
   const hasOdBaseOverride = Boolean((data.odPremiumAmount !== undefined && data.odPremiumAmount !== '') || (data.odBasePremiumOverride !== undefined && data.odBasePremiumOverride !== ''));
   const hasAddonOverride = Boolean(data.addonPremiumOverride !== undefined && data.addonPremiumOverride !== '');
   const hasNetOdOverride = Boolean(data.netOdPremiumOverride !== undefined && data.netOdPremiumOverride !== '');
@@ -427,17 +489,83 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
             placeholder="Direct OD premium ₹"
           />
 
-          <OverrideFieldCard
-            label="Discount (%)"
-            status={data.discountPercent !== undefined && data.discountPercent !== '' ? 'MANUAL' : 'CALCULATED'}
-            value={data.discountPercent ?? ''}
-            onChange={handleDiscountPercentChange}
-            onReset={() => onChange({ ...data, discountPercent: '', odDiscountPercent: '' })}
-            hint="Enter OD discount percentage; the discount amount is calculated by the server."
-            placeholder="e.g. 10"
-            min={0}
-            step={0.5}
-          />
+          <div className="space-y-1">
+            <div className="flex items-center justify-between gap-1">
+              <label className="text-[11px] font-bold text-foreground truncate">
+                Discount {odDiscountMode === 'AMOUNT' ? '(₹)' : '(%)'}
+              </label>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <div className="inline-flex rounded border p-0.5 bg-muted/40 text-[9px] font-bold">
+                  <button
+                    type="button"
+                    onClick={() => handleOdModeToggle('PERCENT')}
+                    className={`px-1.5 py-0.5 rounded transition ${odDiscountMode === 'PERCENT' ? 'bg-background shadow-xs text-foreground font-black' : 'text-muted-foreground hover:text-foreground'}`}
+                  >
+                    %
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleOdModeToggle('AMOUNT')}
+                    className={`px-1.5 py-0.5 rounded transition ${odDiscountMode === 'AMOUNT' ? 'bg-background shadow-xs text-foreground font-black' : 'text-muted-foreground hover:text-foreground'}`}
+                  >
+                    ₹
+                  </button>
+                </div>
+                {data.discountPercent !== undefined && data.discountPercent !== '' ? (
+                  <>
+                    <span className="text-[9px] font-black bg-amber-500/20 text-amber-600 px-1.5 py-0.5 rounded border border-amber-500/30">
+                      [Manually Overridden]
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onChange({ ...data, discountPercent: '', odDiscountPercent: '' });
+                        setOdDiscountAmountInput('');
+                      }}
+                      className="text-[9px] text-muted-foreground hover:text-foreground underline cursor-pointer"
+                    >
+                      Reset
+                    </button>
+                  </>
+                ) : (
+                  <span className="text-[9px] font-medium bg-muted text-muted-foreground px-1.5 py-0.5 rounded">
+                    [Calculated]
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {odDiscountMode === 'PERCENT' ? (
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.5"
+                value={data.discountPercent ?? ''}
+                onChange={(e) => handleOdPercentChange(e.target.value)}
+                placeholder="e.g. 10"
+                className="w-full p-2 text-xs font-bold rounded-lg border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition-colors border-border"
+              />
+            ) : (
+              <input
+                type="number"
+                min="0"
+                max={baseOdAmount > 0 ? baseOdAmount : undefined}
+                step="1"
+                value={odDiscountAmountInput}
+                onChange={(e) => handleOdAmountChange(e.target.value)}
+                placeholder="e.g. ₹500"
+                className="w-full p-2 text-xs font-bold rounded-lg border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-xs transition-colors border-border"
+              />
+            )}
+            <p className="text-[9px] text-muted-foreground mt-0.5">
+              {odDiscountMode === 'PERCENT' ? (
+                <>Amount: {hasValidCalculation ? '-₹' + Number(saodDiscountAmount).toLocaleString('en-IN') : '—'}</>
+              ) : (
+                <>Percentage: {data.discountPercent ? `${Number(data.discountPercent).toFixed(2)}%` : '—'}</>
+              )}
+            </p>
+          </div>
 
           <OverrideFieldCard
             label="Add-ons Premium (₹)"

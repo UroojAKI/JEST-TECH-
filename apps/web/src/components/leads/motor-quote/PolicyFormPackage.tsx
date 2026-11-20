@@ -275,6 +275,106 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
           (data.totalPremiumInclGST ? parseFloat(data.totalPremiumInclGST) : 0)))
     : null;
 
+  // Toggle switch [% | ₹] state for OD and TP discounts
+  const [odDiscountMode, setOdDiscountMode] = React.useState<'PERCENT' | 'AMOUNT'>('PERCENT');
+  const [odDiscountAmountInput, setOdDiscountAmountInput] = React.useState<string>('');
+  const [tpDiscountMode, setTpDiscountMode] = React.useState<'PERCENT' | 'AMOUNT'>('PERCENT');
+  const [tpDiscountAmountInput, setTpDiscountAmountInput] = React.useState<string>('');
+
+  const odBase = Number(
+    (data.odPremiumAmount !== undefined && data.odPremiumAmount !== '' ? parseFloat(data.odPremiumAmount) : null) ??
+    (data.editedOdGross !== undefined && data.editedOdGross !== '' ? parseFloat(data.editedOdGross) : null) ??
+    (data.odBasePremiumOverride !== undefined && data.odBasePremiumOverride !== '' ? parseFloat(data.odBasePremiumOverride) : null) ??
+    outputs.od?.gross ??
+    outputs.baseOdPremium ??
+    rawOd ??
+    (data.ownDamagePremium ? parseFloat(data.ownDamagePremium) : 0)
+  );
+  const tpBase = Number(
+    (data.editedTpPremium !== undefined && data.editedTpPremium !== '' ? parseFloat(data.editedTpPremium) : null) ??
+    outputs.tp?.gross ??
+    outputs.tp?.base ??
+    outputs.baseTpPremium ??
+    rawTp ??
+    (data.thirdPartyPremium ? parseFloat(data.thirdPartyPremium) : 0)
+  );
+
+  const handleOdModeToggle = (newMode: 'PERCENT' | 'AMOUNT') => {
+    setOdDiscountMode(newMode);
+    if (newMode === 'AMOUNT') {
+      if (odDiscountAmount > 0) {
+        setOdDiscountAmountInput(String(Math.round(odDiscountAmount * 100) / 100));
+      } else if (data.odDiscountPercent && odBase > 0) {
+        const calcAmt = Math.round((odBase * (parseFloat(data.odDiscountPercent) / 100)) * 100) / 100;
+        setOdDiscountAmountInput(calcAmt > 0 ? String(calcAmt) : '');
+      }
+    }
+  };
+
+  const handleOdPercentChange = (val: string) => {
+    onChange({ ...data, odDiscountPercent: val });
+    if (odBase > 0 && val !== '') {
+      const p = parseFloat(val);
+      if (!isNaN(p)) {
+        setOdDiscountAmountInput(String(Math.round((odBase * (p / 100)) * 100) / 100));
+      }
+    } else {
+      setOdDiscountAmountInput('');
+    }
+  };
+
+  const handleOdAmountChange = (rawAmt: string) => {
+    setOdDiscountAmountInput(rawAmt);
+    if (rawAmt === '') {
+      onChange({ ...data, odDiscountPercent: '' });
+      return;
+    }
+    const amt = parseFloat(rawAmt);
+    if (!isNaN(amt) && odBase > 0) {
+      const cappedAmt = Math.min(amt, odBase);
+      const pct = Math.min(100, Math.round((cappedAmt / odBase) * 10000) / 100);
+      onChange({ ...data, odDiscountPercent: String(pct) });
+    }
+  };
+
+  const handleTpModeToggle = (newMode: 'PERCENT' | 'AMOUNT') => {
+    setTpDiscountMode(newMode);
+    if (newMode === 'AMOUNT') {
+      if (tpDiscountAmount > 0) {
+        setTpDiscountAmountInput(String(Math.round(tpDiscountAmount * 100) / 100));
+      } else if (data.tpDiscountPercent && tpBase > 0) {
+        const calcAmt = Math.round((tpBase * (parseFloat(data.tpDiscountPercent) / 100)) * 100) / 100;
+        setTpDiscountAmountInput(calcAmt > 0 ? String(calcAmt) : '');
+      }
+    }
+  };
+
+  const handleTpPercentChange = (val: string) => {
+    onChange({ ...data, tpDiscountPercent: val });
+    if (tpBase > 0 && val !== '') {
+      const p = parseFloat(val);
+      if (!isNaN(p)) {
+        setTpDiscountAmountInput(String(Math.round((tpBase * (p / 100)) * 100) / 100));
+      }
+    } else {
+      setTpDiscountAmountInput('');
+    }
+  };
+
+  const handleTpAmountChange = (rawAmt: string) => {
+    setTpDiscountAmountInput(rawAmt);
+    if (rawAmt === '') {
+      onChange({ ...data, tpDiscountPercent: '' });
+      return;
+    }
+    const amt = parseFloat(rawAmt);
+    if (!isNaN(amt) && tpBase > 0) {
+      const cappedAmt = Math.min(amt, tpBase);
+      const pct = Math.min(100, Math.round((cappedAmt / tpBase) * 10000) / 100);
+      onChange({ ...data, tpDiscountPercent: String(pct) });
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Policy Type Badge */}
@@ -430,17 +530,51 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
 
               {/* OD Discount */}
               <div className="p-2.5 rounded-lg bg-card border text-amber-700 dark:text-amber-400 space-y-1">
-                <span className="text-[9px] text-muted-foreground block font-bold">OD Discount (%)</span>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.5"
-                  value={data.odDiscountPercent ?? ''}
-                  onChange={(e) => onChange({ ...data, odDiscountPercent: e.target.value })}
-                  placeholder="e.g. 10%"
-                  className="w-full p-1 text-xs font-bold rounded border bg-background text-amber-700 dark:text-amber-400"
-                />
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] text-muted-foreground block font-bold">
+                    OD Discount {odDiscountMode === 'AMOUNT' ? '(₹)' : '(%)'}
+                  </span>
+                  <div className="inline-flex rounded border p-0.5 bg-muted/40 text-[9px] font-bold">
+                    <button
+                      type="button"
+                      onClick={() => handleOdModeToggle('PERCENT')}
+                      className={`px-1.5 py-0.5 rounded transition ${odDiscountMode === 'PERCENT' ? 'bg-background shadow-xs text-foreground font-black' : 'text-muted-foreground hover:text-foreground'}`}
+                    >
+                      %
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleOdModeToggle('AMOUNT')}
+                      className={`px-1.5 py-0.5 rounded transition ${odDiscountMode === 'AMOUNT' ? 'bg-background shadow-xs text-foreground font-black' : 'text-muted-foreground hover:text-foreground'}`}
+                    >
+                      ₹
+                    </button>
+                  </div>
+                </div>
+
+                {odDiscountMode === 'PERCENT' ? (
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.5"
+                    value={data.odDiscountPercent ?? ''}
+                    onChange={(e) => handleOdPercentChange(e.target.value)}
+                    placeholder="e.g. 10%"
+                    className="w-full p-1 text-xs font-bold rounded border bg-background text-amber-700 dark:text-amber-400"
+                  />
+                ) : (
+                  <input
+                    type="number"
+                    min="0"
+                    max={odBase > 0 ? odBase : undefined}
+                    step="1"
+                    value={odDiscountAmountInput}
+                    onChange={(e) => handleOdAmountChange(e.target.value)}
+                    placeholder="e.g. ₹500"
+                    className="w-full p-1 text-xs font-bold rounded border bg-background text-amber-700 dark:text-amber-400"
+                  />
+                )}
                 <input
                   type="text"
                   readOnly
@@ -448,7 +582,11 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
                   className="hidden"
                 />
                 <span className="text-[9px] block">
-                  Amount: {hasValidCalculation ? '-₹' + Number((outputs.od?.ncbDiscount ?? 0) + (outputs.od?.specialDiscount ?? odDiscountAmount)).toLocaleString('en-IN') : '—'}
+                  {odDiscountMode === 'PERCENT' ? (
+                    <>Amount: {hasValidCalculation ? '-₹' + Number((outputs.od?.ncbDiscount ?? 0) + (outputs.od?.specialDiscount ?? odDiscountAmount)).toLocaleString('en-IN') : '—'}</>
+                  ) : (
+                    <>Percentage: {data.odDiscountPercent ? `${Number(data.odDiscountPercent).toFixed(2)}%` : '—'}</>
+                  )}
                 </span>
               </div>
 
@@ -553,17 +691,51 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
 
               {/* TP Discount */}
               <div className="p-2.5 rounded-lg bg-card border text-amber-700 dark:text-amber-400 space-y-1">
-                <span className="text-[9px] text-muted-foreground block font-bold">TP Discount (%)</span>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.5"
-                  value={data.tpDiscountPercent ?? ''}
-                  onChange={(e) => onChange({ ...data, tpDiscountPercent: e.target.value })}
-                  placeholder="e.g. 0%"
-                  className="w-full p-1 text-xs font-bold rounded border bg-background text-amber-700 dark:text-amber-400"
-                />
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] text-muted-foreground block font-bold">
+                    TP Discount {tpDiscountMode === 'AMOUNT' ? '(₹)' : '(%)'}
+                  </span>
+                  <div className="inline-flex rounded border p-0.5 bg-muted/40 text-[9px] font-bold">
+                    <button
+                      type="button"
+                      onClick={() => handleTpModeToggle('PERCENT')}
+                      className={`px-1.5 py-0.5 rounded transition ${tpDiscountMode === 'PERCENT' ? 'bg-background shadow-xs text-foreground font-black' : 'text-muted-foreground hover:text-foreground'}`}
+                    >
+                      %
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleTpModeToggle('AMOUNT')}
+                      className={`px-1.5 py-0.5 rounded transition ${tpDiscountMode === 'AMOUNT' ? 'bg-background shadow-xs text-foreground font-black' : 'text-muted-foreground hover:text-foreground'}`}
+                    >
+                      ₹
+                    </button>
+                  </div>
+                </div>
+
+                {tpDiscountMode === 'PERCENT' ? (
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.5"
+                    value={data.tpDiscountPercent ?? ''}
+                    onChange={(e) => handleTpPercentChange(e.target.value)}
+                    placeholder="e.g. 0%"
+                    className="w-full p-1 text-xs font-bold rounded border bg-background text-amber-700 dark:text-amber-400"
+                  />
+                ) : (
+                  <input
+                    type="number"
+                    min="0"
+                    max={tpBase > 0 ? tpBase : undefined}
+                    step="1"
+                    value={tpDiscountAmountInput}
+                    onChange={(e) => handleTpAmountChange(e.target.value)}
+                    placeholder="e.g. ₹200"
+                    className="w-full p-1 text-xs font-bold rounded border bg-background text-amber-700 dark:text-amber-400"
+                  />
+                )}
                 <input
                   type="text"
                   readOnly
@@ -571,7 +743,11 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
                   className="hidden"
                 />
                 <span className="text-[9px] block">
-                  Amount: {hasValidCalculation ? '-₹' + Number(outputs.tp?.discount ?? tpDiscountAmount).toLocaleString('en-IN') : '—'}
+                  {tpDiscountMode === 'PERCENT' ? (
+                    <>Amount: {hasValidCalculation ? '-₹' + Number(outputs.tp?.discount ?? tpDiscountAmount).toLocaleString('en-IN') : '—'}</>
+                  ) : (
+                    <>Percentage: {data.tpDiscountPercent ? `${Number(data.tpDiscountPercent).toFixed(2)}%` : '—'}</>
+                  )}
                 </span>
               </div>
 
