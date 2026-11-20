@@ -103,30 +103,33 @@ export enum CoverageTerritory {
   WORLDWIDE_INCL_US_CANADA = 'WORLDWIDE_INCL_US_CANADA',
 }
 
-/** Plan Name & UIN + Sum Insured, shared by most categories. */
+/** Plan Name & UIN + Sum Insured, shared by most categories (now optional in proposal, captured during quotation). */
 class PlanIdentityDto {
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(200)
-  planName: string;
+  planName?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(50)
-  uin: string;
+  uin?: string;
 
+  @IsOptional()
   @IsNumber()
   @Min(1)
-  sumInsured: number;
+  sumInsured?: number;
 }
 
 /** 1.1 Individual Health Insurance */
 export class IndividualPlanDetailsDto extends PlanIdentityDto {
+  @IsOptional()
   @IsEnum(HealthIndemnityType)
-  indemnityType: HealthIndemnityType;
+  indemnityType?: HealthIndemnityType;
 
+  @IsOptional()
   @IsEnum(RoomRentCategory)
-  roomRentCategory: RoomRentCategory;
+  roomRentCategory?: RoomRentCategory;
 
   @IsOptional()
   @IsBoolean()
@@ -135,8 +138,9 @@ export class IndividualPlanDetailsDto extends PlanIdentityDto {
 
 /** 1.2 Family Floater */
 export class FamilyFloaterPlanDetailsDto extends PlanIdentityDto {
+  @IsOptional()
   @IsEnum(RoomRentCategory)
-  roomRentCategory: RoomRentCategory;
+  roomRentCategory?: RoomRentCategory;
 
   @IsOptional()
   @IsBoolean()
@@ -216,9 +220,10 @@ export class GroupCorporatePlanDetailsDto {
   @IsEnum(GroupSumInsuredBasis)
   sumInsuredBasis: GroupSumInsuredBasis;
 
+  @IsOptional()
   @IsNumber()
   @Min(1)
-  sumInsured: number;
+  sumInsured?: number;
 
   @ValidateIf((o) => o.sumInsuredBasis === GroupSumInsuredBasis.GRADED)
   @IsObject()
@@ -261,9 +266,10 @@ export class MiscellaneousPlanDetailsDto {
   @IsEnum(MiscPlanType)
   planType: MiscPlanType;
 
+  @IsOptional()
   @IsNumber()
   @Min(1)
-  sumInsured: number;
+  sumInsured?: number;
 
   @ValidateIf((o) => o.planType === MiscPlanType.MATERNITY_ADDON)
   @IsString()

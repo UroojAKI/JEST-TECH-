@@ -70,7 +70,18 @@ export const WAITING_PERIODS = opts(
 
 export const TENURES = opts(['1', '1 Year'], ['2', '2 Years'], ['3', '3 Years']);
 
-const ROOM_RENT = opts(['SINGLE_PRIVATE_AC', 'Single Private AC'], ['TWIN_SHARING', 'Twin Sharing'], ['NO_CAPPING', 'No Capping']);
+export const ROOM_RENT_OPTIONS = opts(
+  ['SINGLE_PRIVATE_AC', 'Single Private AC'],
+  ['TWIN_SHARING', 'Twin Sharing'],
+  ['NO_CAPPING', 'No Capping'],
+);
+
+export const INDEMNITY_TYPE_OPTIONS = opts(
+  ['INDEMNITY', 'Indemnity'],
+  ['FIXED_BENEFIT', 'Fixed Benefit'],
+);
+
+const ROOM_RENT = ROOM_RENT_OPTIONS;
 
 const planName: FieldSpec = { key: 'planName', label: 'Plan Name', type: 'text', required: true, hint: 'As filed with IRDAI' };
 const uin: FieldSpec = { key: 'uin', label: 'UIN', type: 'text', required: false, hint: 'Unique Identification Number (IRDAI) - Optional' };
@@ -87,25 +98,13 @@ const membersCount = (label = 'Members to Cover in Policy', defaultValue = 2, hi
 
 export const SECTION_A_FIELDS: Record<string, FieldSpec[]> = {
   INDIVIDUAL: [
-    planName,
-    uin,
-    sumInsured('Sum Insured Option'),
-    { key: 'indemnityType', label: 'Plan Type (Indemnity / Fixed Benefit)', type: 'select', required: true, options: opts(['INDEMNITY', 'Indemnity'], ['FIXED_BENEFIT', 'Fixed Benefit']) },
-    roomRent,
     { key: 'existingHealthPolicy', label: 'Existing Health Policy', type: 'boolean', required: false, hint: 'Disclosure of concurrent covers' },
   ],
   FAMILY_FLOATER: [
-    planName,
-    uin,
-    sumInsured('Sum Insured (Floater)'),
-    roomRent,
     membersCount('Members to Cover in Policy', 2, 'Total family members to cover under this floater policy (Minimum 2)'),
     { key: 'maternityCoverRequired', label: 'Maternity Cover Required', type: 'boolean', required: false, hint: 'Subject to plan availability & waiting period' },
   ],
   SENIOR_CITIZEN: [
-    planName,
-    uin,
-    sumInsured(),
     { key: 'coPaymentPercent', label: 'Co-payment Applicable (%)', type: 'number', required: true, hint: 'Common for senior citizen plans (10–20%)' },
     {
       key: 'prePolicyMedicalTests',
@@ -123,9 +122,6 @@ export const SECTION_A_FIELDS: Record<string, FieldSpec[]> = {
     },
   ],
   CRITICAL_ILLNESS: [
-    planName,
-    uin,
-    sumInsured('Sum Insured (Lump Sum Benefit)'),
     {
       key: 'illnessesCovered',
       label: 'Illnesses Covered',
@@ -144,9 +140,6 @@ export const SECTION_A_FIELDS: Record<string, FieldSpec[]> = {
     { key: 'familyHistoryOfCriticalIllness', label: 'Family History of Critical Illness', type: 'boolean', required: true },
   ],
   TOP_UP: [
-    planName,
-    uin,
-    sumInsured(),
     { key: 'deductibleAmount', label: 'Deductible / Threshold Limit', type: 'number', required: true },
     { key: 'basePolicySumInsured', label: 'Base Policy Sum Insured (Existing)', type: 'number', required: true, hint: 'To confirm deductible eligibility' },
     {
@@ -169,7 +162,6 @@ export const SECTION_A_FIELDS: Record<string, FieldSpec[]> = {
     membersCount('Members to Cover in Policy', 2, 'Number of insured members to register and cover under this group proposal'),
     { key: 'memberStrength', label: 'Employee / Member Strength', type: 'number', required: true },
     { key: 'sumInsuredBasis', label: 'Sum Insured Basis', type: 'select', required: true, options: opts(['FLAT', 'Flat'], ['GRADED', 'Graded by employee category']) },
-    sumInsured(),
     {
       key: 'gradeWiseSumInsured',
       label: 'Grade-wise Sum Insured',
@@ -183,9 +175,6 @@ export const SECTION_A_FIELDS: Record<string, FieldSpec[]> = {
     { key: 'policyEffectiveDate', label: 'Policy Effective Date (Scheme)', type: 'date', required: true },
   ],
   PERSONAL_ACCIDENT: [
-    planName,
-    uin,
-    sumInsured('Sum Insured (Capital Benefit)'),
     {
       key: 'coverType',
       label: 'Cover Type',
@@ -211,7 +200,6 @@ export const SECTION_A_FIELDS: Record<string, FieldSpec[]> = {
       required: true,
       options: opts(['MATERNITY_ADDON', 'Maternity Add-on'], ['OPD_COVER', 'OPD Cover'], ['TRAVEL_HEALTH', 'Travel Health'], ['MICRO_INSURANCE', 'Micro-Insurance']),
     },
-    sumInsured(),
     {
       key: 'maternityWaitingPeriod',
       label: 'Waiting Period (Maternity)',

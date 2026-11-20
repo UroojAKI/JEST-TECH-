@@ -28,11 +28,13 @@ import { apiClient } from '../../lib/api-client';
 import { useInsurers } from '../../hooks/useInsurers';
 import { healthApiError, healthQuotationRepository } from '../../repositories/health-quotation.repository';
 import {
+  INDEMNITY_TYPE_OPTIONS,
   NOMINEE_RELATIONS,
   PLAN_CATEGORIES,
   POLICY_FORMS,
   RELATIONS,
   RIDERS,
+  ROOM_RENT_OPTIONS,
   TENURES,
   WAITING_PERIODS,
   inr,
@@ -569,7 +571,7 @@ export function HealthCaseWorkspace({ caseId }: { caseId: string }) {
             const selected = hc.selectedQuoteId === q.id;
             return (
               <div key={q.id} className={`p-4 rounded-xl border space-y-2 text-xs ${selected ? 'border-emerald-500 bg-emerald-500/5' : ''}`}>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-start">
                   <div>
                     <div className="font-black text-sm">{q.insurerName}</div>
                     <div className="text-muted-foreground">
@@ -582,6 +584,20 @@ export function HealthCaseWorkspace({ caseId }: { caseId: string }) {
                     </span>
                   )}
                 </div>
+                {(q.healthMetadata?.indemnityType || q.healthMetadata?.roomRentCategory) && (
+                  <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                    {q.healthMetadata?.indemnityType && (
+                      <span className="px-2 py-0.5 rounded-md bg-sky-500/10 text-sky-700 dark:text-sky-300 font-semibold text-[10px] border border-sky-500/20">
+                        {labelOf(INDEMNITY_TYPE_OPTIONS, q.healthMetadata.indemnityType)}
+                      </span>
+                    )}
+                    {q.healthMetadata?.roomRentCategory && (
+                      <span className="px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-700 dark:text-purple-300 font-semibold text-[10px] border border-purple-500/20">
+                        {labelOf(ROOM_RENT_OPTIONS, q.healthMetadata.roomRentCategory)}
+                      </span>
+                    )}
+                  </div>
+                )}
                 <dl className="grid grid-cols-2 gap-x-3 gap-y-1">
                   <dt className="text-muted-foreground">Sum insured</dt>
                   <dd className="font-bold text-right">{inr(q.sumInsured)}</dd>
@@ -1463,12 +1479,15 @@ function EditLeftoverDetailsModal({
 function AddQuoteForm({ healthCase, onCancel, onSaved }: { healthCase: any; onCancel: () => void; onSaved: () => void }) {
   const { activeInsurers, isLoading: insurersLoading } = useInsurers();
   const isRenewal = healthCase.policyForm === 'RENEWAL_PORTABILITY';
+  const isIndemnityPlan = ['INDIVIDUAL', 'FAMILY_FLOATER', 'SENIOR_CITIZEN', 'TOP_UP'].includes(healthCase.planCategory);
   const [form, setForm] = useState({
     insurerId: '',
     insurerName: '',
     planName: healthCase.planDetails?.planName ?? '',
     uin: healthCase.planDetails?.uin ?? '',
     sumInsured: String(healthCase.planDetails?.sumInsured ?? ''),
+    indemnityType: healthCase.planDetails?.indemnityType ?? (isIndemnityPlan ? 'INDEMNITY' : ''),
+    roomRentCategory: healthCase.planDetails?.roomRentCategory ?? (isIndemnityPlan ? 'NO_CAPPING' : ''),
     policyTenureYears: '1',
     basePremium: '',
     gstPercent: '18',
@@ -1497,6 +1516,8 @@ function AddQuoteForm({ healthCase, onCancel, onSaved }: { healthCase: any; onCa
       !form.planName && 'Plan name',
       !form.uin && 'UIN',
       !form.sumInsured && 'Sum insured',
+      isIndemnityPlan && !form.indemnityType && 'Plan type',
+      isIndemnityPlan && !form.roomRentCategory && 'Room rent category',
       form.basePremium === '' && 'Base premium',
       !isRenewal && !form.waitingPeriod && 'Waiting period',
       form.commissionPercent === '' && 'Commission / Discount %',
@@ -1515,6 +1536,8 @@ function AddQuoteForm({ healthCase, onCancel, onSaved }: { healthCase: any; onCa
         planName: form.planName,
         uin: form.uin,
         sumInsured: Number(form.sumInsured),
+        ...(form.indemnityType ? { indemnityType: form.indemnityType } : {}),
+        ...(form.roomRentCategory ? { roomRentCategory: form.roomRentCategory } : {}),
         policyTenureYears: Number(form.policyTenureYears),
         basePremium: Number(form.basePremium),
         medicalCheckupRequired: form.medicalCheckupRequired,
@@ -1570,6 +1593,34 @@ function AddQuoteForm({ healthCase, onCancel, onSaved }: { healthCase: any; onCa
         </FieldLabel>
         <FieldLabel label="Sum Insured" required>
           <input className={inputCls} type="number" min={0} value={form.sumInsured} onChange={set('sumInsured')} />
+        </FieldLabel>
+        <FieldLabel
+          label="Plan Type"
+          required={isIndemnityPlan}
+          hint={isIndemnityPlan ? 'Indemnity / Fixed Benefit' : 'Optional for benefit / misc plans'}
+        >
+          <select className={inputCls} value={form.indemnityType} onChange={set('indemnityType')}>
+            {!isIndemnityPlan && <option value="">-- Optional / None --</option>}
+            {INDEMNITY_TYPE_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </FieldLabel>
+        <FieldLabel
+          label="Room Rent Category"
+          required={isIndemnityPlan}
+          hint={isIndemnityPlan ? 'Room rent limit or capping' : 'Optional for benefit / misc plans'}
+        >
+          <select className={inputCls} value={form.roomRentCategory} onChange={set('roomRentCategory')}>
+            {!isIndemnityPlan && <option value="">-- Optional / None --</option>}
+            {ROOM_RENT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
         </FieldLabel>
         <FieldLabel label="Policy Tenure" required>
           <select className={inputCls} value={form.policyTenureYears} onChange={set('policyTenureYears')}>

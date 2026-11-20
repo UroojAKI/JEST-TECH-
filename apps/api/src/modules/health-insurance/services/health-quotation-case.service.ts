@@ -486,6 +486,21 @@ export class HealthQuotationCaseService {
       throw new BadRequestException('waitingPeriod is required for New Policy quotes');
     }
 
+    const indemnityCategories: HealthPlanCategory[] = [
+      HealthPlanCategory.INDIVIDUAL,
+      HealthPlanCategory.FAMILY_FLOATER,
+      HealthPlanCategory.SENIOR_CITIZEN,
+      HealthPlanCategory.TOP_UP,
+    ];
+    if (indemnityCategories.includes(healthCase.planCategory)) {
+      if (!dto.indemnityType) {
+        throw new BadRequestException('indemnityType is required for hospital indemnity plans');
+      }
+      if (!dto.roomRentCategory) {
+        throw new BadRequestException('roomRentCategory is required for hospital indemnity plans');
+      }
+    }
+
     const previousPolicySnapshot = (healthCase.previousPolicySnapshot || {}) as Record<string, any>;
     const renewalSourcePolicyId = typeof previousPolicySnapshot.sourcePolicyId === 'string'
       ? previousPolicySnapshot.sourcePolicyId
@@ -572,6 +587,8 @@ export class HealthQuotationCaseService {
             policyForm: healthCase.policyForm,
             planName: dto.planName,
             uin: dto.uin,
+            indemnityType: dto.indemnityType ?? null,
+            roomRentCategory: dto.roomRentCategory ?? null,
             riders: riders.map((r) => ({ ...r })),
             coPaymentPercent: dto.coPaymentPercent ?? null,
             waitingPeriod: dto.waitingPeriod ?? null,

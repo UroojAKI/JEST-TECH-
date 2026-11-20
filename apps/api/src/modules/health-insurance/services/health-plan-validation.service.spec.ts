@@ -37,11 +37,9 @@ describe('HealthPlanValidationService', () => {
       expect(result.derived.bmi[0]).toBe(25);
     });
 
-    it('rejects an Individual plan missing room rent and indemnity type', () => {
-      const errors = messages(() => service.validatePlanDetails('INDIVIDUAL', { ...identity }, [member()]));
-
-      expect(errors.join(' ')).toContain('planDetails.indemnityType');
-      expect(errors.join(' ')).toContain('planDetails.roomRentCategory');
+    it('accepts an Individual plan even when plan identity, room rent, and indemnity type are omitted from Step 1', () => {
+      const result = service.validatePlanDetails('INDIVIDUAL', {}, [member()]);
+      expect(result.derived.memberCount).toBe(1);
     });
 
     it('rejects unknown fields', () => {

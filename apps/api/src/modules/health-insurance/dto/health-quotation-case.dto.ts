@@ -32,6 +32,7 @@ import {
   NomineeRelation,
   ProposerOccupation,
 } from '@prisma/client';
+import { HealthIndemnityType, RoomRentCategory } from './health-plan-details.dto';
 
 /**
  * Riders & Add-on Covers - Policy Form (iii), field 1.
@@ -310,6 +311,16 @@ export class AddHealthQuoteDto {
   @IsNumber()
   @Min(1)
   sumInsured: number;
+
+  @ApiPropertyOptional({ enum: HealthIndemnityType, example: HealthIndemnityType.INDEMNITY })
+  @IsOptional()
+  @IsEnum(HealthIndemnityType)
+  indemnityType?: HealthIndemnityType;
+
+  @ApiPropertyOptional({ enum: RoomRentCategory, example: RoomRentCategory.SINGLE_PRIVATE_AC })
+  @IsOptional()
+  @IsEnum(RoomRentCategory)
+  roomRentCategory?: RoomRentCategory;
 
   @ApiProperty({ example: 1, description: 'Policy tenure in years (1, 2 or 3)' })
   @IsInt()

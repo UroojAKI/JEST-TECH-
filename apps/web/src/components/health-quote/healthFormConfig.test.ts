@@ -12,7 +12,7 @@ describe('isMaskedPii', () => {
 });
 
 describe('toPayload', () => {
-  it('drops membersCount from planDetails for FAMILY_FLOATER', () => {
+  it('drops membersCount from planDetails for FAMILY_FLOATER and keeps specific fields', () => {
     const fields = SECTION_A_FIELDS.FAMILY_FLOATER;
     const values = {
       planName: 'Optima Secure',
@@ -24,8 +24,9 @@ describe('toPayload', () => {
     };
     const payload = toPayload(fields, values);
     expect(payload.membersCount).toBeUndefined();
-    expect(payload.planName).toBe('Optima Secure');
-    expect(payload.sumInsured).toBe(500000);
-    expect(payload.roomRentCategory).toBe('NO_CAPPING');
+    expect(payload.maternityCoverRequired).toBe(false);
+    expect(payload.planName).toBeUndefined();
+    expect(payload.sumInsured).toBeUndefined();
+    expect(payload.roomRentCategory).toBeUndefined();
   });
 });
