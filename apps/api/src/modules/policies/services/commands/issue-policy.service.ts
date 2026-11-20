@@ -450,7 +450,7 @@ export class IssuePolicyService {
     policyData.nominees = {
       create: dto.nominees.map((n) => ({
         firstName: n.firstName,
-        lastName: n.lastName,
+        lastName: n.lastName || '',
         relation: n.relation,
         percentage: new Prisma.Decimal(n.percentage),
       })),

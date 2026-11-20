@@ -14,7 +14,7 @@ export interface MemberFacts {
   heightCm?: number | null;
   weightKg?: number | null;
   preExistingDiseases?: string | null;
-  isSmoker: boolean;
+  isSmoker?: boolean;
 }
 
 /** Critical illness first-diagnosis waiting period, Section 1.4 field 6: "90 days standard" (fixed). */
@@ -89,7 +89,7 @@ export class HealthPlanValidationService {
       anyPreExistingDisease: members.some(
         (m) => !NO_DISEASE.includes((m.preExistingDiseases ?? '').trim().toLowerCase()),
       ),
-      anySmoker: members.some((m) => m.isSmoker),
+      anySmoker: members.some((m) => Boolean(m.isSmoker)),
       bmi: members.map((m) => {
         if (!m.heightCm || !m.weightKg) return null;
         return Math.round((m.weightKg / (m.heightCm / 100) ** 2) * 10) / 10;

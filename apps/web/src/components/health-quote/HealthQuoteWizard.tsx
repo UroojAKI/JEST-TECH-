@@ -37,7 +37,7 @@ type Member = {
   heightCm: string;
   weightKg: string;
   preExistingDiseases: string;
-  isSmoker: boolean;
+  isSmoker?: boolean;
 };
 
 const emptyMember = (
@@ -528,7 +528,7 @@ export function HealthQuoteWizard({
         ...(m.heightCm ? { heightCm: Number(m.heightCm) } : {}),
         ...(m.weightKg ? { weightKg: Number(m.weightKg) } : {}),
         preExistingDiseases: m.preExistingDiseases || 'None',
-        isSmoker: m.isSmoker,
+        isSmoker: Boolean(m.isSmoker),
       }));
 
       const created = await healthQuotationRepository.createCase({
@@ -955,8 +955,8 @@ export function HealthQuoteWizard({
                       ))}
                     </select>
                   </FieldLabel>
-                  <FieldLabel label="Smoker / Tobacco / Alcohol" required>
-                    <YesNo value={m.isSmoker} onChange={(v) => setMember(i, { isSmoker: v })} />
+                  <FieldLabel label="Smoker / Tobacco / Alcohol (Optional)">
+                    <YesNo value={Boolean(m.isSmoker)} onChange={(v) => setMember(i, { isSmoker: v })} />
                   </FieldLabel>
                   <FieldLabel label="Height (cm)" hint="In centimetres (optional), e.g. 162 = 5 ft 4 in">
                     <input

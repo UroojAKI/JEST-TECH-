@@ -8,6 +8,7 @@ import {
   ShieldCheck,
   CreditCard,
   UserCheck,
+  Calendar,
   AlertCircle,
   HeartPulse,
   Car,
@@ -74,7 +75,7 @@ export function UpdatePolicyDetailsDialog({
   const [planName, setPlanName] = useState('Comprehensive Health Plan');
   const [sumInsured, setSumInsured] = useState('500000');
   const [nomineeName, setNomineeName] = useState('');
-  const [nomineeRelation, setNomineeRelation] = useState('Spouse');
+  const [nomineeRelation, setNomineeRelation] = useState('');
   const [tpaName, setTpaName] = useState('');
   const [medicalUnderwritingVerified, setMedicalUnderwritingVerified] = useState(true);
   const [membersList, setMembersList] = useState<any[]>([]);
@@ -222,14 +223,6 @@ export function UpdatePolicyDetailsDialog({
           if (healthMeta.sumInsured || q.sumInsured) {
             setSumInsured(String(healthMeta.sumInsured || q.sumInsured));
           }
-          if (healthCase.nomineeName || healthMeta.nomineeName) {
-            setNomineeName(healthCase.nomineeName || healthMeta.nomineeName);
-          } else if (q.contact) {
-            setNomineeName(`${q.contact.firstName} ${q.contact.lastName || ''}`.trim());
-          }
-          if (healthCase.nomineeRelation || healthMeta.nomineeRelation) {
-            setNomineeRelation(healthCase.nomineeRelation || healthMeta.nomineeRelation);
-          }
           if (healthMeta.tpaName) {
             setTpaName(healthMeta.tpaName);
           }
@@ -369,10 +362,10 @@ export function UpdatePolicyDetailsDialog({
           }
         }
 
-        // Parse nominee name
-        const nomParts = (nomineeName.trim() || 'Nominee').split(' ');
+        // Parse nominee name (handles single names cleanly without requiring last name)
+        const nomParts = (nomineeName.trim() || 'Nominee').split(/\s+/);
         const nomFirstName = nomParts[0] || 'Nominee';
-        const nomLastName = nomParts.slice(1).join(' ') || '';
+        const nomLastName = nomParts.slice(1).join(' ') || undefined;
 
         const safePan = /^X{4,}|^\*{4,}/i.test(customerPan.trim())
           ? undefined
@@ -405,7 +398,7 @@ export function UpdatePolicyDetailsDialog({
             {
               firstName: nomFirstName,
               lastName: nomLastName,
-              relation: nomineeRelation.toUpperCase() || 'SPOUSE',
+              relation: (nomineeRelation.trim() || 'OTHER').toUpperCase(),
               percentage: 100,
             },
           ],
@@ -636,8 +629,8 @@ export function UpdatePolicyDetailsDialog({
             </div>
           </div>
 
-          {/* Section: Customer PAN, Aadhaar & Payment Reference */}
-          <div className={`grid grid-cols-1 ${isHealth ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-4`}>
+          {/* Section: Customer PAN, Aadhaar, DOB & Payment Reference */}
+          <div className={`grid grid-cols-1 ${isHealth ? 'sm:grid-cols-4' : 'sm:grid-cols-3'} gap-4`}>
             <div>
               <label className="block text-xs font-bold mb-1 flex items-center gap-1">
                 <UserCheck className="h-3 w-3 text-muted-foreground" />
@@ -671,6 +664,20 @@ export function UpdatePolicyDetailsDialog({
                 />
               </div>
             )}
+
+            <div>
+              <label className="block text-xs font-bold mb-1 flex items-center gap-1">
+                <Calendar className="h-3 w-3 text-muted-foreground" />
+                <span>Customer DOB</span>
+                <span className="text-muted-foreground font-normal">(Optional)</span>
+              </label>
+              <input
+                type="date"
+                value={customerDob}
+                onChange={(e) => setCustomerDob(e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg text-xs bg-background focus:ring-1 focus:ring-primary focus:outline-none"
+              />
+            </div>
 
             <div>
               <label className="block text-xs font-bold mb-1 flex items-center gap-1">
@@ -833,8 +840,8 @@ export function UpdatePolicyDetailsDialog({
             </label>
           </div>
 
-          {/* Policy Start & End Dates & Customer DOB */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* Policy Start & End Dates */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold mb-1">
                 Policy Start Date <span className="text-rose-500">*</span>
@@ -865,17 +872,6 @@ export function UpdatePolicyDetailsDialog({
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg text-xs bg-background focus:ring-1 focus:ring-primary focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold mb-1">
-                Customer Date of Birth (Optional)
-              </label>
-              <input
-                type="date"
-                value={customerDob}
-                onChange={(e) => setCustomerDob(e.target.value)}
                 className="w-full px-3 py-2 border rounded-lg text-xs bg-background focus:ring-1 focus:ring-primary focus:outline-none"
               />
             </div>
@@ -937,20 +933,22 @@ export function UpdatePolicyDetailsDialog({
                       type="text"
                       value={nomineeName}
                       onChange={(e) => setNomineeName(e.target.value)}
-                      placeholder="e.g. Priya Sharma"
+                      placeholder="Enter Nominee Name (e.g. Priya Sharma)"
                       className="w-full px-3 py-1.5 border rounded-lg text-xs bg-background focus:ring-1 focus:ring-primary focus:outline-none"
                     />
                   </div>
 
                   <div>
                     <label className="block text-[11px] font-bold mb-1 text-muted-foreground">
-                      Nominee Relationship
+                      Nominee Relationship <span className="text-rose-500">*</span>
                     </label>
                     <select
+                      required
                       value={nomineeRelation}
                       onChange={(e) => setNomineeRelation(e.target.value)}
                       className="w-full px-3 py-1.5 border rounded-lg text-xs bg-background focus:ring-1 focus:ring-primary focus:outline-none"
                     >
+                      <option value="">Select Nominee Relationship</option>
                       <option value="Spouse">Spouse</option>
                       <option value="Father">Father</option>
                       <option value="Mother">Mother</option>

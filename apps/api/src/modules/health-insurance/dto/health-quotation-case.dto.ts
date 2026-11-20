@@ -99,9 +99,10 @@ export class HealthInsuredMemberDto {
   @MaxLength(2000)
   preExistingDiseases?: string;
 
-  @ApiProperty({ example: false, description: 'Smoker / Tobacco / Alcohol use' })
+  @ApiPropertyOptional({ example: false, description: 'Smoker / Tobacco / Alcohol use (optional)' })
+  @IsOptional()
   @IsBoolean()
-  isSmoker: boolean;
+  isSmoker?: boolean;
 }
 
 /** Common fields 9, 11, 12 - proposer KYC for Health (PAN / Aadhaar optional). */
