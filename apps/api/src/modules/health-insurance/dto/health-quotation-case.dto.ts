@@ -79,23 +79,25 @@ export class HealthInsuredMemberDto {
   @IsEnum(Gender)
   gender: Gender;
 
-  @ApiProperty({ example: 162, description: 'Height in cm' })
+  @ApiPropertyOptional({ example: 162, description: 'Height in cm (optional)' })
+  @IsOptional()
   @IsNumber()
   @Min(30)
   @Max(250)
-  heightCm: number;
+  heightCm?: number;
 
-  @ApiProperty({ example: 58, description: 'Weight in kg' })
+  @ApiPropertyOptional({ example: 58, description: 'Weight in kg (optional)' })
+  @IsOptional()
   @IsNumber()
   @Min(1)
   @Max(300)
-  weightKg: number;
+  weightKg?: number;
 
-  @ApiProperty({ example: 'None', description: 'Full disclosure mandatory as per IRDAI; use "None" if nothing to declare' })
+  @ApiPropertyOptional({ example: 'None', description: 'Full disclosure (optional); use "None" if nothing to declare' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(2000)
-  preExistingDiseases: string;
+  preExistingDiseases?: string;
 
   @ApiProperty({ example: false, description: 'Smoker / Tobacco / Alcohol use' })
   @IsBoolean()
@@ -239,15 +241,16 @@ export class CreateHealthQuotationCaseDto {
   @Type(() => HealthAddressDto)
   address: HealthAddressDto;
 
-  @ApiProperty({ example: 'Ravi B' })
+  @ApiPropertyOptional({ example: 'Ravi B' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(200)
-  nomineeName: string;
+  nomineeName?: string;
 
-  @ApiProperty({ enum: NomineeRelation, example: NomineeRelation.SPOUSE })
+  @ApiPropertyOptional({ enum: NomineeRelation, example: NomineeRelation.SPOUSE })
+  @IsOptional()
   @IsEnum(NomineeRelation)
-  nomineeRelation: NomineeRelation;
+  nomineeRelation?: NomineeRelation;
 
   @ApiProperty({
     description:

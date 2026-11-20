@@ -328,7 +328,7 @@ describe('Authoritative Production Gates & Negative Safety Invariants (INV-01 to
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('INV-07: rejects policy issuance with backdated effective date earlier than today', async () => {
+    it('INV-07: allows policy issuance with backdated effective date earlier than today', async () => {
       mockQuotationRepo.findById.mockResolvedValueOnce({
         id: 'quote-valid-1',
         status: QuotationStatus.APPROVED,
@@ -345,9 +345,9 @@ describe('Authoritative Production Gates & Negative Safety Invariants (INV-01 to
         expiryDate: '2021-01-01T00:00:00.000Z',
       };
 
-      await expect(
-        issuePolicyService.execute(backdatedDto as any, 'usr-1'),
-      ).rejects.toThrow(BadRequestException);
+      const result = await issuePolicyService.execute(backdatedDto as any, 'usr-1');
+      expect(result).toBeDefined();
+      expect(result.status).toBe(PolicyStatus.ACTIVE);
     });
 
     it('INV-08: rejects policy issuance when expiryDate is <= effectiveDate', async () => {

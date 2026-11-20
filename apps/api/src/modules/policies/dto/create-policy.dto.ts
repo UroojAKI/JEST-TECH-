@@ -136,6 +136,10 @@ export class CreatePolicyDto {
 
   @IsOptional()
   @IsString()
+  customerDob?: string;
+
+  @IsOptional()
+  @IsString()
   customerAddress?: string;
 
   @IsOptional()

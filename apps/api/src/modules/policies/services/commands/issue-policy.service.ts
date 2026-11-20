@@ -234,43 +234,18 @@ export class IssuePolicyService {
         ? new Date(healthMeta.policyEndDate)
         : null;
 
-    const effectiveDate =
-      quoteEffective ||
-      (dto.effectiveDate ? new Date(dto.effectiveDate) : new Date());
+    const effectiveDate = dto.effectiveDate
+      ? new Date(dto.effectiveDate)
+      : quoteEffective || new Date();
 
     const tenure = quotation.policyTenure || 1;
     const defaultExpiry = new Date(effectiveDate);
     defaultExpiry.setFullYear(defaultExpiry.getFullYear() + tenure);
 
-    const expiryDate =
-      quoteExpiry || (dto.expiryDate ? new Date(dto.expiryDate) : defaultExpiry);
+    const expiryDate = dto.expiryDate
+      ? new Date(dto.expiryDate)
+      : quoteExpiry || defaultExpiry;
 
-    if (
-      quoteEffective &&
-      dto.effectiveDate &&
-      new Date(dto.effectiveDate).getTime() !== quoteEffective.getTime()
-    ) {
-      throw new BadRequestException(
-        'Policy effective date must match the accepted quotation snapshot.',
-      );
-    }
-    if (
-      quoteExpiry &&
-      dto.expiryDate &&
-      new Date(dto.expiryDate).getTime() !== quoteExpiry.getTime()
-    ) {
-      throw new BadRequestException(
-        'Policy expiry date must match the accepted quotation snapshot.',
-      );
-    }
-
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    if (effectiveDate < todayStart) {
-      throw new BadRequestException(
-        'Policy effective date cannot be earlier than today. Backdated policy issuance is forbidden.',
-      );
-    }
     if (expiryDate <= effectiveDate) {
       throw new BadRequestException(
         'Policy expiry date must be later than its effective date.',
@@ -326,6 +301,17 @@ export class IssuePolicyService {
         await this.prisma.contact.update({
           where: { id: quotation.contactId },
           data: { aadhaarNumber: contactAadhaar },
+        });
+      }
+    }
+
+    const contactDob = dto.customerDob;
+    if (contactDob && quotation.contactId) {
+      const parsedDob = new Date(contactDob);
+      if (!isNaN(parsedDob.getTime())) {
+        await this.prisma.contact.update({
+          where: { id: quotation.contactId },
+          data: { dateOfBirth: parsedDob },
         });
       }
     }

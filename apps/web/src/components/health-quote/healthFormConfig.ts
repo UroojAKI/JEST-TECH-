@@ -186,7 +186,7 @@ export const SECTION_A_FIELDS: Record<string, FieldSpec[]> = {
       key: 'occupationRiskCategory',
       label: 'Occupation Risk Category',
       type: 'select',
-      required: true,
+      required: false,
       options: opts(['CATEGORY_I', 'Category I'], ['CATEGORY_II', 'Category II'], ['CATEGORY_III', 'Category III'], ['HAZARDOUS', 'Hazardous']),
     },
     { key: 'permanentTotalDisabilityPercent', label: 'Permanent Total Disability Benefit (%)', type: 'number', required: true, defaultValue: 100 },

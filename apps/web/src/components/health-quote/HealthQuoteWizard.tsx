@@ -26,7 +26,7 @@ import {
 } from './healthFormConfig';
 import { FieldLabel, HealthFields, YesNo, inputCls } from './HealthFields';
 
-const STEPS = ['Proposer & KYC', 'Plan & Details', 'Insured Members', 'Nominee & Policy', 'Review'];
+const STEPS = ['Proposer & KYC', 'Plan & Details', 'Insured Members', 'Review'];
 
 type Member = {
   firstName: string;
@@ -420,7 +420,7 @@ export function HealthQuoteWizard({
         errors.push('Only one member can have Relationship: Spouse');
       }
       members.forEach((m, i) => {
-        const missing = (['firstName', 'relation', 'dateOfBirth', 'gender', 'heightCm', 'weightKg', 'preExistingDiseases'] as const).filter(
+        const missing = (['firstName', 'relation', 'dateOfBirth', 'gender'] as const).filter(
           (k) => !m[k],
         );
         if (missing.length) errors.push(`Member ${i + 1}: ${missing.join(', ')}`);
@@ -441,10 +441,6 @@ export function HealthQuoteWizard({
           if (adultOn > new Date()) errors.push(`Member ${i + 1} (Self) must be at least 18 years old`);
         }
       });
-    }
-    if (index === 3) {
-      if (!nominee.name || !nominee.relation) errors.push('Nominee name & relationship');
-      if (policyForm === 'RENEWAL_PORTABILITY') errors.push(...missingRequired(RENEWAL_FIELDS, renewalValues));
     }
     return errors;
   };
@@ -529,9 +525,9 @@ export function HealthQuoteWizard({
         relation: idx === 0 ? 'SELF' : m.relation,
         dateOfBirth: m.dateOfBirth,
         gender: m.gender,
-        heightCm: Number(m.heightCm),
-        weightKg: Number(m.weightKg),
-        preExistingDiseases: m.preExistingDiseases,
+        ...(m.heightCm ? { heightCm: Number(m.heightCm) } : {}),
+        ...(m.weightKg ? { weightKg: Number(m.weightKg) } : {}),
+        preExistingDiseases: m.preExistingDiseases || 'None',
         isSmoker: m.isSmoker,
       }));
 
@@ -543,8 +539,6 @@ export function HealthQuoteWizard({
         occupation,
         ...(annualIncome ? { annualIncome: Number(annualIncome) } : {}),
         address: effectiveAddress,
-        nomineeName: nominee.name,
-        nomineeRelation: nominee.relation,
         planDetails: (() => {
           const raw = toPayload(sectionAFields, planValues);
           const { membersCount: _unused, ...clean } = raw;
@@ -964,7 +958,7 @@ export function HealthQuoteWizard({
                   <FieldLabel label="Smoker / Tobacco / Alcohol" required>
                     <YesNo value={m.isSmoker} onChange={(v) => setMember(i, { isSmoker: v })} />
                   </FieldLabel>
-                  <FieldLabel label="Height (cm)" required hint="In centimetres, e.g. 162 = 5 ft 4 in">
+                  <FieldLabel label="Height (cm)" hint="In centimetres (optional), e.g. 162 = 5 ft 4 in">
                     <input
                       className={inputCls}
                       type="number"
@@ -975,7 +969,7 @@ export function HealthQuoteWizard({
                       onChange={(e) => setMember(i, { heightCm: e.target.value })}
                     />
                   </FieldLabel>
-                  <FieldLabel label="Weight (kg)" required hint="In kilograms">
+                  <FieldLabel label="Weight (kg)" hint="In kilograms (optional)">
                     <input
                       className={inputCls}
                       type="number"
@@ -987,7 +981,7 @@ export function HealthQuoteWizard({
                     />
                   </FieldLabel>
                   <div className="sm:col-span-3">
-                    <FieldLabel label="Pre-Existing Disease Declaration" required hint='Full & honest disclosure mandatory (IRDAI). Write "None" if nothing to declare.'>
+                    <FieldLabel label="Pre-Existing Disease Declaration" hint='Full disclosure (optional). Write "None" if nothing to declare.'>
                       <textarea
                         className={inputCls}
                         rows={2}
@@ -1003,33 +997,6 @@ export function HealthQuoteWizard({
         )}
 
         {step === 3 && (
-          <>
-            <h2 className="font-black text-sm">Nominee</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <FieldLabel label="Nominee Name" required hint="Mandatory as per Insurance Act, 1938">
-                <input className={inputCls} value={nominee.name} onChange={(e) => setNominee({ ...nominee, name: e.target.value })} />
-              </FieldLabel>
-              <FieldLabel label="Nominee Relationship" required>
-                <select className={inputCls} value={nominee.relation} onChange={(e) => setNominee({ ...nominee, relation: e.target.value })}>
-                  <option value="">-- Select --</option>
-                  {NOMINEE_RELATIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-              </FieldLabel>
-            </div>
-            {policyForm === 'RENEWAL_PORTABILITY' && (
-              <>
-                <h2 className="font-black text-sm pt-2">Renewal / Portability Details</h2>
-                <HealthFields fields={RENEWAL_FIELDS} values={renewalValues} onChange={setRenewalValues} />
-              </>
-            )}
-          </>
-        )}
-
-        {step === 4 && (
           <div className="space-y-3 text-xs">
             <h2 className="font-black text-sm">Review</h2>
             <dl className="grid grid-cols-2 gap-x-6 gap-y-2">
@@ -1051,10 +1018,6 @@ export function HealthQuoteWizard({
               )}
               <dt className="text-muted-foreground">Insured members</dt>
               <dd className="font-bold">{members.map((m, idx) => `${m.firstName} (${idx === 0 ? 'Self' : labelOf(RELATIONS, m.relation)})`).join(', ')}</dd>
-              <dt className="text-muted-foreground">Nominee</dt>
-              <dd className="font-bold">
-                {nominee.name} ({labelOf(NOMINEE_RELATIONS, nominee.relation)})
-              </dd>
               <dt className="text-muted-foreground">Occupation</dt>
               <dd className="font-bold">{labelOf(OCCUPATIONS, occupation)}</dd>
               <dt className="text-muted-foreground">Lead</dt>

@@ -11,9 +11,9 @@ import {
 export interface MemberFacts {
   dateOfBirth: string | Date;
   relation: string;
-  heightCm: number;
-  weightKg: number;
-  preExistingDiseases: string;
+  heightCm?: number | null;
+  weightKg?: number | null;
+  preExistingDiseases?: string | null;
   isSmoker: boolean;
 }
 
@@ -90,7 +90,10 @@ export class HealthPlanValidationService {
         (m) => !NO_DISEASE.includes((m.preExistingDiseases ?? '').trim().toLowerCase()),
       ),
       anySmoker: members.some((m) => m.isSmoker),
-      bmi: members.map((m) => Math.round((m.weightKg / (m.heightCm / 100) ** 2) * 10) / 10),
+      bmi: members.map((m) => {
+        if (!m.heightCm || !m.weightKg) return null;
+        return Math.round((m.weightKg / (m.heightCm / 100) ** 2) * 10) / 10;
+      }),
     };
   }
 

@@ -44,6 +44,7 @@ export function UpdatePolicyDetailsDialog({
   const [actualPremium, setActualPremium] = useState('');
   const [customerPan, setCustomerPan] = useState('');
   const [customerAadhaar, setCustomerAadhaar] = useState('');
+  const [customerDob, setCustomerDob] = useState('');
   const [paymentReference, setPaymentReference] = useState('');
   const [confirmPaymentReceived, setConfirmPaymentReceived] = useState(true);
   const [startDate, setStartDate] = useState('');
@@ -128,6 +129,17 @@ export function UpdatePolicyDetailsDialog({
         const fetchedAadhaar = isMaskedValue(rawAadhaar) ? '' : rawAadhaar;
         if (fetchedAadhaar && !customerAadhaar) {
           setCustomerAadhaar(fetchedAadhaar);
+        }
+
+        const rawDob =
+          (q.contact as any)?.dateOfBirth ||
+          (q.proposerDetails as any)?.dateOfBirth ||
+          (q.healthCase as any)?.members?.find((m: any) => m.relation === 'SELF')?.dateOfBirth ||
+          '';
+        if (rawDob && !customerDob) {
+          try {
+            setCustomerDob(new Date(rawDob).toISOString().split('T')[0]);
+          } catch {}
         }
 
         // Auto-fetch unmasked KYC (PAN & Aadhaar) if masked or missing
@@ -322,6 +334,11 @@ export function UpdatePolicyDetailsDialog({
       return;
     }
 
+    if (isHealth && (!nomineeName.trim() || !nomineeRelation.trim())) {
+      toast.error('Nominee Full Name and Relationship are compulsory for Health policy issuance.');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -370,6 +387,7 @@ export function UpdatePolicyDetailsDialog({
           actualPremium: parseFloat(actualPremium),
           customerPan: safePan,
           customerAadhaar: safeAadhaar,
+          customerDob: customerDob || undefined,
           paymentReference: paymentReference.trim() || undefined,
           confirmPaymentReceived,
           effectiveDate: startDate,
@@ -429,6 +447,9 @@ export function UpdatePolicyDetailsDialog({
           actualPolicyNumber: actualPolicyNumber.trim(),
           actualPremium: parseFloat(actualPremium),
           customerPan: safeMotorPan,
+          customerDob: customerDob || undefined,
+          nomineeName: nomineeName.trim() || undefined,
+          nomineeRelation: nomineeRelation.trim() || undefined,
           paymentReference: paymentReference.trim() || undefined,
           confirmPaymentReceived,
           startDate,
@@ -812,8 +833,8 @@ export function UpdatePolicyDetailsDialog({
             </label>
           </div>
 
-          {/* Policy Start & End Dates */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* Policy Start & End Dates & Customer DOB */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-bold mb-1">
                 Policy Start Date <span className="text-rose-500">*</span>
@@ -844,6 +865,17 @@ export function UpdatePolicyDetailsDialog({
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg text-xs bg-background focus:ring-1 focus:ring-primary focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold mb-1">
+                Customer Date of Birth (Optional)
+              </label>
+              <input
+                type="date"
+                value={customerDob}
+                onChange={(e) => setCustomerDob(e.target.value)}
                 className="w-full px-3 py-2 border rounded-lg text-xs bg-background focus:ring-1 focus:ring-primary focus:outline-none"
               />
             </div>

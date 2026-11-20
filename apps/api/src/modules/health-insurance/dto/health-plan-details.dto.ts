@@ -247,8 +247,9 @@ export class PersonalAccidentPlanDetailsDto extends PlanIdentityDto {
   @IsEnum(PaCoverType)
   coverType: PaCoverType;
 
+  @IsOptional()
   @IsEnum(OccupationRiskCategory)
-  occupationRiskCategory: OccupationRiskCategory;
+  occupationRiskCategory?: OccupationRiskCategory;
 
   @IsNumber()
   @Min(0)
