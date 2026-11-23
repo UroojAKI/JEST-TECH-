@@ -387,7 +387,7 @@ export class IssuePolicyService {
         productType: quotation.productType || 'HEALTH',
       });
       posSnapshotData = {
-        posPartnerId: posEligibility.partner.id,
+        posPartner: { connect: { id: posEligibility.partner.id } },
         posInsurerMappingId: posEligibility.mapping?.id || null,
         distributionChannel: 'POS',
         posCodeSnapshot: posEligibility.partner.posCode,

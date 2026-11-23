@@ -167,10 +167,34 @@ export function formatUserFacingError(
       };
     }
 
+    if (
+      lower.includes('inspection') ||
+      errorCode.includes('INSPECTION')
+    ) {
+      return {
+        title: 'Vehicle Inspection Incomplete',
+        message:
+          rawMsg ||
+          'Policy issuance blocked: Mandatory vehicle inspection must be COMPLETED or WAIVED before this policy can be issued.',
+        actionHint:
+          'Please complete the vehicle inspection photo upload or obtain an authorized inspection waiver before issuing the policy.',
+        dataPreserved: true,
+        correlationId,
+        statusCode: 409,
+      };
+    }
+
+    const isGenericDbConflict =
+      lower.includes('p2002') ||
+      lower.includes('unique constraint') ||
+      lower.includes('duplicate key') ||
+      !rawMsg;
+
     return {
       title: 'Action Conflict',
-      message:
-        'A conflicting update or submission is already registered for this record.',
+      message: isGenericDbConflict
+        ? 'A conflicting update or submission is already registered for this record.'
+        : rawMsg,
       actionHint:
         'Please refresh the page to verify the current status before attempting to submit again.',
       dataPreserved: true,

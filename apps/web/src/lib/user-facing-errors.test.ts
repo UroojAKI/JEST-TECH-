@@ -65,6 +65,27 @@ describe('formatUserFacingError (REQ-8 Plain Language Error Handling)', () => {
     expect(formatted.dataPreserved).toBe(true);
   });
 
+  it('translates 409 vehicle inspection blocked conflict into actionable inspection guidance', () => {
+    const error: any = {
+      isAxiosError: true,
+      response: {
+        status: 409,
+        data: {
+          message:
+            "Policy issuance blocked: Mandatory vehicle inspection is in 'REQUIRED' status. Inspection must be COMPLETED or WAIVED before policy can be issued.",
+        },
+      },
+    };
+
+    const formatted = formatUserFacingError(error);
+
+    expect(formatted.title).toBe('Vehicle Inspection Incomplete');
+    expect(formatted.message).toContain('Mandatory vehicle inspection is in \'REQUIRED\' status');
+    expect(formatted.actionHint).toContain('vehicle inspection photo upload or obtain an authorized inspection waiver');
+    expect(formatted.dataPreserved).toBe(true);
+    expect(formatted.statusCode).toBe(409);
+  });
+
   it('translates 400 vehicle inspection incomplete error with all 7 mandatory slots guidance', () => {
     const error: any = {
       isAxiosError: true,

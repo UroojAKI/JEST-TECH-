@@ -9,12 +9,14 @@ import { PolicyDomainService } from '../../domain/policy.domain-service';
 import { PrismaService } from '../../../../database/prisma.service';
 import { OutboxService } from '../../../platform/outbox/outbox.service';
 import { CACHE_PROVIDER_TOKEN } from '../../../platform/cache/cache.provider';
+import { PosEligibilityService } from '../../../pos-partners/services/pos-eligibility.service';
 
 describe('IssuePolicyService', () => {
   let service: IssuePolicyService;
   let quotationRepo: jest.Mocked<any>;
   let policyRepo: jest.Mocked<any>;
   let outboxService: jest.Mocked<any>;
+  let posEligibilityService: jest.Mocked<any>;
 
   const mockQuotation = {
     id: 'quote-123',
@@ -97,11 +99,21 @@ describe('IssuePolicyService', () => {
       }),
     };
 
+    posEligibilityService = {
+      assertEligibleForIssuance: jest.fn().mockResolvedValue({
+        eligible: true,
+        partner: { id: 'pos-123', posCode: 'POS-001', name: 'Test POSP' },
+        mapping: { id: 'map-123', insurerPartnerCode: 'IPC-01', insurerPospId: 'IPP-01' },
+        insurer: { id: 'ins-123', code: 'HDFC', name: 'HDFC ERGO' },
+      }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         IssuePolicyService,
         { provide: PolicyRepository, useValue: policyRepo },
         { provide: QuotationRepository, useValue: quotationRepo },
+        { provide: PosEligibilityService, useValue: posEligibilityService },
         {
           provide: PdfService,
           useValue: {
@@ -240,6 +252,47 @@ describe('IssuePolicyService', () => {
         aggregateType: 'POLICY',
         eventType: 'POLICY_ISSUED',
       }),
+    );
+    expect(result).toBeDefined();
+    expect(result.policyNumber).toBe('POL-2026-000001');
+  });
+
+  it('should issue policy with POS partner attribution connecting posPartner as nested relation', async () => {
+    const result = await service.execute(
+      {
+        quotationId: 'quote-123',
+        payment: {
+          amount: 15000,
+          transactionId: 'TXN-1',
+          paymentMethod: 'UPI',
+        },
+        nominees: [
+          {
+            firstName: 'Ayesha',
+            lastName: 'Khan',
+            relation: 'SPOUSE',
+            percentage: 100,
+          },
+        ],
+        posPartnerId: 'pos-123',
+      },
+      'user-1',
+    );
+
+    expect(posEligibilityService.assertEligibleForIssuance).toHaveBeenCalledWith({
+      posPartnerId: 'pos-123',
+      companyId: undefined,
+      policyInsurerName: 'HDFC ERGO General Insurance',
+      productType: 'HEALTH',
+    });
+    expect(policyRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        posPartner: { connect: { id: 'pos-123' } },
+        distributionChannel: 'POS',
+        posCodeSnapshot: 'POS-001',
+        posNameSnapshot: 'Test POSP',
+      }),
+      expect.anything(),
     );
     expect(result).toBeDefined();
     expect(result.policyNumber).toBe('POL-2026-000001');
