@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppShell } from '../../components/layout/app-shell';
 import { EnterpriseTable } from '../../components/table/enterprise-table';
@@ -37,6 +37,14 @@ export default function PolicyRegisterPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   const authUser = useAuthStore((s) => s.user);
   const userRoles = [
@@ -50,11 +58,11 @@ export default function PolicyRegisterPage() {
     ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMINISTRATOR', 'BACK_OFFICE', 'OPERATIONS', 'UNDERWRITER'].includes(r),
   );
 
-  const { policies, total, isLoading, isError, refetch } = usePolicies({
+  const { policies, total, isLoading, isFetching, isError, refetch } = usePolicies({
     page,
     limit: pageSize,
     status: savedView !== 'ALL' ? savedView : undefined,
-    search: search.trim() || undefined,
+    search: debouncedSearch.trim() || undefined,
   } as any);
 
   const { policy: activePolicyDetail, refetch: refetchPolicyDetail } = usePolicyWorkspace(selectedPolicy?.id || '');
@@ -154,7 +162,39 @@ export default function PolicyRegisterPage() {
     }
   };
 
-  const columns = [
+  const filteredPolicies = useMemo(() => {
+    if (!search.trim()) return displayedPolicies;
+    const q = search.trim().toLowerCase();
+    return displayedPolicies.filter((p: any) => {
+      const polNum = String(p.policyNumber || '').toLowerCase();
+      const actualPolNum = String(p.actualPolicyNumber || '').toLowerCase();
+      const proposer = String(getProposerName(p) || '').toLowerCase();
+      const insurer = String(
+        p.insurerName ||
+        p.quotation?.insurerName ||
+        p.insurerDetail?.insurerName ||
+        p.activeTpInsurer ||
+        ''
+      ).toLowerCase();
+      const regNum = String(p.vehicle?.registrationNumber || p.registrationNumber || '').toLowerCase();
+      const prodLine = String(p.productLine || p.policyType || '').toLowerCase();
+      const phone = String(p.contactPhone || p.contact?.phone || p.customer?.phone || '').toLowerCase();
+      const email = String(p.contactEmail || p.contact?.email || p.customer?.email || '').toLowerCase();
+
+      return (
+        polNum.includes(q) ||
+        actualPolNum.includes(q) ||
+        proposer.includes(q) ||
+        insurer.includes(q) ||
+        regNum.includes(q) ||
+        prodLine.includes(q) ||
+        phone.includes(q) ||
+        email.includes(q)
+      );
+    });
+  }, [displayedPolicies, search]);
+
+  const columns = useMemo(() => [
     {
       accessorKey: 'policyNumber',
       header: 'Policy No',
@@ -323,7 +363,7 @@ export default function PolicyRegisterPage() {
         </div>
       ),
     },
-  ];
+  ], [canApprove, router]);
 
   return (
     <AppShell>
@@ -397,31 +437,33 @@ export default function PolicyRegisterPage() {
         </div>
       </div>
 
-      {isLoading ? (
+      {isLoading && rawList.length === 0 ? (
         <div className="p-8 text-center text-xs text-muted-foreground animate-pulse">Loading policies from API...</div>
-      ) : isError ? (
+      ) : isError && rawList.length === 0 ? (
         <div className="p-8 text-center text-xs text-red-500">Failed to load policy register from API.</div>
       ) : (
-        <EnterpriseTable
-          data={displayedPolicies}
-          columns={columns}
-          totalRows={total}
-          pageSize={pageSize}
-          pageIndex={page - 1}
-          pageCount={Math.max(1, Math.ceil(total / pageSize))}
-          manualPagination
-          manualFiltering
-          searchValue={search}
-          onSearchChange={(val) => {
-            setSearch(val);
-            setPage(1);
-          }}
-          onPageChange={(nextPage) => setPage(nextPage + 1)}
-          onPageSizeChange={(newSize) => {
-            setPageSize(newSize);
-            setPage(1);
-          }}
-        />
+        <div className={isFetching ? 'opacity-70 transition-opacity' : 'transition-opacity'}>
+          <EnterpriseTable
+            data={filteredPolicies}
+            columns={columns}
+            totalRows={search.trim() ? filteredPolicies.length : total}
+            pageSize={pageSize}
+            pageIndex={page - 1}
+            pageCount={Math.max(1, Math.ceil((search.trim() ? filteredPolicies.length : total) / pageSize))}
+            manualPagination
+            manualFiltering
+            searchValue={search}
+            onSearchChange={(val) => {
+              setSearch(val);
+              setPage(1);
+            }}
+            onPageChange={(nextPage) => setPage(nextPage + 1)}
+            onPageSizeChange={(newSize) => {
+              setPageSize(newSize);
+              setPage(1);
+            }}
+          />
+        </div>
       )}
 
       {/* Policy Details Modal */}

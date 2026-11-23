@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { policiesRepository } from '../repositories/policies.repository';
 import { PaginationParams } from '../types';
 import { toast } from 'sonner';
@@ -9,6 +9,7 @@ export function usePolicies(params?: Partial<PaginationParams> & { status?: stri
   const query = useQuery({
     queryKey: ['policies', params],
     queryFn: () => policiesRepository.getPolicies(params),
+    placeholderData: keepPreviousData,
   });
 
   const rawData = query.data as any;
@@ -21,6 +22,7 @@ export function usePolicies(params?: Partial<PaginationParams> & { status?: stri
     policies: list,
     total: totalCount,
     isLoading: query.isLoading,
+    isFetching: query.isFetching,
     isError: query.isError,
     refetch: query.refetch,
   };
