@@ -113,7 +113,11 @@ export class RenewalsController {
     );
     const policy = await this.prisma.policy.findFirst({
       where: {
-        id: policyId,
+        OR: [
+          { id: policyId },
+          { policyNumber: policyId },
+          { actualPolicyNumber: policyId },
+        ],
         ...(effectiveCompanyId ? { companyId: effectiveCompanyId } : {}),
         ...scopedFilter,
       },
@@ -246,15 +250,38 @@ export class RenewalsController {
     let depreciationPercentage: number = 10;
 
     if (expiringIdv && expiringIdv > 0) {
-      const regYear = policy.vehicle?.dateOfRegistration
-        ? new Date(policy.vehicle.dateOfRegistration).getFullYear()
-        : (policy.vehicle?.manufactureYearMonth ? parseInt(policy.vehicle.manufactureYearMonth.split('/')[1] || policy.vehicle.manufactureYearMonth) : null);
+      let regYear: number | null = null;
+      if (policy.vehicle?.dateOfRegistration) {
+        const d = new Date(policy.vehicle.dateOfRegistration);
+        if (!isNaN(d.getTime())) regYear = d.getFullYear();
+      }
+      if (!regYear && policy.vehicle?.manufactureYearMonth) {
+        const m = String(policy.vehicle.manufactureYearMonth).match(/\b(19\d{2}|20\d{2})\b/);
+        if (m) regYear = parseInt(m[1], 10);
+      }
+      if (!regYear && (policy.motorMetadata as any)?.manufacturingYear) {
+        regYear = Number((policy.motorMetadata as any).manufacturingYear) || null;
+      }
+      if (!regYear && (policy.motorMetadata as any)?.registrationYear) {
+        regYear = Number((policy.motorMetadata as any).registrationYear) || null;
+      }
+
       const currentYear = new Date().getFullYear();
       const vehicleAgeYears = regYear ? Math.max(1, currentYear - regYear) : 1;
 
-      const idvCalc = this.renewalEngine.calculateRevisedIdv(expiringIdv, vehicleAgeYears);
-      suggestedIdv = idvCalc.revisedIdv;
-      depreciationPercentage = idvCalc.depreciationPercentage;
+      try {
+        const idvCalc = this.renewalEngine.calculateRevisedIdv(expiringIdv, vehicleAgeYears);
+        suggestedIdv = idvCalc.revisedIdv;
+        depreciationPercentage = idvCalc.depreciationPercentage;
+      } catch (err: any) {
+        // IRDAI GR.8: For vehicles older than 5 years, statutory depreciation does not apply automatically.
+        // Mutually agreed IDV applies: prefill standard 10% reduction of expiring IDV and advise the operator.
+        suggestedIdv = Math.round(expiringIdv * 0.9);
+        depreciationPercentage = 10;
+        warnings.push(
+          'Vehicle is older than 5 years: statutory depreciation schedule does not apply automatically. Suggested IDV prefilled based on mutually agreed 10% reduction; please review manually.',
+        );
+      }
     } else {
       warnings.push('Expiring policy has no Sum Insured/IDV recorded. Please enter IDV manually.');
     }
@@ -382,9 +409,14 @@ export class RenewalsController {
 
     const vehicleCat = (task.policy.vehicleCategory as any) || vehicleMeta.vehicleCategory || 'PRIVATE_CAR';
     if (prevSumInsured && prevSumInsured > 0) {
-      const depCalc = this.renewalEngine.calculateRevisedIdv(prevSumInsured, vehicleAgeYears);
-      revisedIdv = depCalc.revisedIdv;
-      depreciationPercentage = depCalc.depreciationPercentage;
+      try {
+        const depCalc = this.renewalEngine.calculateRevisedIdv(prevSumInsured, vehicleAgeYears);
+        revisedIdv = depCalc.revisedIdv;
+        depreciationPercentage = depCalc.depreciationPercentage;
+      } catch {
+        revisedIdv = Math.round(prevSumInsured * 0.9);
+        depreciationPercentage = 10;
+      }
 
       try {
         const motorCalc = await this.motorCalculationService.calculate({

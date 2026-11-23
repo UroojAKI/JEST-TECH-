@@ -403,6 +403,21 @@ describe('RenewalEngineService (Iteration 10)', () => {
       expect(pricing.revisedOd).toBe(Math.round(8000 * 0.65));
       expect(pricing.revisedTp).toBe(Math.round(8000 * 0.35));
     });
+
+    it('should handle vehicles older than five years gracefully by applying mutually agreed IDV', () => {
+      const pricing = service.calculateRenewalPricing({
+        prevSumInsured: 500000,
+        prevBasePremium: 10000,
+        prevNcb: 20,
+        hasClaims: false,
+        vehicleAgeYears: 7,
+      });
+
+      expect(pricing.nextNcb).toBe(25);
+      expect(pricing.revisedIdv).toBe(450000); // 10% mutually agreed reduction
+      expect(pricing.depreciationPercentage).toBe(10);
+      expect(pricing.totalPremium).toBe(11800);
+    });
   });
 
   describe('triggerManualReminder', () => {

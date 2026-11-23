@@ -115,10 +115,19 @@ export class RenewalEngineService {
     revisedTp: number;
   } {
     const vehicleAgeYears = Math.max(1, params.vehicleAgeYears || 1);
-    const { revisedIdv, depreciationPercentage } = this.calculateRevisedIdv(
-      params.prevSumInsured,
-      vehicleAgeYears,
-    );
+    let revisedIdv = params.prevSumInsured;
+    let depreciationPercentage = 10;
+    try {
+      const idvCalc = this.calculateRevisedIdv(
+        params.prevSumInsured,
+        vehicleAgeYears,
+      );
+      revisedIdv = idvCalc.revisedIdv;
+      depreciationPercentage = idvCalc.depreciationPercentage;
+    } catch {
+      revisedIdv = Math.round(params.prevSumInsured * 0.9);
+      depreciationPercentage = 10;
+    }
 
     const nextNcb = params.hasClaims ? 0 : this.calculateNextNCBSlab(params.prevNcb);
 

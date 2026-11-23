@@ -124,13 +124,21 @@ export function MotorQuotationsWorkspace() {
             vehicleDetails: {
               ...prefill.vehicle,
               vehicleStatus: 'EXISTING',
-              idv: prefill.pricing.suggestedIdv,
+              idv: prefill.pricing.suggestedIdv ?? prefill.pricing.expiringIdv ?? undefined,
             },
             renewalOfPolicyId: prefill.policyId,
             previousPolicyDetails: {
               previousPolicyType: prefill.policyType === 'THIRD_PARTY_ONLY' ? 'THIRD_PARTY' : prefill.policyType === 'STANDALONE_OD' ? 'SAOD' : 'COMPREHENSIVE',
-              policyExpiryDate: prefill.expiryDate ? new Date(prefill.expiryDate).toISOString().slice(0, 10) : '',
-              expiredMoreThan90Days: Boolean(prefill.expiryDate && (Date.now() - new Date(prefill.expiryDate).getTime()) > 90 * 24 * 60 * 60 * 1000),
+              policyExpiryDate: (() => {
+                if (!prefill.expiryDate) return '';
+                const d = new Date(prefill.expiryDate);
+                return !isNaN(d.getTime()) ? d.toISOString().slice(0, 10) : '';
+              })(),
+              expiredMoreThan90Days: Boolean(
+                prefill.expiryDate &&
+                  !isNaN(new Date(prefill.expiryDate).getTime()) &&
+                  Date.now() - new Date(prefill.expiryDate).getTime() > 90 * 24 * 60 * 60 * 1000,
+              ),
               ownershipTransfer: false,
               claimInPreviousYear: Boolean(prefill.pricing.hasClaims),
               eligibleNcbPercentage: Number(prefill.pricing.previousNcb ?? 0),
