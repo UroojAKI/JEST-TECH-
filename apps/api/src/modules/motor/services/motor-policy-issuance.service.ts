@@ -474,6 +474,41 @@ export class MotorPolicyIssuanceService {
         dto.actualPolicyNumber?.trim() ||
         (await this.numberingEngine.generateNext('POLICY', tx));
 
+      // ─── Fast Preemptive Check for Existing Policy or Policy Number ───────
+      const existingPolicyConflict = await tx.policy.findFirst({
+        where: {
+          OR: [
+            { quotationId: quote.id },
+            { policyNumber },
+            { actualPolicyNumber: policyNumber },
+          ],
+        },
+        select: {
+          id: true,
+          policyNumber: true,
+          actualPolicyNumber: true,
+          quotationId: true,
+        },
+      });
+
+      if (existingPolicyConflict) {
+        if (existingPolicyConflict.quotationId === quote.id) {
+          throw new ConflictException({
+            code: 'POLICY_ALREADY_EXISTS',
+            policyId: existingPolicyConflict.id,
+            policyNumber: existingPolicyConflict.policyNumber,
+            message: `A policy has already been issued for this quotation (${existingPolicyConflict.policyNumber}).`,
+          });
+        }
+        const collNum = existingPolicyConflict.actualPolicyNumber || existingPolicyConflict.policyNumber;
+        throw new ConflictException({
+          code: 'POLICY_NUMBER_ALREADY_EXISTS',
+          policyId: existingPolicyConflict.id,
+          policyNumber: collNum,
+          message: `Policy number "${policyNumber}" is already in use by policy ${collNum}. Please enter the correct unique policy schedule number.`,
+        });
+      }
+
       // Authoritative financial value from server calculation — client overrides strictly ignored
       const actualPremium = quote.totalPremium;
 
@@ -757,19 +792,40 @@ export class MotorPolicyIssuanceService {
           err instanceof Prisma.PrismaClientKnownRequestError &&
           err.code === 'P2002'
         ) {
-          const existing = await tx.policy.findFirst({
-            where: {
-              OR: [
-                { quotationId: quote.id },
-                { policyNumber },
-              ],
-            },
-          });
+          // In PostgreSQL, once an error occurs in a transaction, 'tx' is in an aborted state.
+          // Any query on 'tx' will fail with error 25P02 ("current transaction is aborted").
+          // Safe lookup via this.prisma (outside the transaction) to determine details:
+          let existingPolicyId: string | undefined;
+          let collisionMessage = `Policy number "${policyNumber}" is already in use or a policy already exists for this quotation.`;
+          try {
+            const existing = await this.prisma.policy.findFirst({
+              where: {
+                OR: [
+                  { quotationId: quote.id },
+                  { policyNumber },
+                  { actualPolicyNumber: policyNumber },
+                ],
+              },
+              select: { id: true, policyNumber: true, actualPolicyNumber: true, quotationId: true },
+            });
+            if (existing) {
+              existingPolicyId = existing.id;
+              if (existing.quotationId === quote.id) {
+                collisionMessage = `A policy has already been issued for this quotation (${existing.policyNumber}).`;
+              } else {
+                const collNum = existing.actualPolicyNumber || existing.policyNumber;
+                collisionMessage = `Policy number "${policyNumber}" is already in use by policy ${collNum}. Please enter the correct unique policy schedule number.`;
+              }
+            }
+          } catch {
+            // If connection pool lookup fails, preserve clean 409 Conflict with collisionMessage
+          }
+
           throw new ConflictException({
             code: 'POLICY_ALREADY_EXISTS',
-            policyId: existing?.id,
-            policyNumber: existing?.policyNumber || policyNumber,
-            message: `Policy already issued for quotation ${quote.id} or policy number collision: ${policyNumber}`,
+            policyId: existingPolicyId,
+            policyNumber,
+            message: collisionMessage,
           });
         }
         throw err;

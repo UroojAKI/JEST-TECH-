@@ -4,7 +4,7 @@ import { MotorPaymentTrackingService } from './motor-payment-tracking.service';
 import { ResourceAuthorizationService } from '../../../common/services/resource-authorization.service';
 import { NumberingEngineService } from '../../administration/services/numbering-engine/numbering-engine.service';
 import { PrismaService } from '../../../database/prisma.service';
-import { RoleType, UserStatus } from '@prisma/client';
+import { RoleType, UserStatus, Prisma } from '@prisma/client';
 import {
   ForbiddenException,
   ConflictException,
@@ -528,6 +528,54 @@ describe('MotorPolicyIssuanceService (Iteration 8)', () => {
           }),
         }),
       );
+    });
+
+    it('should preemptively reject policy issuance when policyNumber is already in use', async () => {
+      const opsActor = createActor(RoleType.BACK_OFFICE);
+      prisma.quotation.findUnique.mockResolvedValue(validQuote);
+      prisma.motorPaymentRecord.findUnique.mockResolvedValue({
+        quotationId: 'q-100',
+        status: 'PAID',
+        amount: 17638.88,
+      });
+
+      // Mock finding an existing policy with the same policy number
+      prisma.policy.findFirst.mockResolvedValueOnce({
+        id: 'pol-collision-1',
+        policyNumber: 'POL-HDFC-999888',
+        actualPolicyNumber: 'POL-HDFC-999888',
+        quotationId: 'q-other-999',
+      });
+
+      await expect(
+        service.issuePolicy('q-100', validDto, opsActor),
+      ).rejects.toThrow(ConflictException);
+
+      expect(prisma.policy.create).not.toHaveBeenCalled();
+    });
+
+    it('should catch P2002 unique collision cleanly without querying aborted transaction', async () => {
+      const opsActor = createActor(RoleType.BACK_OFFICE);
+      prisma.quotation.findUnique.mockResolvedValue(validQuote);
+      prisma.motorPaymentRecord.findUnique.mockResolvedValue({
+        quotationId: 'q-100',
+        status: 'PAID',
+        amount: 17638.88,
+      });
+
+      // Preemptive check returns null (e.g. concurrent race condition)
+      prisma.policy.findFirst.mockResolvedValue(null);
+
+      // tx.policy.create throws Prisma P2002
+      const p2002Error = new Prisma.PrismaClientKnownRequestError(
+        'Unique constraint failed on the fields: (`policyNumber`)',
+        { code: 'P2002', clientVersion: '5.0.0' },
+      );
+      prisma.policy.create.mockRejectedValueOnce(p2002Error);
+
+      await expect(
+        service.issuePolicy('q-100', validDto, opsActor),
+      ).rejects.toThrow(ConflictException);
     });
   });
 });
