@@ -441,6 +441,34 @@ describe('BackOfficeQueueService (G021 Multi-Gate Policy Issuance Queue)', () =>
     expect(item.documents).toHaveLength(1);
   });
 
+  it('prioritizes motorMetadata proposerDetails customerName over mismatched contact record name', async () => {
+    const quoteWithMismatchedContact = {
+      ...baseQuote,
+      motorMetadata: {
+        proposerDetails: {
+          customerName: 'PRASHANT SHIDLINGAYYA MATHAPATI',
+          mobileNumber: '9740937566',
+        },
+      },
+      contact: {
+        id: 'con-sanjay',
+        firstName: 'Sanjay',
+        lastName: 'Chaugala',
+        phone: '9740937566',
+        email: null,
+      },
+    };
+
+    mockPrisma.quotation.findMany.mockResolvedValue([quoteWithMismatchedContact]);
+    mockPrisma.document.findMany.mockResolvedValue([]);
+
+    const result = await service.getBackOfficeQueue();
+    const item = result.data[0];
+
+    expect(item.customerName).toBe('PRASHANT SHIDLINGAYYA MATHAPATI');
+    expect(item.customerPhone).toBe('9740937566');
+  });
+
   it('extracts dynamic health plan and member details and supports status=ISSUED without changing default queue counts', async () => {
     const issuedHealthQuote = {
       ...baseQuote,

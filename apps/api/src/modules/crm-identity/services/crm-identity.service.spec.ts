@@ -243,6 +243,37 @@ describe('CrmIdentityService', () => {
 
       expect(result.status).toBe('NEW');
     });
+
+    it('returns NEW when phone matches existing contact but incoming name is for a different individual', async () => {
+      mockPrisma.contact.findMany.mockResolvedValue([
+        { id: 'con-sanjay', firstName: 'Sanjay', lastName: 'Chaugala', phone: '9740937566', email: null },
+      ]);
+
+      const result = await service.resolveIdentity({
+        companyId: 'org-1',
+        phone: '9740937566',
+        firstName: 'PRASHANT',
+        lastName: 'MATHAPATI',
+      });
+
+      expect(result.status).toBe('NEW');
+    });
+
+    it('returns MATCH when phone matches existing contact and incoming name is compatible', async () => {
+      mockPrisma.contact.findMany.mockResolvedValue([
+        { id: 'con-prashant', firstName: 'Prashant', lastName: 'Mathapati', phone: '9740937566', email: null },
+      ]);
+
+      const result = await service.resolveIdentity({
+        companyId: 'org-1',
+        phone: '9740937566',
+        firstName: 'PRASHANT SHIDLINGAYYA',
+        lastName: 'MATHAPATI',
+      });
+
+      expect(result.status).toBe('MATCH');
+      expect(result.contact.id).toBe('con-prashant');
+    });
   });
 
   describe('Transactional Link Guarantee & Unique Code Generation', () => {

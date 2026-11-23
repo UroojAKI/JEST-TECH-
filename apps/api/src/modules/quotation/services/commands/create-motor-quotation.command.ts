@@ -274,9 +274,19 @@ export class CreateMotorQuotationCommand {
           companyId,
           deletedAt: null,
         },
-        select: { id: true },
+        select: { id: true, firstName: true, lastName: true },
       });
-      contactId = existingByPhone?.id;
+      if (existingByPhone) {
+        const rawProposerName = String(proposer['customerName'] || '').trim();
+        const existingName = `${existingByPhone.firstName || ''} ${existingByPhone.lastName || ''}`.trim();
+        if (
+          !rawProposerName ||
+          !existingName ||
+          this.isNameCompatible(existingByPhone.firstName, existingByPhone.lastName, rawProposerName)
+        ) {
+          contactId = existingByPhone.id;
+        }
+      }
     }
 
     if (!contactId && proposer['emailId']) {
@@ -286,9 +296,19 @@ export class CreateMotorQuotationCommand {
           companyId,
           deletedAt: null,
         },
-        select: { id: true },
+        select: { id: true, firstName: true, lastName: true },
       });
-      contactId = existingByEmail?.id;
+      if (existingByEmail) {
+        const rawProposerName = String(proposer['customerName'] || '').trim();
+        const existingName = `${existingByEmail.firstName || ''} ${existingByEmail.lastName || ''}`.trim();
+        if (
+          !rawProposerName ||
+          !existingName ||
+          this.isNameCompatible(existingByEmail.firstName, existingByEmail.lastName, rawProposerName)
+        ) {
+          contactId = existingByEmail.id;
+        }
+      }
     }
 
     // ── 3. Agent Assignment (MOTOR-REG-01, MOTOR-REG-02, Phase 26) ──
@@ -1097,5 +1117,34 @@ export class CreateMotorQuotationCommand {
       authoritativeDates: calcResult.authoritativeDates,
       createdAt: quotation.createdAt,
     };
+  }
+
+  private isNameCompatible(
+    existingFirst?: string | null,
+    existingLast?: string | null,
+    incomingFullName?: string | null,
+  ): boolean {
+    if (!incomingFullName) return true;
+    const norm = (s?: string | null) =>
+      (s || '').toLowerCase().replace(/[^a-z0-9]/g, ' ').trim();
+    const eFirst = norm(existingFirst);
+    const eLast = norm(existingLast);
+    const incFull = norm(incomingFullName);
+
+    const isPlaceholder = (f: string, l: string) =>
+      !f ||
+      f === 'provisional' ||
+      f === 'unknown' ||
+      f === 'prospect' ||
+      (f === 'customer' && !l);
+    if (isPlaceholder(eFirst, eLast)) return true;
+
+    const existingFull = `${eFirst} ${eLast}`.trim();
+    if (existingFull === incFull) return true;
+
+    const existingWords = existingFull.split(/\s+/).filter((w) => w.length > 2);
+    const incomingWords = incFull.split(/\s+/).filter((w) => w.length > 2);
+
+    return incomingWords.some((w) => existingWords.includes(w));
   }
 }

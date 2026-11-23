@@ -318,8 +318,24 @@ export class CrmIdentityService {
         }
       }
 
+      let candidateContacts = matchingContacts;
+      if (params.firstName && !this.isPlaceholderName(params.firstName, params.lastName)) {
+        const nameMatches = matchingContacts.filter((c) =>
+          this.isNameCompatible(c.firstName, c.lastName, params.firstName, params.lastName),
+        );
+        if (nameMatches.length === 1) {
+          candidateContacts = nameMatches;
+        } else if (nameMatches.length === 0) {
+          return {
+            status: 'NEW',
+            normalizedPhone: normPhone,
+            normalizedEmail: normEmail,
+          };
+        }
+      }
+
       // Check if multiple distinct contacts match the same criteria
-      const uniqueContactIds = new Set(matchingContacts.map((c) => c.id));
+      const uniqueContactIds = new Set(candidateContacts.map((c) => c.id));
       if (uniqueContactIds.size > 1) {
         return {
           status: 'AMBIGUOUS',
@@ -329,7 +345,18 @@ export class CrmIdentityService {
         };
       }
 
-      const primaryContact = matchingContacts[0];
+      const primaryContact = candidateContacts[0];
+      if (
+        params.firstName &&
+        !this.isPlaceholderName(params.firstName, params.lastName) &&
+        !this.isNameCompatible(primaryContact.firstName, primaryContact.lastName, params.firstName, params.lastName)
+      ) {
+        return {
+          status: 'NEW',
+          normalizedPhone: normPhone,
+          normalizedEmail: normEmail,
+        };
+      }
       const pMatch =
         (primaryContact.phone && this.normalizePhone(primaryContact.phone) === normPhone) ||
         (primaryContact.alternatePhone && this.normalizePhone(primaryContact.alternatePhone) === normPhone);
@@ -438,8 +465,24 @@ export class CrmIdentityService {
         }
       }
 
+      let candidateCustomers = matchingCustomers;
+      if (params.firstName && !this.isPlaceholderName(params.firstName, params.lastName)) {
+        const nameMatches = matchingCustomers.filter((c) =>
+          this.isNameCompatible(c.firstName, c.lastName, params.firstName, params.lastName),
+        );
+        if (nameMatches.length === 1) {
+          candidateCustomers = nameMatches;
+        } else if (nameMatches.length === 0) {
+          return {
+            status: 'NEW',
+            normalizedPhone: normPhone,
+            normalizedEmail: normEmail,
+          };
+        }
+      }
+
       // Check if multiple distinct customers match the same criteria
-      const uniqueCustomerIds = new Set(matchingCustomers.map((c) => c.id));
+      const uniqueCustomerIds = new Set(candidateCustomers.map((c) => c.id));
       if (uniqueCustomerIds.size > 1) {
         return {
           status: 'AMBIGUOUS',
@@ -449,7 +492,18 @@ export class CrmIdentityService {
         };
       }
 
-      const primaryCustomer = matchingCustomers[0];
+      const primaryCustomer = candidateCustomers[0];
+      if (
+        params.firstName &&
+        !this.isPlaceholderName(params.firstName, params.lastName) &&
+        !this.isNameCompatible(primaryCustomer.firstName, primaryCustomer.lastName, params.firstName, params.lastName)
+      ) {
+        return {
+          status: 'NEW',
+          normalizedPhone: normPhone,
+          normalizedEmail: normEmail,
+        };
+      }
       const pMatch =
         primaryCustomer.mobile && this.normalizePhone(primaryCustomer.mobile) === normPhone;
       const eMatch =
@@ -625,5 +679,34 @@ export class CrmIdentityService {
     }
 
     return { contact, customer };
+  }
+
+  isPlaceholderName(firstName?: string | null, lastName?: string | null): boolean {
+    const norm = (firstName || '').trim().toLowerCase();
+    return (
+      !norm ||
+      norm === 'provisional' ||
+      norm === 'unknown' ||
+      norm === 'prospect' ||
+      (norm === 'customer' && !lastName)
+    );
+  }
+
+  isNameCompatible(
+    existingFirst?: string | null,
+    existingLast?: string | null,
+    incomingFirst?: string | null,
+    incomingLast?: string | null,
+  ): boolean {
+    if (this.isPlaceholderName(incomingFirst, incomingLast) || this.isPlaceholderName(existingFirst, existingLast)) {
+      return true;
+    }
+    const clean = (s?: string | null) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, ' ').trim();
+    const eFull = `${clean(existingFirst)} ${clean(existingLast)}`.trim();
+    const iFull = `${clean(incomingFirst)} ${clean(incomingLast)}`.trim();
+    if (eFull === iFull) return true;
+    const eWords = eFull.split(/\s+/).filter((w) => w.length > 2);
+    const iWords = iFull.split(/\s+/).filter((w) => w.length > 2);
+    return iWords.some((w) => eWords.includes(w));
   }
 }

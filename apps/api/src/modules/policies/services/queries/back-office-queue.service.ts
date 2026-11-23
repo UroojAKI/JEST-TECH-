@@ -296,7 +296,7 @@ export class BackOfficeQueueService {
             },
             account: true,
             vehicle: true,
-            case: { select: { id: true, caseCode: true, status: true } },
+            case: { select: { id: true, caseCode: true, status: true, customerSnapshot: true } },
             proposal: { select: { id: true, status: true, proposalNumber: true } },
             addons: true,
             discounts: true,
@@ -360,8 +360,12 @@ export class BackOfficeQueueService {
         // Track issued policies; only include them when explicitly querying status=ISSUED
         if (q.policy) {
           const searchTerm = String(params?.search || '').toLowerCase().trim();
+          const issuedProposer =
+            (q.motorMetadata as any)?.proposerDetails?.customerName ||
+            (q.case as any)?.customerSnapshot?.customerName;
           const issuedSearchFields = [
             q.quotationCode, q.contact?.firstName, q.contact?.lastName,
+            issuedProposer,
             q.contact?.phone, q.contact?.email, q.createdBy?.firstName,
             q.createdBy?.lastName, q.insurerName, q.registrationNumber,
             q.vehicle?.registrationNumber, (q.motorMetadata as any)?.registrationNumber,
@@ -593,11 +597,22 @@ export class BackOfficeQueueService {
           slaStatus = 'WARNING';
         }
 
-        const customerName = q.contact
+        const motorProposer = (q.motorMetadata as any)?.proposerDetails;
+        const caseCustomer = (q.case as any)?.customerSnapshot;
+        const healthCustomer = (q.healthCase as any)?.customerSnapshot;
+        const proposerName =
+          motorProposer?.customerName ||
+          caseCustomer?.customerName ||
+          caseCustomer?.name ||
+          healthCustomer?.customerName ||
+          healthCustomer?.name;
+
+        const contactName = q.contact
           ? `${q.contact.firstName || ''} ${q.contact.lastName || ''}`.trim() ||
-            (q.contact as any).companyName ||
-            'Unknown Customer'
-          : (q as any).account?.name || 'Unknown Customer';
+            (q.contact as any).companyName
+          : (q as any).account?.name;
+
+        const customerName = (proposerName || contactName || 'Unknown Customer').trim();
 
         const salesAgentName = q.createdBy
           ? `${q.createdBy.firstName || ''} ${q.createdBy.lastName || ''}`.trim() ||
@@ -623,8 +638,20 @@ export class BackOfficeQueueService {
           quotationCode: q.quotationCode,
           status: q.status,
           customerName,
-          customerPhone: q.contact?.phone || undefined,
-          customerEmail: q.contact?.email || undefined,
+          customerPhone:
+            (q.motorMetadata as any)?.proposerDetails?.mobileNumber ||
+            (q.case as any)?.customerSnapshot?.mobileNumber ||
+            (q.healthCase as any)?.customerSnapshot?.mobileNumber ||
+            q.contact?.phone ||
+            undefined,
+          customerEmail:
+            (q.motorMetadata as any)?.proposerDetails?.emailId ||
+            (q.motorMetadata as any)?.proposerDetails?.email ||
+            (q.case as any)?.customerSnapshot?.emailId ||
+            (q.case as any)?.customerSnapshot?.email ||
+            (q.healthCase as any)?.customerSnapshot?.email ||
+            q.contact?.email ||
+            undefined,
           salesAgentName,
           productType: isHealth ? 'HEALTH' : (q.productType || 'MOTOR'),
           insurerName: q.policy?.insurerNameSnapshot || q.insurerName?.trim() || 'Insurer not recorded',
