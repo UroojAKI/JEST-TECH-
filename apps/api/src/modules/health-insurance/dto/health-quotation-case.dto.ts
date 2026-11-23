@@ -306,10 +306,10 @@ export class AddHealthQuoteDto {
   @IsNotEmpty()
   planName: string;
 
-  @ApiProperty({ example: 'HDFHLIP23071V052223', description: 'UIN as filed with IRDAI' })
+  @ApiPropertyOptional({ example: 'HDFHLIP23071V052223', description: 'UIN as filed with IRDAI (optional for Personal Accident)' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  uin: string;
+  uin?: string;
 
   @ApiProperty({ example: 500000 })
   @IsNumber()

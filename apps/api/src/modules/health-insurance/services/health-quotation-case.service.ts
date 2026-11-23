@@ -482,8 +482,15 @@ export class HealthQuotationCaseService {
     if (healthCase.status !== HealthCaseStatus.OPEN && healthCase.status !== HealthCaseStatus.QUOTED) {
       throw new BadRequestException(`Quotes cannot be added to a case in '${healthCase.status}' status`);
     }
-    if (healthCase.policyForm === HealthPolicyForm.NEW_POLICY && !dto.waitingPeriod) {
+    if (
+      healthCase.planCategory !== HealthPlanCategory.PERSONAL_ACCIDENT &&
+      healthCase.policyForm === HealthPolicyForm.NEW_POLICY &&
+      !dto.waitingPeriod
+    ) {
       throw new BadRequestException('waitingPeriod is required for New Policy quotes');
+    }
+    if (healthCase.planCategory !== HealthPlanCategory.PERSONAL_ACCIDENT && !dto.uin) {
+      throw new BadRequestException('uin is required for health quotes');
     }
 
     const indemnityCategories: HealthPlanCategory[] = [
@@ -571,7 +578,7 @@ export class HealthQuotationCaseService {
           agentExternalCodeId: healthCase.agentExternalCodeId,
           insurerName: resolvedInsurer.name,
           insurerId: resolvedInsurer.id,
-          productCode: dto.uin,
+          productCode: dto.uin || null,
           productType: 'HEALTH',
           policyType: healthCase.policyForm,
           sumInsured: dto.sumInsured,
@@ -586,7 +593,7 @@ export class HealthQuotationCaseService {
           healthMetadata: {
             policyForm: healthCase.policyForm,
             planName: dto.planName,
-            uin: dto.uin,
+            uin: dto.uin || null,
             indemnityType: dto.indemnityType ?? null,
             roomRentCategory: dto.roomRentCategory ?? null,
             riders: riders.map((r) => ({ ...r })),

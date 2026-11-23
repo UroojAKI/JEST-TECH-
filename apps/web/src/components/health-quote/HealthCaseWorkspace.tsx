@@ -493,7 +493,8 @@ export function HealthCaseWorkspace({ caseId }: { caseId: string }) {
           </p>
           {hc.planDetails?.planName && (
             <p>
-              <span className="text-muted-foreground">Plan:</span> <b>{hc.planDetails.planName}</b> ({hc.planDetails.uin})
+              <span className="text-muted-foreground">Plan:</span> <b>{hc.planDetails.planName}</b>
+              {hc.planDetails.uin ? ` (${hc.planDetails.uin})` : ''}
             </p>
           )}
           {hc.planDetails?.sumInsured && (
@@ -1480,6 +1481,7 @@ function AddQuoteForm({ healthCase, onCancel, onSaved }: { healthCase: any; onCa
   const { activeInsurers, isLoading: insurersLoading } = useInsurers();
   const isRenewal = healthCase.policyForm === 'RENEWAL_PORTABILITY';
   const isIndemnityPlan = ['INDIVIDUAL', 'FAMILY_FLOATER', 'SENIOR_CITIZEN', 'TOP_UP'].includes(healthCase.planCategory);
+  const isPersonalAccident = healthCase.planCategory === 'PERSONAL_ACCIDENT';
   const [form, setForm] = useState({
     insurerId: '',
     insurerName: '',
@@ -1514,12 +1516,12 @@ function AddQuoteForm({ healthCase, onCancel, onSaved }: { healthCase: any; onCa
     const missing = [
       !form.insurerName && !form.insurerId && 'Insurer',
       !form.planName && 'Plan name',
-      !form.uin && 'UIN',
+      !isPersonalAccident && !form.uin && 'UIN',
       !form.sumInsured && 'Sum insured',
       isIndemnityPlan && !form.indemnityType && 'Plan type',
       isIndemnityPlan && !form.roomRentCategory && 'Room rent category',
       form.basePremium === '' && 'Base premium',
-      !isRenewal && !form.waitingPeriod && 'Waiting period',
+      !isRenewal && !isPersonalAccident && !form.waitingPeriod && 'Waiting period',
       form.commissionPercent === '' && 'Commission / Discount %',
       riders.some((r) => !r.rider || !r.sumInsured || r.premium === '') && 'Rider details',
     ].filter(Boolean);
@@ -1534,7 +1536,7 @@ function AddQuoteForm({ healthCase, onCancel, onSaved }: { healthCase: any; onCa
         ...(form.insurerId ? { insurerId: form.insurerId } : {}),
         insurerName: form.insurerName,
         planName: form.planName,
-        uin: form.uin,
+        ...(form.uin ? { uin: form.uin } : {}),
         sumInsured: Number(form.sumInsured),
         ...(form.indemnityType ? { indemnityType: form.indemnityType } : {}),
         ...(form.roomRentCategory ? { roomRentCategory: form.roomRentCategory } : {}),
@@ -1588,8 +1590,17 @@ function AddQuoteForm({ healthCase, onCancel, onSaved }: { healthCase: any; onCa
         <FieldLabel label="Plan Name" required>
           <input className={inputCls} value={form.planName} onChange={set('planName')} />
         </FieldLabel>
-        <FieldLabel label="UIN" required hint="As filed with IRDAI">
-          <input className={inputCls} value={form.uin} onChange={set('uin')} />
+        <FieldLabel
+          label="UIN"
+          required={!isPersonalAccident}
+          hint={isPersonalAccident ? 'Optional for Personal Accident' : 'As filed with IRDAI'}
+        >
+          <input
+            className={inputCls}
+            value={form.uin}
+            onChange={set('uin')}
+            placeholder={isPersonalAccident ? 'Optional' : undefined}
+          />
         </FieldLabel>
         <FieldLabel label="Sum Insured" required>
           <input className={inputCls} type="number" min={0} value={form.sumInsured} onChange={set('sumInsured')} />
@@ -1631,9 +1642,13 @@ function AddQuoteForm({ healthCase, onCancel, onSaved }: { healthCase: any; onCa
             ))}
           </select>
         </FieldLabel>
-        <FieldLabel label="Waiting Period Applicable" required={!isRenewal}>
+        <FieldLabel
+          label="Waiting Period Applicable"
+          required={!isRenewal && !isPersonalAccident}
+          hint={isPersonalAccident ? 'Optional for Personal Accident' : undefined}
+        >
           <select className={inputCls} value={form.waitingPeriod} onChange={set('waitingPeriod')}>
-            <option value="">-- Select --</option>
+            <option value="">{isPersonalAccident ? '-- Not Applicable / Optional --' : '-- Select --'}</option>
             {WAITING_PERIODS.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}

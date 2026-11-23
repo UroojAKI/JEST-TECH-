@@ -439,4 +439,183 @@ describe('HealthQuotationCaseService access and integrity', () => {
       ),
     ).rejects.toThrow('sent to Back Office');
   });
+
+  describe('addQuote validation for UIN and waitingPeriod', () => {
+    const user = { id: 'user-1', userId: 'user-1', companyId: 'company-1', role: 'BACK_OFFICE' } as any;
+
+    it('allows adding quote to PERSONAL_ACCIDENT case without uin and waitingPeriod', async () => {
+      const paCase = {
+        id: 'case-pa',
+        caseCode: 'HQC-2026-00004',
+        status: 'OPEN',
+        planCategory: 'PERSONAL_ACCIDENT',
+        policyForm: 'NEW_POLICY',
+        companyId: 'company-1',
+        contactId: 'contact-1',
+        leadId: 'lead-1',
+        agentId: null,
+        agentExternalCodeId: null,
+        planDetails: {},
+        members: [],
+        quotations: [],
+      };
+      const insurer = { id: 'ins-1', name: 'Star Health and Allied Insurance', code: 'STAR' };
+      const createdQuote = { id: 'quote-pa', quotationCode: 'QT-2026-0001' };
+
+      const tx = {
+        quotation: {
+          create: jest.fn().mockResolvedValue(createdQuote),
+        },
+        healthQuotationCase: {
+          update: jest.fn().mockResolvedValue({}),
+        },
+      };
+
+      const prisma = {
+        healthQuotationCase: {
+          findFirst: jest.fn().mockResolvedValue(paCase),
+        },
+        insurer: {
+          findFirst: jest.fn().mockResolvedValue(insurer),
+        },
+        $transaction: jest.fn((cb: any) => cb(tx)),
+      };
+
+      const numberingEngine = { generateNext: jest.fn().mockResolvedValue('QT-2026-0001') };
+      const premiumService = {
+        calculate: jest.fn().mockReturnValue({
+          basePremium: 5000,
+          riderPremium: 0,
+          gstRate: 0.18,
+          gstAmount: 900,
+          totalPremium: 5900,
+          commissionPercent: 10,
+          commissionAmount: 500,
+          netPayable: 5400,
+        }),
+      };
+
+      const service = new HealthQuotationCaseService(
+        prisma as any,
+        {} as any,
+        numberingEngine as any,
+        premiumService as any,
+        { validatePlanDetails: jest.fn(), validateRenewal: jest.fn() } as any,
+        { validateAgentOwnership: jest.fn() } as any,
+      );
+
+      const result = await service.addQuote(
+        'case-pa',
+        {
+          insurerName: 'Star Health and Allied Insurance',
+          planName: 'Accident Care Individual',
+          sumInsured: 1000000,
+          policyTenureYears: 1,
+          basePremium: 5000,
+          commissionPercent: 10,
+          // uin and waitingPeriod intentionally omitted
+        } as any,
+        user,
+      );
+
+      expect(result).toBeDefined();
+      expect(tx.quotation.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            productCode: null,
+            healthPlanCategory: 'PERSONAL_ACCIDENT',
+            healthMetadata: expect.objectContaining({
+              planName: 'Accident Care Individual',
+              uin: null,
+              waitingPeriod: null,
+            }),
+          }),
+        }),
+      );
+    });
+
+    it('rejects adding quote to INDIVIDUAL case when uin is missing', async () => {
+      const indCase = {
+        id: 'case-ind',
+        caseCode: 'HQC-2026-00005',
+        status: 'OPEN',
+        planCategory: 'INDIVIDUAL',
+        policyForm: 'NEW_POLICY',
+        companyId: 'company-1',
+        contactId: 'contact-1',
+        planDetails: {},
+        members: [],
+        quotations: [],
+      };
+
+      const prisma = {
+        healthQuotationCase: {
+          findFirst: jest.fn().mockResolvedValue(indCase),
+        },
+      };
+
+      const service = makeService(prisma);
+
+      await expect(
+        service.addQuote(
+          'case-ind',
+          {
+            insurerName: 'HDFC ERGO',
+            planName: 'Optima Secure',
+            sumInsured: 500000,
+            policyTenureYears: 1,
+            basePremium: 10000,
+            commissionPercent: 15,
+            waitingPeriod: 'INITIAL_30_DAYS',
+            indemnityType: 'INDEMNITY',
+            roomRentCategory: 'NO_CAPPING',
+            // uin omitted
+          } as any,
+          user,
+        ),
+      ).rejects.toThrow('uin is required for health quotes');
+    });
+
+    it('rejects adding quote to INDIVIDUAL case when waitingPeriod is missing', async () => {
+      const indCase = {
+        id: 'case-ind',
+        caseCode: 'HQC-2026-00005',
+        status: 'OPEN',
+        planCategory: 'INDIVIDUAL',
+        policyForm: 'NEW_POLICY',
+        companyId: 'company-1',
+        contactId: 'contact-1',
+        planDetails: {},
+        members: [],
+        quotations: [],
+      };
+
+      const prisma = {
+        healthQuotationCase: {
+          findFirst: jest.fn().mockResolvedValue(indCase),
+        },
+      };
+
+      const service = makeService(prisma);
+
+      await expect(
+        service.addQuote(
+          'case-ind',
+          {
+            insurerName: 'HDFC ERGO',
+            planName: 'Optima Secure',
+            uin: 'HDFHLIP23071V052223',
+            sumInsured: 500000,
+            policyTenureYears: 1,
+            basePremium: 10000,
+            commissionPercent: 15,
+            indemnityType: 'INDEMNITY',
+            roomRentCategory: 'NO_CAPPING',
+            // waitingPeriod omitted
+          } as any,
+          user,
+        ),
+      ).rejects.toThrow('waitingPeriod is required for New Policy quotes');
+    });
+  });
 });
