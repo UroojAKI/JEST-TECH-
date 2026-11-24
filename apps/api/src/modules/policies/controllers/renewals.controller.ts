@@ -113,13 +113,17 @@ export class RenewalsController {
     );
     const policy = await this.prisma.policy.findFirst({
       where: {
-        OR: [
-          { id: policyId },
-          { policyNumber: policyId },
-          { actualPolicyNumber: policyId },
+        AND: [
+          {
+            OR: [
+              { id: policyId },
+              { policyNumber: policyId },
+              { actualPolicyNumber: policyId },
+            ],
+          },
+          ...(effectiveCompanyId ? [{ companyId: effectiveCompanyId }] : []),
+          ...(scopedFilter && Object.keys(scopedFilter).length > 0 ? [scopedFilter] : []),
         ],
-        ...(effectiveCompanyId ? { companyId: effectiveCompanyId } : {}),
-        ...scopedFilter,
       },
       include: {
         contact: true,
@@ -366,7 +370,12 @@ export class RenewalsController {
       'RENEWAL_TASK',
     );
     const accessible = await this.prisma.renewalTask.findFirst({
-      where: { id: taskId, ...scopedFilter },
+      where: {
+        AND: [
+          { id: taskId },
+          ...(scopedFilter && Object.keys(scopedFilter).length > 0 ? [scopedFilter] : []),
+        ],
+      },
     });
     if (!accessible) {
       throw new ForbiddenException('Access to this renewal task is denied');
@@ -524,7 +533,12 @@ export class RenewalsController {
       'RENEWAL_TASK',
     );
     const task = await this.prisma.renewalTask.findFirst({
-      where: { id: taskId, ...scopedFilter },
+      where: {
+        AND: [
+          { id: taskId },
+          ...(scopedFilter && Object.keys(scopedFilter).length > 0 ? [scopedFilter] : []),
+        ],
+      },
     });
     if (!task) {
       throw new NotFoundException(
@@ -551,7 +565,12 @@ export class RenewalsController {
       'RENEWAL_TASK',
     );
     const task = await this.prisma.renewalTask.findFirst({
-      where: { id: taskId, ...scopedFilter },
+      where: {
+        AND: [
+          { id: taskId },
+          ...(scopedFilter && Object.keys(scopedFilter).length > 0 ? [scopedFilter] : []),
+        ],
+      },
     });
     if (!task) {
       throw new NotFoundException(

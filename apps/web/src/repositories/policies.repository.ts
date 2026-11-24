@@ -167,6 +167,8 @@ export const policiesRepository = {
 
   async getRenewalQuotePrefill(policyId: string): Promise<any> {
     const response = await apiClient.get(`/renewals/policies/${policyId}/quote-prefill`);
-    return response.data;
+    const raw = response.data;
+    const prefill = raw?.prefill || raw?.data?.prefill || raw?.data || raw;
+    return { success: true, prefill };
   },
 };

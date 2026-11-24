@@ -104,27 +104,27 @@ export function MotorQuotationsWorkspace() {
     (async () => {
       try {
         const res = await policiesRepository.getRenewalQuotePrefill(renewPolicyId);
-        if (res.success && res.prefill) {
-          const { prefill } = res;
-          const cat = (prefill.vehicle?.vehicleCategory || 'PRIVATE_CAR') as VehicleCategory;
+        const prefill = res?.prefill || res?.data?.prefill || res?.data || res;
+        if (prefill && (prefill.vehicle || prefill.vehicleCategory || prefill.policyId)) {
+          const cat = (prefill.vehicle?.vehicleCategory || prefill.vehicleCategory || 'PRIVATE_CAR') as VehicleCategory;
           setInitialCategory(cat);
           setCloneQuoteData({
             category: cat,
             policyType: (prefill.policyType === 'THIRD_PARTY_ONLY' ? 'TP_ONLY' : prefill.policyType === 'STANDALONE_OD' ? 'SAOD' : 'PACKAGE') as any,
             proposerDetails: {
-              customerName: `${prefill.customer.firstName || ''} ${prefill.customer.lastName || ''}`.trim(),
-              mobileNumber: prefill.customer.phone || '',
-              emailId: prefill.customer.email || '',
-              address: prefill.customer.address || '',
-              pincode: prefill.customer.pincode || '',
-              state: prefill.customer.state || '',
-              city: prefill.customer.city || '',
-              contactId: prefill.customer.contactId,
+              customerName: `${prefill.customer?.firstName || ''} ${prefill.customer?.lastName || ''}`.trim(),
+              mobileNumber: prefill.customer?.phone || '',
+              emailId: prefill.customer?.email || '',
+              address: prefill.customer?.address || '',
+              pincode: prefill.customer?.pincode || '',
+              state: prefill.customer?.state || '',
+              city: prefill.customer?.city || '',
+              contactId: prefill.customer?.contactId,
             },
             vehicleDetails: {
-              ...prefill.vehicle,
+              ...(prefill.vehicle || {}),
               vehicleStatus: 'EXISTING',
-              idv: prefill.pricing.suggestedIdv ?? prefill.pricing.expiringIdv ?? undefined,
+              idv: prefill.pricing?.suggestedIdv ?? prefill.pricing?.expiringIdv ?? undefined,
             },
             renewalOfPolicyId: prefill.policyId,
             previousPolicyDetails: {
@@ -140,8 +140,8 @@ export function MotorQuotationsWorkspace() {
                   Date.now() - new Date(prefill.expiryDate).getTime() > 90 * 24 * 60 * 60 * 1000,
               ),
               ownershipTransfer: false,
-              claimInPreviousYear: Boolean(prefill.pricing.hasClaims),
-              eligibleNcbPercentage: Number(prefill.pricing.previousNcb ?? 0),
+              claimInPreviousYear: Boolean(prefill.pricing?.hasClaims),
+              eligibleNcbPercentage: Number(prefill.pricing?.previousNcb ?? 0),
               previousInsurerName: prefill.insurer?.insurerName || '',
               previousPolicyNumber: prefill.policyNumber || '',
             },
@@ -457,12 +457,12 @@ export function MotorQuotationsWorkspace() {
   const handleOpenWizard = (category?: VehicleCategory | string, cloneData?: any) => {
     let finalCat = category as VehicleCategory | undefined;
     const map: Record<string, VehicleCategory> = {
-      private_car: 'PRIVATE_CAR', bike: 'BIKE', gcv: 'GCV', tractor: 'TRACTOR',
+      private_car: 'PRIVATE_CAR', bike: 'BIKE', two_wheeler: 'BIKE', gcv: 'GCV', tractor: 'TRACTOR',
       auto: 'AUTO', taxi: 'TAXI', bus: 'BUS_COACH', misc: 'MISC_CLASS_D',
     };
-    if (typeof category === 'string' && map[category]) finalCat = map[category];
+    if (typeof category === 'string' && map[category.toLowerCase()]) finalCat = map[category.toLowerCase()];
     setInitialCategory(finalCat || null);
-    setCloneQuoteData(cloneData || null);
+    setCloneQuoteData(cloneData ? { ...cloneData, category: finalCat || cloneData.category } : null);
     setIsWizardOpen(true);
   };
 
@@ -656,10 +656,12 @@ export function MotorQuotationsWorkspace() {
                     <button
                       type="button"
                       onClick={() => handleOpenWizard(first?.vehicleCategory, {
+                        category: first?.vehicleCategory,
                         vehicleDetails: first?.vehicleDetails,
                         proposerDetails: first?.proposerDetails,
                         previousPolicyDetails: (first as any)?.previousPolicyDetails,
                         caseId: (first as any)?.caseId,
+                        renewalOfPolicyId: (first as any)?.renewalOfPolicyId || (first as any)?.policyId,
                       })}
                       className="cursor-pointer px-3 py-1.5 rounded-md border bg-background hover:bg-muted active:scale-[0.98] transition-all text-xs font-semibold"
                     >

@@ -102,7 +102,7 @@ export function DynamicWorkspace({ roleLabel, roleIcon, fallbackRole, customCont
   // Modals state
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [initialCategory, setInitialCategory] = useState<VehicleCategory | null>(null);
-  const [cloneQuoteData, setCloneQuoteData] = useState<{ vehicleDetails?: any; proposerDetails?: any } | null>(null);
+  const [cloneQuoteData, setCloneQuoteData] = useState<{ vehicleDetails?: any; proposerDetails?: any; category?: VehicleCategory; renewalOfPolicyId?: string } | null>(null);
   const [inspectionQuoteId, setInspectionQuoteId] = useState<string | null>(null);
   const [proposalQuote, setProposalQuote] = useState<SavedMotorQuote | null>(null);
   const [completionQuote, setCompletionQuote] = useState<SavedMotorQuote | null>(null);
@@ -337,9 +337,9 @@ export function DynamicWorkspace({ roleLabel, roleIcon, fallbackRole, customCont
   const inspectionNeededQuotes = quotations.filter((q: any) => q.status === 'PENDING_INSPECTION' || q.workflowState === 'INSPECTION_REQUIRED');
   const readyToIssueQuotes = quotations.filter((q: any) => q.status === 'PAYMENT_DONE' || q.status === 'PENDING_ISSUANCE' || q.issuanceStatus === 'ISSUANCE_PENDING');
 
-  const handleOpenWizard = (category?: VehicleCategory, cloneData?: { vehicleDetails?: any; proposerDetails?: any }) => {
+  const handleOpenWizard = (category?: VehicleCategory, cloneData?: { vehicleDetails?: any; proposerDetails?: any; category?: VehicleCategory; renewalOfPolicyId?: string }) => {
     setInitialCategory(category || null);
-    setCloneQuoteData(cloneData || null);
+    setCloneQuoteData(cloneData ? { ...cloneData, category: category || cloneData.category } : null);
     setIsWizardOpen(true);
   };
 
