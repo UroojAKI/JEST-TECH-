@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { X, ChevronRight, ChevronLeft, Save, Loader2, Car, Shield, UserCheck, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { X, ChevronRight, ChevronLeft, Save, Loader2, Car, Shield, ShieldCheck, UserCheck, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiClient, getApiErrorMessage, showApiErrorToast } from '../../../lib/api-client';
 import { useQuery } from '@tanstack/react-query';
@@ -265,52 +265,21 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
   const [vehicleSelectionMode, setVehicleSelectionMode] = useState<'EXISTING' | 'NEW'>('EXISTING');
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
 
-  // Reuse the saved case snapshot when generating an alternative insurer quote.
-  // This deliberately prefills customer/risk data while leaving insurer selection
-  // and insurer-specific pricing as a fresh, explicit decision.
-  useEffect(() => {
-    if (!isOpen || !cloneQuoteData) return;
-
-    if (cloneQuoteData.proposerDetails) {
-      setProposer((current) => ({
-        ...current,
-        ...cloneQuoteData.proposerDetails,
-      }));
-    }
-    if (cloneQuoteData.vehicleDetails) {
-      setVehicleDetails((current) => ({
-        ...current,
-        ...cloneQuoteData.vehicleDetails,
-      }));
-    }
-    if (cloneQuoteData.previousPolicyDetails) {
-      setPreviousPolicy((current) => ({
-        ...current,
-        ...cloneQuoteData.previousPolicyDetails,
-      }));
-    }
-    if (cloneQuoteData.category || initialCategory) {
-      setVehicleCategory(
-        (cloneQuoteData.category || initialCategory) as VehicleCategory,
-      );
-    }
-    if (cloneQuoteData.policyType) {
-      setPolicyType(cloneQuoteData.policyType);
-    }
-    if (cloneQuoteData.policyDetails) {
-      const details = cloneQuoteData.policyDetails as Record<string, any>;
-      if (details.policyType === 'TP_ONLY' || details.policyType === 'THIRD_PARTY_ONLY') {
-        setTpForm((current) => ({ ...current, ...details }));
-      } else if (details.policyType === 'SAOD' || details.policyType === 'STANDALONE_OD') {
-        setSaodForm((current) => ({ ...current, ...details }));
-      } else {
-        setPackageForm((current) => ({ ...current, ...details }));
-      }
-    }
-  }, [isOpen, cloneQuoteData, initialCategory]);
+  // Authoritative Renewal Mode Indicator: When renewing an existing policy, the vehicle
+  // category and registration number are strictly immutable to prevent data contamination.
+  const isRenewalMode = Boolean(cloneQuoteData?.renewalOfPolicyId);
 
   // Debounced Identity Resolution Lookup
   useEffect(() => {
+    // In renewal mode, skip identity resolution vehicle lookup entirely.
+    // The policy being renewed is already strictly bound to an authoritative predecessor vehicle.
+    if (isRenewalMode) {
+      setIdentityStatus('IDLE');
+      setIdentityMatch(null);
+      setMatchedVehicles([]);
+      return;
+    }
+
     const mobile = (proposer.mobileNumber || '').replace(/\D/g, '').trim();
     const email = (proposer.emailId || '').trim();
 
@@ -356,7 +325,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
     }, 400);
 
     return () => clearTimeout(timer);
-  }, [proposer.mobileNumber, proposer.emailId]);
+  }, [proposer.mobileNumber, proposer.emailId, isRenewalMode]);
   const [journeyId, setJourneyId] = useState<string | null>(null);
   const [showInspectionDialog, setShowInspectionDialog] = useState(false);
   const [isContextLoading, setIsContextLoading] = useState(false);
@@ -370,38 +339,6 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
     { num: 5, label: policyType === 'SAOD' ? 'TP Verification & Eligibility' : 'Rule Evaluation' },
     { num: 6, label: 'Premium & Coverages' },
   ], [policyType]);
-
-  // ── Clone / Comparison Pre-Fill Hydration ──────────────────────────────────
-  useEffect(() => {
-    if (cloneQuoteData) {
-      if (cloneQuoteData.proposerDetails) {
-        setProposer((prev) => ({ ...prev, ...cloneQuoteData.proposerDetails }));
-      }
-      if (cloneQuoteData.vehicleDetails) {
-        setVehicleDetails((prev) => ({ ...prev, ...cloneQuoteData.vehicleDetails }));
-      }
-      if (cloneQuoteData.previousPolicyDetails) {
-        setPreviousPolicy((prev) => ({ ...prev, ...cloneQuoteData.previousPolicyDetails }));
-      }
-      if (cloneQuoteData.category) {
-        setVehicleCategory(cloneQuoteData.category);
-      }
-      if (cloneQuoteData.policyType) {
-        setPolicyType(cloneQuoteData.policyType);
-      }
-      if (cloneQuoteData.policyDetails) {
-        if (cloneQuoteData.policyType === 'SAOD') {
-          setSaodForm((prev) => ({ ...prev, ...cloneQuoteData.policyDetails }));
-        } else if (cloneQuoteData.policyType === 'PACKAGE') {
-          setPackageForm((prev) => ({ ...prev, ...cloneQuoteData.policyDetails }));
-        } else if (cloneQuoteData.policyType === 'TP_ONLY') {
-          setTpForm((prev) => ({ ...prev, ...cloneQuoteData.policyDetails }));
-        }
-      }
-      // Advance directly to Policy Type / Insurer selection
-      setStep(4);
-    }
-  }, [cloneQuoteData]);
 
   // ── Canonical Eligibility Context ─────────────────────────────────────────
   // Computed ONCE here in the parent and passed to all form children.
@@ -505,31 +442,9 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
 
   useEffect(() => {
     if (isOpen) {
-      if (cloneQuoteData) {
-        setVehicleDetails(cloneQuoteData.vehicleDetails || {});
-        setProposer(cloneQuoteData.proposerDetails || emptyProposer(leadContact));
-        setStep(3); // Skip to Previous Policy
-      } else {
-        setVehicleDetails({ vehicleStatus: 'EXISTING' });
-        setProposer(emptyProposer(leadContact));
-        setStep(1);
-      }
       setIsSaving(false);
       setInsurerName('');
-      setVehicleCategory(initialCategory || null);
-      setPreviousPolicy({
-        previousPolicyType: 'COMPREHENSIVE',
-        policyExpiryDate: '',
-        expiredMoreThan90Days: false,
-        ownershipTransfer: false,
-        claimInPreviousYear: false,
-        eligibleNcbPercentage: 0,
-      });
-      setPolicyType(null);
       setRuleResult(null);
-      setTpForm(emptyTP());
-      setSaodForm(emptySAOD());
-      setPackageForm(emptyPackage());
       setSavedQuotationId(null);
       setSelectedAgentId('');
       setSelectedAgentCode('');
@@ -539,11 +454,83 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
       setShowInspectionDialog(false);
       setPrefilledFromLeadCode(null);
 
+      if (cloneQuoteData) {
+        // Authoritative hydration: preserve vehicle category, plate, and risk details from predecessor
+        const cat = (cloneQuoteData.category || initialCategory || null) as VehicleCategory | null;
+        setVehicleCategory(cat);
+        setVehicleDetails(cloneQuoteData.vehicleDetails || { vehicleStatus: 'EXISTING' });
+        setProposer(cloneQuoteData.proposerDetails || emptyProposer(leadContact));
+
+        if (cloneQuoteData.previousPolicyDetails) {
+          setPreviousPolicy((current) => ({
+            ...current,
+            ...cloneQuoteData.previousPolicyDetails,
+          }));
+        } else {
+          setPreviousPolicy({
+            previousPolicyType: 'COMPREHENSIVE',
+            policyExpiryDate: '',
+            expiredMoreThan90Days: false,
+            ownershipTransfer: false,
+            claimInPreviousYear: false,
+            eligibleNcbPercentage: 0,
+          });
+        }
+
+        if (cloneQuoteData.policyType) {
+          setPolicyType(cloneQuoteData.policyType);
+        } else {
+          setPolicyType(null);
+        }
+
+        if (cloneQuoteData.policyDetails) {
+          const details = cloneQuoteData.policyDetails as Record<string, any>;
+          if (details.policyType === 'TP_ONLY' || details.policyType === 'THIRD_PARTY_ONLY') {
+            setTpForm((current) => ({ ...current, ...details }));
+            setSaodForm(emptySAOD());
+            setPackageForm(emptyPackage());
+          } else if (details.policyType === 'SAOD' || details.policyType === 'STANDALONE_OD') {
+            setSaodForm((current) => ({ ...current, ...details }));
+            setTpForm(emptyTP());
+            setPackageForm(emptyPackage());
+          } else {
+            setPackageForm((current) => ({ ...current, ...details }));
+            setTpForm(emptyTP());
+            setSaodForm(emptySAOD());
+          }
+        } else {
+          setTpForm(emptyTP());
+          setSaodForm(emptySAOD());
+          setPackageForm(emptyPackage());
+        }
+
+        // For policy renewal, advance to Step 3 (Previous Policy review).
+        // For general quote cloning, advance directly to Step 4 (Policy Type / Insurer selection).
+        setStep(cloneQuoteData.renewalOfPolicyId ? 3 : 4);
+      } else {
+        setVehicleDetails({ vehicleStatus: 'EXISTING' });
+        setProposer(emptyProposer(leadContact));
+        setVehicleCategory(initialCategory || null);
+        setPreviousPolicy({
+          previousPolicyType: 'COMPREHENSIVE',
+          policyExpiryDate: '',
+          expiredMoreThan90Days: false,
+          ownershipTransfer: false,
+          claimInPreviousYear: false,
+          eligibleNcbPercentage: 0,
+        });
+        setPolicyType(null);
+        setTpForm(emptyTP());
+        setSaodForm(emptySAOD());
+        setPackageForm(emptyPackage());
+        setStep(1);
+      }
+
       // Initialize authoritative Motor Journey
       apiClient
         .post('/motor/journeys', {
           leadId: leadId && leadId !== 'new' ? leadId : undefined,
-          vehicleCategory: initialCategory || undefined,
+          vehicleCategory: (cloneQuoteData?.category || initialCategory || undefined) as any,
         })
         .then((res) => {
           if (res.data?.journeyId) {
@@ -599,6 +586,32 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
             setIsContextLoading(false);
           });
       }
+    } else {
+      // Complete state sanitization on modal close to guarantee zero cross-quote bleed
+      setVehicleDetails({ vehicleStatus: 'EXISTING' });
+      setProposer(emptyProposer());
+      setVehicleCategory(null);
+      setPreviousPolicy({
+        previousPolicyType: 'COMPREHENSIVE',
+        policyExpiryDate: '',
+        expiredMoreThan90Days: false,
+        ownershipTransfer: false,
+        claimInPreviousYear: false,
+        eligibleNcbPercentage: 0,
+      });
+      setPolicyType(null);
+      setRuleResult(null);
+      setTpForm(emptyTP());
+      setSaodForm(emptySAOD());
+      setPackageForm(emptyPackage());
+      setMatchedVehicles([]);
+      setSelectedVehicleId(null);
+      setIdentityMatch(null);
+      setIdentityStatus('IDLE');
+      setSavedQuotationId(null);
+      setJourneyId(null);
+      setShowInspectionDialog(false);
+      setPrefilledFromLeadCode(null);
     }
   }, [isOpen, initialCategory, cloneQuoteData, leadContact, leadId]);
 
@@ -1022,7 +1035,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
       return;
     }
 
-    if (vehicleDetails.vehicleStatus !== 'NEW' && registrationNumber) {
+    if (!isRenewalMode && vehicleDetails.vehicleStatus !== 'NEW' && registrationNumber) {
       const cleanReg = registrationNumber.toUpperCase().replace(/[\s\-\.]/g, '');
       if (cleanReg && cleanReg.length >= 6) {
         try {
@@ -1189,7 +1202,9 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
               <Shield className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <h2 className="font-bold text-base text-foreground tracking-tight">Generate Motor Quotation</h2>
+              <h2 className="font-bold text-base text-foreground tracking-tight">
+                {isRenewalMode ? 'Generate Policy Renewal Quotation' : 'Generate Motor Quotation'}
+              </h2>
               <p className="text-xs text-muted-foreground font-medium">
                 {vehicleCategory ? `${CATEGORY_LABEL[vehicleCategory]} ` : ''}
                 {policyType ? `— ${POLICY_TYPE_LABEL[policyType]}` : ''}
@@ -1253,6 +1268,20 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
           <div className="max-w-3xl mx-auto space-y-6">
             {step === 1 && (
               <div className="space-y-4">
+                {isRenewalMode && (
+                  <div className="flex items-center justify-between p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-700 dark:text-blue-300">
+                    <div className="flex items-center gap-2.5">
+                      <ShieldCheck className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
+                      <div>
+                        <div className="text-xs font-bold uppercase tracking-wider">Policy Renewal Mode</div>
+                        <div className="text-[11px] text-muted-foreground">
+                          Prefilled from expiring policy #{cloneQuoteData?.policyDetails?.previousPolicyNumber || cloneQuoteData?.previousPolicyDetails?.previousPolicyNumber || ''} • Vehicle Category: <span className="font-bold text-foreground">{vehicleCategory}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between border-b pb-2">
                   <h3 className="text-sm font-bold text-foreground">Customer Basic Information</h3>
                   {identityStatus === 'LOADING' && (
@@ -1447,7 +1476,24 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
 
             {step === 2 && (
               <div className="space-y-4">
-                {matchedVehicles.length > 0 && (
+                {isRenewalMode && (
+                  <div className="flex items-center justify-between p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-700 dark:text-blue-300">
+                    <div className="flex items-center gap-2.5">
+                      <ShieldCheck className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
+                      <div>
+                        <div className="text-xs font-bold uppercase tracking-wider">Policy Renewal Underwriting Lock</div>
+                        <div className="text-[11px] text-muted-foreground">
+                          Registration plate and vehicle classification are strictly bound to predecessor policy #{cloneQuoteData?.policyDetails?.previousPolicyNumber || cloneQuoteData?.previousPolicyDetails?.previousPolicyNumber || ''}
+                        </div>
+                      </div>
+                    </div>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-blue-500/20 text-blue-700 dark:text-blue-300">
+                      {vehicleCategory}
+                    </span>
+                  </div>
+                )}
+
+                {!isRenewalMode && matchedVehicles.length > 0 && (
                   <div className="flex items-center gap-2 p-1 bg-muted/40 rounded-lg border w-fit">
                     <button
                       type="button"
@@ -1477,7 +1523,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
                   </div>
                 )}
 
-                {matchedVehicles.length > 0 && vehicleSelectionMode === 'EXISTING' ? (
+                {!isRenewalMode && matchedVehicles.length > 0 && vehicleSelectionMode === 'EXISTING' ? (
                   <div className="space-y-3">
                     <h3 className="text-sm font-bold text-foreground border-b pb-2">Customer Registered Vehicles</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1548,6 +1594,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
                       category={vehicleCategory}
                       data={vehicleDetails}
                       onChange={setVehicleDetails}
+                      readOnlyRegistration={isRenewalMode}
                     />
                   </div>
                 ) : (

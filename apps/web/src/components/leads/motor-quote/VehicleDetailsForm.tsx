@@ -11,15 +11,16 @@ interface Props {
   category: VehicleCategory;
   data: Record<string, string>;
   onChange: (data: Record<string, string>) => void;
+  readOnlyRegistration?: boolean;
 }
 
 const inputBase = 'w-full px-3 py-2 rounded-md border text-sm font-medium bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 transition-colors shadow-sm';
 
-export function VehicleDetailsForm({ category, data, onChange }: Props) {
+export function VehicleDetailsForm({ category, data, onChange, readOnlyRegistration }: Props) {
   const fields = VEHICLE_FIELDS[category];
 
   const cleanReg = (data.registrationNumber || '').toUpperCase().replace(/[\s\-\.]/g, '');
-  const shouldCheckReg = data.vehicleStatus !== 'NEW' && cleanReg.length >= 6;
+  const shouldCheckReg = !readOnlyRegistration && data.vehicleStatus !== 'NEW' && cleanReg.length >= 6;
 
   const { data: vehicleCheck, isLoading: isCheckingVehicle } = useQuery({
     queryKey: ['vehicle-policy-check', cleanReg],
@@ -226,18 +227,26 @@ export function VehicleDetailsForm({ category, data, onChange }: Props) {
                     type={f.type === 'numeric' ? 'number' : 'text'}
                     value={val}
                     required={isMandatory}
+                    readOnly={f.key === 'registrationNumber' && Boolean(readOnlyRegistration)}
                     onChange={set(f.key)}
                     maxLength={f.key === 'registrationNumber' ? 11 : undefined}
                     placeholder={f.placeholder || ''}
                     className={`${inputBase} ${
-                      f.key === 'registrationNumber' && vehicleCheck?.hasExisting
-                        ? 'border-destructive focus:ring-destructive/50 bg-destructive/5'
-                        : borderCls
+                      f.key === 'registrationNumber' && readOnlyRegistration
+                        ? 'bg-muted text-foreground cursor-not-allowed border-dashed font-bold font-mono'
+                        : f.key === 'registrationNumber' && vehicleCheck?.hasExisting
+                          ? 'border-destructive focus:ring-destructive/50 bg-destructive/5'
+                          : borderCls
                     } ${
                       f.key === 'registrationNumber' ? 'uppercase font-mono tracking-wider' : ''
                     }`}
                   />
-                  {f.key === 'registrationNumber' && isCheckingVehicle && (
+                  {f.key === 'registrationNumber' && readOnlyRegistration && (
+                    <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1.5">
+                      <span>Vehicle registration plate is locked to predecessor policy.</span>
+                    </p>
+                  )}
+                  {f.key === 'registrationNumber' && !readOnlyRegistration && isCheckingVehicle && (
                     <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1.5">
                       <Loader2 className="w-3 h-3 animate-spin text-primary shrink-0" />
                       <span>Checking active policy / quotation...</span>

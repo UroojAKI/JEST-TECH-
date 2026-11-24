@@ -376,6 +376,7 @@ export class RenewalEngineService {
         contact: true,
         claims: { select: { id: true, status: true } },
         quotation: true,
+        vehicle: { select: { id: true, registrationNumber: true, category: true, makeModel: true } },
         renewalTasks: { orderBy: { createdAt: 'desc' }, take: 1 },
       },
       orderBy: { expiryDate: 'asc' },
@@ -427,6 +428,7 @@ export class RenewalEngineService {
         basePrem * (1 - nextNcb / 100),
       );
       const vehicleMeta = (p.motorMetadata as Record<string, any>) || {};
+      const vehicleMetaDetails = (vehicleMeta.vehicleDetails as Record<string, any>) || {};
       const item = {
         id: p.id,
         policyNumber: p.policyNumber,
@@ -443,7 +445,19 @@ export class RenewalEngineService {
         nextNcb,
         lastPremium: basePrem,
         estimatedRenewalPremium,
-        registrationNumber: vehicleMeta.registrationNumber || 'N/A',
+        registrationNumber:
+          p.vehicle?.registrationNumber ||
+          p.quotation?.registrationNumber ||
+          vehicleMeta.registrationNumber ||
+          vehicleMetaDetails.registrationNumber ||
+          'N/A',
+        vehicleCategory:
+          p.vehicleCategory ||
+          p.vehicle?.category ||
+          p.quotation?.vehicleCategory ||
+          vehicleMeta.vehicleCategory ||
+          vehicleMetaDetails.vehicleCategory ||
+          undefined,
         insurerName: p.quotation?.insurerName || 'HDFC ERGO',
         escalated:
           p.renewalTasks?.[0]?.priority === 'CRITICAL' ||

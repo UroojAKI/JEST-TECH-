@@ -861,10 +861,18 @@ export function MotorQuotationsWorkspace() {
         leadContact={leadContact}
         initialCategory={initialCategory || undefined}
         cloneQuoteData={cloneQuoteData}
-        onClose={() => setIsWizardOpen(false)}
+        onClose={() => {
+          setIsWizardOpen(false);
+          setCloneQuoteData(null);
+          setInitialCategory(null);
+          hasHandledRenewRef.current = null;
+        }}
         onSaved={(saved) => {
           void refetch();
           setIsWizardOpen(false);
+          setCloneQuoteData(null);
+          setInitialCategory(null);
+          hasHandledRenewRef.current = null;
           if (saved?.workflowState === 'INSPECTION_REQUIRED' || saved?.status === 'PENDING_INSPECTION' || saved?.status === 'INSPECTION_REQUIRED') {
             setInspectionQuoteId(saved.id);
             toast.info(`Quotation ${saved?.quotationCode || ''} requires vehicle inspection. Opening inspection capture...`);

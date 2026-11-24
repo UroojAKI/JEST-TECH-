@@ -1494,10 +1494,16 @@ export function DynamicWorkspace({ roleLabel, roleIcon, fallbackRole, customCont
         isOpen={isWizardOpen}
         initialCategory={initialCategory || undefined}
         cloneQuoteData={cloneQuoteData}
-        onClose={() => setIsWizardOpen(false)}
+        onClose={() => {
+          setIsWizardOpen(false);
+          setCloneQuoteData(null);
+          setInitialCategory(null);
+        }}
         onSaved={(saved) => {
           void refetch();
           setIsWizardOpen(false);
+          setCloneQuoteData(null);
+          setInitialCategory(null);
           if (saved?.workflowState === 'INSPECTION_REQUIRED' || saved?.status === 'PENDING_INSPECTION' || saved?.status === 'INSPECTION_REQUIRED') {
             setInspectionQuoteId(saved.id);
             toast.info(`Quotation ${saved?.quotationCode || ''} requires vehicle inspection. Opening capture...`);

@@ -172,45 +172,62 @@ export class RenewalsController {
       ...((policy.vehicle?.categorySpecificData as any) || {}),
       ...(mergedEndorsementChanges.categorySpecificData || {}),
     };
+    const vehicleMeta = (policy.motorMetadata as Record<string, any>) || {};
+    const vehicleMetaDetails = (vehicleMeta.vehicleDetails as Record<string, any>) || {};
 
     const vehicle = {
       vehicleId: policy.vehicleId || policy.quotation?.vehicleId || null,
       registrationNumber:
         mergedEndorsementChanges.registrationNumber ||
         policy.vehicle?.registrationNumber ||
-        (policy.motorMetadata as any)?.registrationNumber ||
+        policy.quotation?.registrationNumber ||
+        vehicleMeta.registrationNumber ||
+        vehicleMetaDetails.registrationNumber ||
         '',
       vehicleCategory:
         mergedEndorsementChanges.category ||
-        policy.vehicle?.category ||
         policy.vehicleCategory ||
-        (policy.motorMetadata as any)?.vehicleCategory ||
+        policy.vehicle?.category ||
+        policy.quotation?.vehicleCategory ||
+        vehicleMeta.vehicleCategory ||
+        vehicleMetaDetails.vehicleCategory ||
         'PRIVATE_CAR',
       makeModel:
         mergedEndorsementChanges.makeModel ||
         policy.vehicle?.makeModel ||
-        (policy.motorMetadata as any)?.makeModel ||
+        vehicleMeta.makeModel ||
+        vehicleMetaDetails.makeModel ||
+        policy.quotation?.title ||
         '',
       engineNumber:
         mergedEndorsementChanges.engineNumber ||
         policy.vehicle?.engineNumber ||
+        vehicleMeta.engineNumber ||
+        vehicleMetaDetails.engineNumber ||
         '',
       chassisNumber:
         mergedEndorsementChanges.chassisNumber ||
         policy.vehicle?.chassisNumber ||
+        vehicleMeta.chassisNumber ||
+        vehicleMetaDetails.chassisNumber ||
         '',
       fuelType:
         mergedEndorsementChanges.fuelType ||
         policy.vehicle?.fuelType ||
+        vehicleMeta.fuelType ||
+        vehicleMetaDetails.fuelType ||
         '',
       rtoLocation:
         mergedEndorsementChanges.rtoLocation ||
         policy.vehicle?.rtoLocation ||
+        vehicleMeta.rtoLocation ||
+        vehicleMetaDetails.rtoLocation ||
         '',
       manufactureYearMonth:
         mergedEndorsementChanges.manufactureYearMonth ||
         policy.vehicle?.manufactureYearMonth ||
-        (policy.motorMetadata as any)?.manufactureYearMonth ||
+        vehicleMeta.manufactureYearMonth ||
+        vehicleMetaDetails.manufactureYearMonth ||
         '',
       trailerCount:
         categorySpecificData.trailerCount !== undefined
