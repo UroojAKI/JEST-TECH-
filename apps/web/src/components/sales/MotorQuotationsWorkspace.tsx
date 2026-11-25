@@ -109,11 +109,13 @@ export function MotorQuotationsWorkspace() {
         if (prefill && (prefill.vehicle || prefill.vehicleCategory || prefill.policyId)) {
           const cat = (prefill.vehicle?.vehicleCategory || prefill.vehicleCategory || 'PRIVATE_CAR') as VehicleCategory;
           const historicalNcb = Number(prefill.pricing?.previousNcb ?? 0);
+          const pType = (prefill.policyType === 'THIRD_PARTY_ONLY' ? 'TP_ONLY' : prefill.policyType === 'STANDALONE_OD' ? 'SAOD' : 'PACKAGE') as any;
           setInitialCategory(cat);
           setCloneQuoteData({
             category: cat,
-            policyType: (prefill.policyType === 'THIRD_PARTY_ONLY' ? 'TP_ONLY' : prefill.policyType === 'STANDALONE_OD' ? 'SAOD' : 'PACKAGE') as any,
+            policyType: pType,
             policyDetails: {
+              policyType: pType,
               ncbPercentage: String(historicalNcb),
             },
             proposerDetails: {

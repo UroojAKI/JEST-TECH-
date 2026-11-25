@@ -262,21 +262,42 @@ export class RenewalsController {
     // Previous NCB and Renewal NCB
     const vehiclePolicyDetails = (vehicleMeta.policyDetails as Record<string, any>) || {};
     const vehicleCalcInputs = (vehiclePolicyDetails.calculatedResult?.inputs as Record<string, any>) || {};
+    const vehiclePrevPolicy = (vehicleMeta.previousPolicyDetails as Record<string, any>) || {};
     const quoteMeta = (policy.quotation?.motorMetadata as Record<string, any>) || {};
     const quotePolicyDetails = (quoteMeta.policyDetails as Record<string, any>) || {};
     const quoteCalcInputs = (quotePolicyDetails.calculatedResult?.inputs as Record<string, any>) || {};
+    const quotePrevPolicy = (quoteMeta.previousPolicyDetails as Record<string, any>) || {};
+    const quoteSnapshotInputs = ((policy.quotation as any)?.calculationSnapshot?.inputs as Record<string, any>) || {};
 
-    const rawNcb =
-      mergedEndorsementChanges.ncbPercentage ??
-      policy.quotation?.ncbPercentage ??
-      vehiclePolicyDetails.ncbPercentage ??
-      vehicleCalcInputs.ncbPercent ??
-      vehicleMeta.ruleResult?.ncb ??
-      vehicleMeta.ruleResult?.eligibleNcb ??
-      quotePolicyDetails.ncbPercentage ??
-      quoteCalcInputs.ncbPercent ??
-      0;
-    const prevNcb = Number(rawNcb) || 0;
+    let prevNcb = 0;
+    if (mergedEndorsementChanges.ncbPercentage !== undefined && mergedEndorsementChanges.ncbPercentage !== null) {
+      prevNcb = Number(mergedEndorsementChanges.ncbPercentage) || 0;
+    } else {
+      const candidates = [
+        vehiclePolicyDetails.ncbPercentage,
+        vehicleCalcInputs.ncbPercent,
+        vehicleCalcInputs.effectiveNcb,
+        quotePolicyDetails.ncbPercentage,
+        quoteCalcInputs.ncbPercent,
+        quoteCalcInputs.effectiveNcb,
+        quoteSnapshotInputs.ncbPercent,
+        quoteSnapshotInputs.effectiveNcb,
+        policy.quotation?.ncbPercentage,
+        vehicleMeta.ruleResult?.ncb,
+        vehicleMeta.ruleResult?.eligibleNcb,
+        quoteMeta.ruleResult?.ncb,
+        quoteMeta.ruleResult?.eligibleNcb,
+        vehiclePrevPolicy.eligibleNcbPercentage,
+        quotePrevPolicy.eligibleNcbPercentage,
+      ];
+      for (const c of candidates) {
+        const num = Number(c);
+        if (!isNaN(num) && num > 0) {
+          prevNcb = num;
+          break;
+        }
+      }
+    }
     const renewalNcb = hasClaims ? 0 : this.renewalEngine.calculateNextNCBSlab(prevNcb);
 
     // Sum Insured / IDV
