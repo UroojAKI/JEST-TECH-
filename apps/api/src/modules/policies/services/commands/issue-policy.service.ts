@@ -485,6 +485,47 @@ export class IssuePolicyService {
         tx,
       );
 
+      // Predecessor Policy Lifecycle: Transition predecessor policy to RENEWED upon issuance of renewal
+      const predecessorPolicyId = (quotation as any).renewalOfPolicyId || (newPolicy as any).renewedFromPolicyId;
+      if (predecessorPolicyId && typeof tx.policy?.update === 'function') {
+        const predecessor = await tx.policy.findUnique({
+          where: { id: predecessorPolicyId },
+          select: { id: true, policyNumber: true, status: true },
+        });
+        if (predecessor) {
+          await tx.policy.update({
+            where: { id: predecessorPolicyId },
+            data: {
+              status: PolicyStatus.RENEWED,
+              updatedById: createdById,
+            },
+          });
+
+          if (typeof tx.policyHistory?.create === 'function') {
+            await tx.policyHistory.create({
+              data: {
+                policyId: predecessorPolicyId,
+                status: PolicyStatus.RENEWED,
+                comments: `Predecessor policy transitioned to RENEWED upon issuance of successor renewal policy ${policyNumber}.`,
+                createdById,
+              },
+            });
+          }
+
+          if (typeof tx.renewalTask?.updateMany === 'function') {
+            await tx.renewalTask.updateMany({
+              where: {
+                policyId: predecessorPolicyId,
+                status: { not: 'COMPLETED' },
+              },
+              data: {
+                status: 'COMPLETED',
+              },
+            });
+          }
+        }
+      }
+
       if ((quotation as any).healthCaseId) {
         await tx.healthQuotationCase.update({
           where: { id: (quotation as any).healthCaseId },

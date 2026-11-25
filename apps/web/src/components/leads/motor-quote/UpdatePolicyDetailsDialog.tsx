@@ -327,6 +327,11 @@ export function UpdatePolicyDetailsDialog({
       return;
     }
 
+    if (!posPartnerId || !posPartnerId.trim()) {
+      toast.error('Agent POS attribution is mandatory. Please select an Agent POS.');
+      return;
+    }
+
     if (isHealth && (!nomineeName.trim() || !nomineeRelation.trim())) {
       toast.error('Nominee Full Name and Relationship are compulsory for Health policy issuance.');
       return;
@@ -694,17 +699,17 @@ export function UpdatePolicyDetailsDialog({
             </div>
           </div>
 
-          {/* Optional Agent POS attribution */}
+          {/* Mandatory Agent POS attribution */}
           <div className="p-3.5 rounded-xl border bg-card space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold flex items-center gap-1.5">
                 <Users className="h-3.5 w-3.5 text-emerald-600" />
                 <span>
-                  Agent POS Attribution <span className="text-muted-foreground font-medium">(Optional)</span>
+                  Agent POS Attribution <span className="text-rose-500 font-bold">* (Mandatory)</span>
                 </span>
               </label>
               <span className="text-[9px] font-bold bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded">
-                Multiple insurer-specific Agent POS mappings
+                Insurer-specific Agent POS mapping
               </span>
             </div>
 
@@ -717,9 +722,10 @@ export function UpdatePolicyDetailsDialog({
               <select
                 value={posPartnerId}
                 onChange={(e) => setPosPartnerId(e.target.value)}
+                required
                 className="w-full px-3 py-2 border rounded-lg text-xs bg-background font-medium focus:ring-1 focus:ring-primary focus:outline-none"
               >
-                <option value="">No Agent POS attribution</option>
+                <option value="">— Select Mandatory Agent POS —</option>
                 {posPartners.map((p: any) => {
                   const mapping = p.insurerMappings?.find((m: any) => m.insurer?.name?.toLowerCase() === quoteDetails?.insurerName?.toLowerCase()) || p.insurerMappings?.[0];
                   return (
@@ -730,8 +736,8 @@ export function UpdatePolicyDetailsDialog({
                 })}
               </select>
             ) : (
-              <div className="p-2.5 rounded-lg border border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300 text-xs flex items-center justify-between">
-                <span>No Agent POS is currently mapped to {quoteDetails?.insurerName}. Policy issuance can continue without attribution.</span>
+              <div className="p-2.5 rounded-lg border border-rose-500/30 bg-rose-500/5 text-rose-700 dark:text-rose-300 text-xs flex items-center justify-between">
+                <span>Agent POS attribution is mandatory. No Agent POS is mapped to {quoteDetails?.insurerName}. Please register or map one in Admin.</span>
                 <a href="/admin/pos-partners" target="_blank" className="font-bold underline text-primary">
                   Manage POS Partners
                 </a>

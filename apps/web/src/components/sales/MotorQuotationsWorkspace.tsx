@@ -70,6 +70,7 @@ export function MotorQuotationsWorkspace() {
     previousPolicyDetails?: any;
     category?: VehicleCategory;
     policyType?: any;
+    policyDetails?: any;
     caseId?: string;
     renewalOfPolicyId?: string;
   } | null>(null);
@@ -107,10 +108,14 @@ export function MotorQuotationsWorkspace() {
         const prefill = res?.prefill || res?.data?.prefill || res?.data || res;
         if (prefill && (prefill.vehicle || prefill.vehicleCategory || prefill.policyId)) {
           const cat = (prefill.vehicle?.vehicleCategory || prefill.vehicleCategory || 'PRIVATE_CAR') as VehicleCategory;
+          const historicalNcb = Number(prefill.pricing?.previousNcb ?? 0);
           setInitialCategory(cat);
           setCloneQuoteData({
             category: cat,
             policyType: (prefill.policyType === 'THIRD_PARTY_ONLY' ? 'TP_ONLY' : prefill.policyType === 'STANDALONE_OD' ? 'SAOD' : 'PACKAGE') as any,
+            policyDetails: {
+              ncbPercentage: String(historicalNcb),
+            },
             proposerDetails: {
               customerName: `${prefill.customer?.firstName || ''} ${prefill.customer?.lastName || ''}`.trim(),
               mobileNumber: prefill.customer?.phone || '',
@@ -141,7 +146,7 @@ export function MotorQuotationsWorkspace() {
               ),
               ownershipTransfer: false,
               claimInPreviousYear: Boolean(prefill.pricing?.hasClaims),
-              eligibleNcbPercentage: Number(prefill.pricing?.previousNcb ?? 0),
+              eligibleNcbPercentage: historicalNcb,
               previousInsurerName: prefill.insurer?.insurerName || '',
               previousPolicyNumber: prefill.policyNumber || '',
             },

@@ -260,7 +260,23 @@ export class RenewalsController {
     const hasClaims = policy.claims.length > 0;
 
     // Previous NCB and Renewal NCB
-    const prevNcb = Number(policy.quotation?.ncbPercentage ?? 0);
+    const vehiclePolicyDetails = (vehicleMeta.policyDetails as Record<string, any>) || {};
+    const vehicleCalcInputs = (vehiclePolicyDetails.calculatedResult?.inputs as Record<string, any>) || {};
+    const quoteMeta = (policy.quotation?.motorMetadata as Record<string, any>) || {};
+    const quotePolicyDetails = (quoteMeta.policyDetails as Record<string, any>) || {};
+    const quoteCalcInputs = (quotePolicyDetails.calculatedResult?.inputs as Record<string, any>) || {};
+
+    const rawNcb =
+      mergedEndorsementChanges.ncbPercentage ??
+      policy.quotation?.ncbPercentage ??
+      vehiclePolicyDetails.ncbPercentage ??
+      vehicleCalcInputs.ncbPercent ??
+      vehicleMeta.ruleResult?.ncb ??
+      vehicleMeta.ruleResult?.eligibleNcb ??
+      quotePolicyDetails.ncbPercentage ??
+      quoteCalcInputs.ncbPercent ??
+      0;
+    const prevNcb = Number(rawNcb) || 0;
     const renewalNcb = hasClaims ? 0 : this.renewalEngine.calculateNextNCBSlab(prevNcb);
 
     // Sum Insured / IDV

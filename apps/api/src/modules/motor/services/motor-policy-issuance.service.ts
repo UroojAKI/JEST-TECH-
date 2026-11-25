@@ -13,6 +13,7 @@ import {
   RoleType,
   Prisma,
   InspectionStatus,
+  PolicyStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
 import { IssueMotorPolicyDto } from '../dto/issue-motor-policy.dto';
@@ -873,6 +874,48 @@ export class MotorPolicyIssuanceService {
           createdById: actorId,
         },
       });
+
+      // Predecessor Policy Lifecycle: Transition predecessor policy to RENEWED upon issuance of renewal
+      const predecessorPolicyId = quote.renewalOfPolicyId || policy.renewedFromPolicyId;
+      if (predecessorPolicyId && typeof tx.policy?.update === 'function') {
+        const predecessor = await tx.policy.findUnique({
+          where: { id: predecessorPolicyId },
+          select: { id: true, policyNumber: true, status: true },
+        });
+        if (predecessor) {
+          await tx.policy.update({
+            where: { id: predecessorPolicyId },
+            data: {
+              status: PolicyStatus.RENEWED,
+              updatedById: actorId,
+            },
+          });
+
+          if (typeof tx.policyHistory?.create === 'function') {
+            await tx.policyHistory.create({
+              data: {
+                policyId: predecessorPolicyId,
+                status: PolicyStatus.RENEWED,
+                comments: `Predecessor policy transitioned to RENEWED upon issuance of successor renewal policy ${policy.policyNumber}.`,
+                createdById: actorId,
+              },
+            });
+          }
+
+          // Complete any active renewal tasks for the predecessor policy
+          if (typeof tx.renewalTask?.updateMany === 'function') {
+            await tx.renewalTask.updateMany({
+              where: {
+                policyId: predecessorPolicyId,
+                status: { not: 'COMPLETED' },
+              },
+              data: {
+                status: 'COMPLETED',
+              },
+            });
+          }
+        }
+      }
 
       if (quote.caseId) {
         await tx.motorQuotationCase.update({

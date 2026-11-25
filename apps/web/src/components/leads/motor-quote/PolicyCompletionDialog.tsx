@@ -183,6 +183,11 @@ export function PolicyCompletionDialog({ isOpen, quote, onClose, onSuccess }: Pr
       return;
     }
 
+    if (!posPartnerId || !posPartnerId.trim()) {
+      toast.error('Agent POS attribution is mandatory. Please select an Agent POS.');
+      return;
+    }
+
     if (!policyPdfFile) {
       setPdfError('Official Policy PDF Schedule document is mandatory before policy can be issued.');
       showApiErrorToast(
@@ -345,19 +350,19 @@ export function PolicyCompletionDialog({ isOpen, quote, onClose, onSuccess }: Pr
             </div>
           </div>
 
-          {/* Section: POS Partner Attribution (DEC-02 & DEC-03) */}
+          {/* Section: POS Partner Attribution (Mandatory) */}
           <div className="p-4 rounded-xl border bg-card shadow-xs space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs font-bold text-foreground">
                 <Users className="h-4 w-4 text-emerald-600" />
                 <span>
-                  Agent POS Attribution <span className="text-muted-foreground font-medium">(Optional — no insurer mapping required)</span>
+                  Agent POS Attribution <span className="text-rose-500 font-bold">* (Mandatory)</span>
                 </span>
               </div>
             </div>
             <div>
               <label className="block text-[10px] font-bold uppercase text-muted-foreground mb-1">
-                Agent POS Attribution (Optional)
+                Agent POS Attribution <span className="text-rose-500 font-bold">*</span>
               </label>
               {isLoadingPos ? (
                 <div className="text-xs text-muted-foreground flex items-center gap-2 py-2">
@@ -368,9 +373,10 @@ export function PolicyCompletionDialog({ isOpen, quote, onClose, onSuccess }: Pr
                 <select
                   value={posPartnerId}
                   onChange={(e) => setPosPartnerId(e.target.value)}
+                  required
                   className="w-full px-3 py-2 border rounded-lg text-xs font-semibold bg-background focus:ring-1 focus:ring-primary"
                 >
-                  <option value="">No Agent POS attribution</option>
+                  <option value="">— Select Mandatory Agent POS —</option>
                   {posPartners.map((p: any) => {
                     const mappings = Array.isArray(p.insurerMappings) ? p.insurerMappings : [];
                     const mappingSummary = mappings.length
@@ -384,12 +390,12 @@ export function PolicyCompletionDialog({ isOpen, quote, onClose, onSuccess }: Pr
                   })}
                 </select>
               ) : (
-                <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200 text-xs space-y-1.5">
+                <div className="p-3 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-900 dark:text-rose-200 text-xs space-y-1.5">
                   <div className="font-bold flex items-center gap-1.5">
-                    <span>No active Agent POS records available</span>
+                    <span>No active Agent POS records available for {quote.insurerName}</span>
                   </div>
                   <p className="text-[11px] leading-relaxed">
-                    No active Agent POS records are available. You can continue policy issuance without POS attribution, or register a partner in Admin.
+                    Agent POS attribution is mandatory for policy issuance. Please map or register an Agent POS for {quote.insurerName} in Admin before issuing this policy.
                   </p>
                   <div className="pt-1">
                     <a href="/admin/pos-partners" target="_blank" rel="noreferrer" className="inline-flex items-center text-xs font-bold underline text-primary hover:text-primary/80">

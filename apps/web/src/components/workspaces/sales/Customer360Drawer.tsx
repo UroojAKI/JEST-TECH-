@@ -184,10 +184,12 @@ export function Customer360Drawer({ contact, isOpen, onClose }: Customer360Drawe
                         className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                           p.status === 'ACTIVE'
                             ? 'bg-emerald-500/10 text-emerald-600'
-                            : 'bg-muted text-muted-foreground'
+                            : p.status === 'RENEWED'
+                              ? 'bg-indigo-500/10 text-indigo-600 border border-indigo-500/20'
+                              : 'bg-muted text-muted-foreground'
                         }`}
                       >
-                        {p.status}
+                        {p.status === 'RENEWED' ? 'Renewed' : p.status}
                       </span>
                     </div>
                     <div className="text-xs font-bold text-foreground">{p.policyType || 'Comprehensive Policy'}</div>
