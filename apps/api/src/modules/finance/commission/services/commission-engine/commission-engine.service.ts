@@ -395,15 +395,24 @@ export class CommissionEngineService {
     return this.prisma.$transaction(async (tx) => {
       const commission = await tx.commission.findUnique({
         where: { id },
-        include: { user: true, policy: { select: { companyId: true } } },
+        include: { user: true },
       });
 
       if (!commission) {
         throw new NotFoundException('Commission record not found');
       }
 
-      const recordCompanyId =
-        commission.companyId || commission.user?.companyId || commission.policy?.companyId;
+      let recordCompanyId =
+        commission.companyId ||
+        commission.user?.companyId ||
+        (commission as any).policy?.companyId;
+      if (!recordCompanyId && commission.policyId && tx.policy?.findUnique) {
+        const policy = await tx.policy.findUnique({
+          where: { id: commission.policyId },
+          select: { companyId: true },
+        });
+        recordCompanyId = policy?.companyId ?? null;
+      }
       if (!recordCompanyId || recordCompanyId !== companyId) {
         throw new ForbiddenException(
           'Commission tenant could not be verified for this organization',

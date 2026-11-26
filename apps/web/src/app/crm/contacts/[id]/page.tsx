@@ -73,6 +73,7 @@ export default function CustomerWorkspacePage() {
       ) : (
         <CustomerHeader
           customer={customerData}
+          callContactId={customerId}
           onLaunchWizard={(type) => setActiveWizard(type)}
         />
       )}

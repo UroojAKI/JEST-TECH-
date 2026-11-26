@@ -6,6 +6,7 @@ import {
   Query,
   Body,
   UseGuards,
+  BadRequestException,
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';

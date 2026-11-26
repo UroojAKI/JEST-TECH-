@@ -26,9 +26,13 @@ describe('BiService & KpiService (Wave 7 Tenancy Isolation & Workstream 3 BI)', 
         {
           id: 'prop-1',
           proposalNumber: 'PROP-001',
-          status: 'PAYMENT_PENDING',
+          status: 'APPROVED',
           createdAt: new Date(),
-          quotation: { customerName: 'Rajesh Sharma', totalPremium: 25000 },
+          quotation: {
+            customerName: 'Rajesh Sharma',
+            totalPremium: 25000,
+            motorPaymentRecord: null,
+          },
         },
         {
           id: 'prop-2',
@@ -36,6 +40,21 @@ describe('BiService & KpiService (Wave 7 Tenancy Isolation & Workstream 3 BI)', 
           status: 'UNDERWRITING_REVIEW',
           createdAt: new Date(),
           quotation: { customerName: 'Anita Gupta', totalPremium: 40000 },
+        },
+      ]),
+    },
+    motorInspection: {
+      findMany: jest.fn().mockResolvedValue([
+        {
+          id: 'insp-1',
+          quotationId: 'q-insp-1',
+          inspectionCode: 'INSP-001',
+          status: 'PENDING',
+          createdAt: new Date(),
+          quotation: {
+            quotationCode: 'MQ-001',
+            contact: { firstName: 'Sanjay', lastName: 'Verma' },
+          },
         },
       ]),
     },

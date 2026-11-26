@@ -341,16 +341,18 @@ export default function ManagingDirectorDashboard() {
                               ₹0 <span className="text-[10px] font-normal">(No sales)</span>
                             </div>
                           ) : (
-                            <div className="text-sm font-bold font-mono">
-                              {b.formattedGwp || `₹${Number(b.gwp).toLocaleString('en-IN')}`}
-                            </div>
-                            <div className="text-[10px] text-muted-foreground">
-                              Target: {b.formattedTargetGwp || 'Not configured'}
-                              {b.targetAchievementPercent !== null && b.targetAchievementPercent !== undefined ? ` · ${b.targetAchievementPercent}% achieved` : ''}
-                            </div>
-                            <div className="text-[10px] text-muted-foreground">
-                              Conversion: {b.conversionRate !== null && b.conversionRate !== undefined ? `${b.conversionRate}% (${b.convertedLeads}/${b.totalLeads})` : 'No lead data'}
-                            </div>
+                            <>
+                              <div className="text-sm font-bold font-mono">
+                                {b.formattedGwp || `₹${Number(b.gwp).toLocaleString('en-IN')}`}
+                              </div>
+                              <div className="text-[10px] text-muted-foreground">
+                                Target: {b.formattedTargetGwp || 'Not configured'}
+                                {b.targetAchievementPercent !== null && b.targetAchievementPercent !== undefined ? ` · ${b.targetAchievementPercent}% achieved` : ''}
+                              </div>
+                              <div className="text-[10px] text-muted-foreground">
+                                Conversion: {b.conversionRate !== null && b.conversionRate !== undefined ? `${b.conversionRate}% (${b.convertedLeads}/${b.totalLeads})` : 'No lead data'}
+                              </div>
+                            </>
                           )}
                         </div>
                       </div>
@@ -599,7 +601,7 @@ export default function ManagingDirectorDashboard() {
                       <tbody className="divide-y font-mono">
                         {[
                           ...actionCentre.itemsByCategory.overdueTasks,
-                          ...actionCentre.itemsByCategory.backOfficeTasks,
+                          ...(actionCentre.itemsByCategory.backOfficeTasks || []),
                           ...actionCentre.itemsByCategory.pendingInspections,
                           ...actionCentre.itemsByCategory.pendingPayments,
                           ...actionCentre.itemsByCategory.complianceBlocks,

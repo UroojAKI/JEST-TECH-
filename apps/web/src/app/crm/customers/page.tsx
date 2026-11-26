@@ -26,6 +26,7 @@ import {
 import { toast } from 'sonner';
 import { adminRepository } from '../../../repositories/admin.repository';
 import { apiClient } from '../../../lib/api-client';
+import { ClickToCallButton } from '../../../components/telephony/ClickToCallButton';
 
 export default function CustomersPage() {
   const router = useRouter();
@@ -332,6 +333,8 @@ export default function CustomersPage() {
                       </div>
                     </td>
                     <td className="p-3 text-right">
+                      <div className="inline-flex items-center gap-3">
+                      {c.mobile && <ClickToCallButton target="customer" id={c.id} compact />}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -342,6 +345,7 @@ export default function CustomersPage() {
                         View 360
                         <ExternalLink className="h-3.5 w-3.5" />
                       </button>
+                      </div>
                     </td>
                   </tr>
                 ))

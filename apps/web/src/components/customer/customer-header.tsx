@@ -14,13 +14,16 @@ import {
   UserCheck,
   Plus,
 } from 'lucide-react';
+import { ClickToCallButton } from '../telephony/ClickToCallButton';
 
 interface CustomerHeaderProps {
   customer: any;
   onLaunchWizard: (wizardType: string) => void;
+  /** Contact ID for the Call button; the button is hidden when empty */
+  callContactId?: string;
 }
 
-export function CustomerHeader({ customer, onLaunchWizard }: CustomerHeaderProps) {
+export function CustomerHeader({ customer, onLaunchWizard, callContactId }: CustomerHeaderProps) {
   const isCorporate = customer?.type === 'CORPORATE';
 
   return (
@@ -57,6 +60,9 @@ export function CustomerHeader({ customer, onLaunchWizard }: CustomerHeaderProps
 
         {/* Quick Action Side-Wizard Triggers */}
         <div className="flex flex-wrap gap-2 w-full lg:w-auto justify-end">
+          {callContactId && customer?.phone && customer.phone !== '-' && (
+            <ClickToCallButton target="contact" id={callContactId} compact />
+          )}
           <button
             onClick={() => onLaunchWizard('LEAD')}
             className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm"
