@@ -42,6 +42,28 @@ export class TelephonyController {
     return this.clickToCall.callLead(leadId, user);
   }
 
+  @Post('contacts/:contactId/call')
+  @ApiOperation({
+    summary: 'Click-to-call: connect the logged-in agent to a contact via Exotel',
+  })
+  callContact(
+    @Param('contactId', ParseUUIDPipe) contactId: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.clickToCall.callContact(contactId, user);
+  }
+
+  @Post('customers/:customerId/call')
+  @ApiOperation({
+    summary: 'Click-to-call: connect the logged-in agent to a customer via Exotel',
+  })
+  callCustomer(
+    @Param('customerId', ParseUUIDPipe) customerId: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.clickToCall.callCustomer(customerId, user);
+  }
+
   @Get('leads/:leadId/calls')
   @ApiOperation({ summary: 'Call history for a lead, newest first' })
   listLeadCalls(

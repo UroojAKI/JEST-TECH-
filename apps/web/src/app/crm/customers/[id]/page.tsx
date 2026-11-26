@@ -36,6 +36,7 @@ import { motorQuotationRepository } from '../../../../repositories/motor-quotati
 import { toast } from 'sonner';
 import { apiClient } from '../../../../lib/api-client';
 import { NewLeadModal } from '../../../../components/leads/NewLeadModal';
+import { ClickToCallButton } from '../../../../components/telephony/ClickToCallButton';
 import { CustomerAcceptanceDialog } from '../../../../components/leads/motor-quote/CustomerAcceptanceDialog';
 
 export default function CustomerDetailPage() {
@@ -279,6 +280,9 @@ export default function CustomerDetailPage() {
 
             {/* Quick Actions */}
             <div className="flex items-center gap-2 flex-wrap">
+              {customer.mobile && (
+                <ClickToCallButton target="customer" id={customer.id} compact />
+              )}
               <button
                 onClick={() => {
                   setEditFormData({

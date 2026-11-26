@@ -68,6 +68,18 @@ export const telephonyRepository = {
     return response.data;
   },
 
+  /** Same as callLead, for a contact (Contacts page) */
+  async callContact(contactId: string): Promise<ClickToCallResult> {
+    const response = await apiClient.post(`/telephony/contacts/${contactId}/call`);
+    return response.data;
+  },
+
+  /** Same as callLead, for a customer (Customers page) */
+  async callCustomer(customerId: string): Promise<ClickToCallResult> {
+    const response = await apiClient.post(`/telephony/customers/${customerId}/call`);
+    return response.data;
+  },
+
   /** All calls for a lead, newest first */
   async listLeadCalls(leadId: string): Promise<CallHistoryItem[]> {
     const response = await apiClient.get(`/telephony/leads/${leadId}/calls`);

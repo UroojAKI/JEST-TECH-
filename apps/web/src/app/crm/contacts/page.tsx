@@ -10,6 +10,7 @@ import { useCustomers } from '../../../hooks/useCustomer360';
 import { customerRepository } from '../../../repositories/customer.repository';
 import { adminRepository } from '../../../repositories/admin.repository';
 import { apiClient } from '../../../lib/api-client';
+import { ClickToCallButton } from '../../../components/telephony/ClickToCallButton';
 import { useAuthStore } from '../../../store/auth-store';
 import { toast } from 'sonner';
 
@@ -291,6 +292,16 @@ export default function CustomerRegisterPage() {
           </span>
         );
       },
+    },
+    {
+      id: 'call',
+      header: 'Call',
+      cell: ({ row }: any) =>
+        row.original.phone ? (
+          <ClickToCallButton target="contact" id={row.original.id} compact />
+        ) : (
+          <span className="text-muted-foreground text-xs italic">No phone</span>
+        ),
     },
   ];
 
